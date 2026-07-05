@@ -62,25 +62,25 @@ class BTObservation:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'timestamp': self.timestamp.isoformat(),
-            'address': self.address,
-            'address_type': self.address_type,
-            'device_id': self.device_id,
-            'rssi': self.rssi,
-            'tx_power': self.tx_power,
-            'name': self.name,
-            'manufacturer_id': self.manufacturer_id,
-            'manufacturer_name': self.manufacturer_name,
-            'manufacturer_data': self.manufacturer_data.hex() if self.manufacturer_data else None,
-            'service_uuids': self.service_uuids,
-            'service_data': {k: v.hex() for k, v in self.service_data.items()},
-            'appearance': self.appearance,
-            'is_connectable': self.is_connectable,
-            'is_paired': self.is_paired,
-            'is_connected': self.is_connected,
-            'class_of_device': self.class_of_device,
-            'major_class': self.major_class,
-            'minor_class': self.minor_class,
+            "timestamp": self.timestamp.isoformat(),
+            "address": self.address,
+            "address_type": self.address_type,
+            "device_id": self.device_id,
+            "rssi": self.rssi,
+            "tx_power": self.tx_power,
+            "name": self.name,
+            "manufacturer_id": self.manufacturer_id,
+            "manufacturer_name": self.manufacturer_name,
+            "manufacturer_data": self.manufacturer_data.hex() if self.manufacturer_data else None,
+            "service_uuids": self.service_uuids,
+            "service_data": {k: v.hex() for k, v in self.service_data.items()},
+            "appearance": self.appearance,
+            "is_connectable": self.is_connectable,
+            "is_paired": self.is_paired,
+            "is_connected": self.is_connected,
+            "class_of_device": self.class_of_device,
+            "major_class": self.major_class,
+            "minor_class": self.minor_class,
         }
 
 
@@ -180,10 +180,7 @@ class BTDeviceAggregate:
 
         # Downsample if needed
         samples = self.rssi_samples[-max_points:]
-        return [
-            {'timestamp': ts.isoformat(), 'rssi': rssi}
-            for ts, rssi in samples
-        ]
+        return [{"timestamp": ts.isoformat(), "rssi": rssi} for ts, rssi in samples]
 
     @property
     def age_seconds(self) -> float:
@@ -200,172 +197,160 @@ class BTDeviceAggregate:
         """List of active heuristic flags."""
         flags = []
         if self.is_new:
-            flags.append('new')
+            flags.append("new")
         if self.is_persistent:
-            flags.append('persistent')
+            flags.append("persistent")
         if self.is_beacon_like:
-            flags.append('beacon_like')
+            flags.append("beacon_like")
         if self.is_strong_stable:
-            flags.append('strong_stable')
+            flags.append("strong_stable")
         if self.has_random_address:
-            flags.append('random_address')
+            flags.append("random_address")
         return flags
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'device_id': self.device_id,
-            'address': self.address,
-            'address_type': self.address_type,
-            'protocol': self.protocol,
-
+            "device_id": self.device_id,
+            "address": self.address,
+            "address_type": self.address_type,
+            "protocol": self.protocol,
             # Timestamps
-            'first_seen': self.first_seen.isoformat(),
-            'last_seen': self.last_seen.isoformat(),
-            'age_seconds': self.age_seconds,
-            'duration_seconds': self.duration_seconds,
-            'seen_count': self.seen_count,
-            'seen_rate': round(self.seen_rate, 2),
-
+            "first_seen": self.first_seen.isoformat(),
+            "last_seen": self.last_seen.isoformat(),
+            "age_seconds": self.age_seconds,
+            "duration_seconds": self.duration_seconds,
+            "seen_count": self.seen_count,
+            "seen_rate": round(self.seen_rate, 2),
             # RSSI stats
-            'rssi_current': self.rssi_current,
-            'rssi_median': round(self.rssi_median, 1) if self.rssi_median else None,
-            'rssi_min': self.rssi_min,
-            'rssi_max': self.rssi_max,
-            'rssi_variance': round(self.rssi_variance, 2) if self.rssi_variance else None,
-            'rssi_confidence': round(self.rssi_confidence, 2),
-            'rssi_history': self.get_rssi_history(),
-
+            "rssi_current": self.rssi_current,
+            "rssi_median": round(self.rssi_median, 1) if self.rssi_median else None,
+            "rssi_min": self.rssi_min,
+            "rssi_max": self.rssi_max,
+            "rssi_variance": round(self.rssi_variance, 2) if self.rssi_variance else None,
+            "rssi_confidence": round(self.rssi_confidence, 2),
+            "rssi_history": self.get_rssi_history(),
             # Range (legacy)
-            'range_band': self.range_band,
-            'range_confidence': round(self.range_confidence, 2),
-
+            "range_band": self.range_band,
+            "range_confidence": round(self.range_confidence, 2),
             # Proximity (new system)
-            'device_key': self.device_key,
-            'proximity_band': self.proximity_band,
-            'estimated_distance_m': round(self.estimated_distance_m, 2) if self.estimated_distance_m else None,
-            'distance_confidence': round(self.distance_confidence, 2),
-            'rssi_ema': round(self.rssi_ema, 1) if self.rssi_ema else None,
-            'rssi_60s_min': self.rssi_60s_min,
-            'rssi_60s_max': self.rssi_60s_max,
-            'is_randomized_mac': self.is_randomized_mac,
-            'threat_tags': self.threat_tags,
-
+            "device_key": self.device_key,
+            "proximity_band": self.proximity_band,
+            "estimated_distance_m": round(self.estimated_distance_m, 2) if self.estimated_distance_m else None,
+            "distance_confidence": round(self.distance_confidence, 2),
+            "rssi_ema": round(self.rssi_ema, 1) if self.rssi_ema else None,
+            "rssi_60s_min": self.rssi_60s_min,
+            "rssi_60s_max": self.rssi_60s_max,
+            "is_randomized_mac": self.is_randomized_mac,
+            "threat_tags": self.threat_tags,
             # Device info
-            'name': self.name,
-            'manufacturer_id': self.manufacturer_id,
-            'manufacturer_name': self.manufacturer_name,
-            'manufacturer_bytes': self.manufacturer_bytes.hex() if self.manufacturer_bytes else None,
-            'service_uuids': self.service_uuids,
-            'tx_power': self.tx_power,
-            'appearance': self.appearance,
-            'class_of_device': self.class_of_device,
-            'major_class': self.major_class,
-            'minor_class': self.minor_class,
-            'is_connectable': self.is_connectable,
-            'is_paired': self.is_paired,
-            'is_connected': self.is_connected,
-
+            "name": self.name,
+            "manufacturer_id": self.manufacturer_id,
+            "manufacturer_name": self.manufacturer_name,
+            "manufacturer_bytes": self.manufacturer_bytes.hex() if self.manufacturer_bytes else None,
+            "service_uuids": self.service_uuids,
+            "tx_power": self.tx_power,
+            "appearance": self.appearance,
+            "class_of_device": self.class_of_device,
+            "major_class": self.major_class,
+            "minor_class": self.minor_class,
+            "is_connectable": self.is_connectable,
+            "is_paired": self.is_paired,
+            "is_connected": self.is_connected,
             # Heuristics
-            'heuristics': {
-                'is_new': self.is_new,
-                'is_persistent': self.is_persistent,
-                'is_beacon_like': self.is_beacon_like,
-                'is_strong_stable': self.is_strong_stable,
-                'has_random_address': self.has_random_address,
+            "heuristics": {
+                "is_new": self.is_new,
+                "is_persistent": self.is_persistent,
+                "is_beacon_like": self.is_beacon_like,
+                "is_strong_stable": self.is_strong_stable,
+                "has_random_address": self.has_random_address,
             },
-            'heuristic_flags': self.heuristic_flags,
-
+            "heuristic_flags": self.heuristic_flags,
             # Baseline
-            'in_baseline': self.in_baseline,
-            'baseline_id': self.baseline_id,
-            'seen_before': self.seen_before,
-
+            "in_baseline": self.in_baseline,
+            "baseline_id": self.baseline_id,
+            "seen_before": self.seen_before,
             # Tracker detection
-            'tracker': {
-                'is_tracker': self.is_tracker,
-                'type': self.tracker_type,
-                'name': self.tracker_name,
-                'confidence': self.tracker_confidence,
-                'confidence_score': round(self.tracker_confidence_score, 2),
-                'evidence': self.tracker_evidence,
+            "tracker": {
+                "is_tracker": self.is_tracker,
+                "type": self.tracker_type,
+                "name": self.tracker_name,
+                "confidence": self.tracker_confidence,
+                "confidence_score": round(self.tracker_confidence_score, 2),
+                "evidence": self.tracker_evidence,
             },
-
             # Suspicious presence analysis
-            'risk_analysis': {
-                'risk_score': round(self.risk_score, 2),
-                'risk_factors': self.risk_factors,
+            "risk_analysis": {
+                "risk_score": round(self.risk_score, 2),
+                "risk_factors": self.risk_factors,
             },
-
             # IRK
-            'has_irk': self.irk_hex is not None,
-            'irk_hex': self.irk_hex,
-            'irk_source_name': self.irk_source_name,
-
+            "has_irk": self.irk_hex is not None,
+            "irk_hex": self.irk_hex,
+            "irk_source_name": self.irk_source_name,
             # Fingerprint
-            'fingerprint': {
-                'id': self.payload_fingerprint_id,
-                'stability': round(self.payload_fingerprint_stability, 2),
+            "fingerprint": {
+                "id": self.payload_fingerprint_id,
+                "stability": round(self.payload_fingerprint_stability, 2),
             },
-
             # Raw service data for investigation
-            'service_data': {k: v.hex() for k, v in self.service_data.items()},
+            "service_data": {k: v.hex() for k, v in self.service_data.items()},
         }
 
     def to_summary_dict(self) -> dict:
         """Compact dictionary for list views."""
         return {
-            'device_id': self.device_id,
-            'device_key': self.device_key,
-            'address': self.address,
-            'address_type': self.address_type,
-            'protocol': self.protocol,
-            'name': self.name,
-            'manufacturer_name': self.manufacturer_name,
-            'rssi_current': self.rssi_current,
-            'rssi_median': round(self.rssi_median, 1) if self.rssi_median else None,
-            'rssi_ema': round(self.rssi_ema, 1) if self.rssi_ema else None,
-            'rssi_min': self.rssi_min,
-            'rssi_max': self.rssi_max,
-            'rssi_variance': round(self.rssi_variance, 2) if self.rssi_variance else None,
-            'range_band': self.range_band,
-            'proximity_band': self.proximity_band,
-            'estimated_distance_m': round(self.estimated_distance_m, 2) if self.estimated_distance_m else None,
-            'distance_confidence': round(self.distance_confidence, 2),
-            'is_randomized_mac': self.is_randomized_mac,
-            'last_seen': self.last_seen.isoformat(),
-            'first_seen': self.first_seen.isoformat(),
-            'age_seconds': self.age_seconds,
-            'duration_seconds': self.duration_seconds,
-            'seen_count': self.seen_count,
-            'seen_rate': round(self.seen_rate, 2),
-            'tx_power': self.tx_power,
-            'manufacturer_id': self.manufacturer_id,
-            'appearance': self.appearance,
-            'appearance_name': get_appearance_name(self.appearance),
-            'is_connectable': self.is_connectable,
-            'service_uuids': self.service_uuids,
-            'service_data': {k: v.hex() for k, v in self.service_data.items()},
-            'manufacturer_bytes': self.manufacturer_bytes.hex() if self.manufacturer_bytes else None,
-            'heuristic_flags': self.heuristic_flags,
-            'is_persistent': self.is_persistent,
-            'is_beacon_like': self.is_beacon_like,
-            'is_strong_stable': self.is_strong_stable,
-            'in_baseline': self.in_baseline,
-            'seen_before': self.seen_before,
+            "device_id": self.device_id,
+            "device_key": self.device_key,
+            "address": self.address,
+            "address_type": self.address_type,
+            "protocol": self.protocol,
+            "name": self.name,
+            "manufacturer_name": self.manufacturer_name,
+            "rssi_current": self.rssi_current,
+            "rssi_median": round(self.rssi_median, 1) if self.rssi_median else None,
+            "rssi_ema": round(self.rssi_ema, 1) if self.rssi_ema else None,
+            "rssi_min": self.rssi_min,
+            "rssi_max": self.rssi_max,
+            "rssi_variance": round(self.rssi_variance, 2) if self.rssi_variance else None,
+            "range_band": self.range_band,
+            "proximity_band": self.proximity_band,
+            "estimated_distance_m": round(self.estimated_distance_m, 2) if self.estimated_distance_m else None,
+            "distance_confidence": round(self.distance_confidence, 2),
+            "is_randomized_mac": self.is_randomized_mac,
+            "last_seen": self.last_seen.isoformat(),
+            "first_seen": self.first_seen.isoformat(),
+            "age_seconds": self.age_seconds,
+            "duration_seconds": self.duration_seconds,
+            "seen_count": self.seen_count,
+            "seen_rate": round(self.seen_rate, 2),
+            "tx_power": self.tx_power,
+            "manufacturer_id": self.manufacturer_id,
+            "appearance": self.appearance,
+            "appearance_name": get_appearance_name(self.appearance),
+            "is_connectable": self.is_connectable,
+            "service_uuids": self.service_uuids,
+            "service_data": {k: v.hex() for k, v in self.service_data.items()},
+            "manufacturer_bytes": self.manufacturer_bytes.hex() if self.manufacturer_bytes else None,
+            "heuristic_flags": self.heuristic_flags,
+            "is_persistent": self.is_persistent,
+            "is_beacon_like": self.is_beacon_like,
+            "is_strong_stable": self.is_strong_stable,
+            "in_baseline": self.in_baseline,
+            "seen_before": self.seen_before,
             # Tracker info for list view
-            'is_tracker': self.is_tracker,
-            'tracker_type': self.tracker_type,
-            'tracker_name': self.tracker_name,
-            'tracker_confidence': self.tracker_confidence,
-            'tracker_confidence_score': round(self.tracker_confidence_score, 2),
-            'tracker_evidence': self.tracker_evidence,
-            'risk_score': round(self.risk_score, 2),
-            'risk_factors': self.risk_factors,
-            'has_irk': self.irk_hex is not None,
-            'irk_hex': self.irk_hex,
-            'irk_source_name': self.irk_source_name,
-            'fingerprint_id': self.payload_fingerprint_id,
+            "is_tracker": self.is_tracker,
+            "tracker_type": self.tracker_type,
+            "tracker_name": self.tracker_name,
+            "tracker_confidence": self.tracker_confidence,
+            "tracker_confidence_score": round(self.tracker_confidence_score, 2),
+            "tracker_evidence": self.tracker_evidence,
+            "risk_score": round(self.risk_score, 2),
+            "risk_factors": self.risk_factors,
+            "has_irk": self.irk_hex is not None,
+            "irk_hex": self.irk_hex,
+            "irk_source_name": self.irk_source_name,
+            "fingerprint_id": self.payload_fingerprint_id,
         }
 
 
@@ -374,7 +359,7 @@ class ScanStatus:
     """Current scanning status."""
 
     is_scanning: bool = False
-    mode: str = 'auto'  # 'dbus', 'bleak', 'hcitool', 'bluetoothctl', 'auto'
+    mode: str = "auto"  # 'dbus', 'bleak', 'hcitool', 'bluetoothctl', 'auto'
     backend: str | None = None  # Active backend being used
     adapter_id: str | None = None
     started_at: datetime | None = None
@@ -399,16 +384,16 @@ class ScanStatus:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'is_scanning': self.is_scanning,
-            'mode': self.mode,
-            'backend': self.backend,
-            'adapter_id': self.adapter_id,
-            'started_at': self.started_at.isoformat() if self.started_at else None,
-            'duration_s': self.duration_s,
-            'elapsed_seconds': round(self.elapsed_seconds, 1) if self.elapsed_seconds else None,
-            'remaining_seconds': round(self.remaining_seconds, 1) if self.remaining_seconds else None,
-            'devices_found': self.devices_found,
-            'error': self.error,
+            "is_scanning": self.is_scanning,
+            "mode": self.mode,
+            "backend": self.backend,
+            "adapter_id": self.adapter_id,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "duration_s": self.duration_s,
+            "elapsed_seconds": round(self.elapsed_seconds, 1) if self.elapsed_seconds else None,
+            "remaining_seconds": round(self.remaining_seconds, 1) if self.remaining_seconds else None,
+            "devices_found": self.devices_found,
+            "error": self.error,
         }
 
 
@@ -441,7 +426,7 @@ class SystemCapabilities:
     has_ubertooth: bool = False
 
     # Recommended backend
-    recommended_backend: str = 'none'
+    recommended_backend: str = "none"
 
     # Issues found
     issues: list[str] = field(default_factory=list)
@@ -450,33 +435,33 @@ class SystemCapabilities:
     def can_scan(self) -> bool:
         """Whether scanning is possible with any backend."""
         return (
-            (self.has_dbus and self.has_bluez and len(self.adapters) > 0) or
-            self.has_bleak or
-            self.has_hcitool or
-            self.has_bluetoothctl or
-            self.has_ubertooth
+            (self.has_dbus and self.has_bluez and len(self.adapters) > 0)
+            or self.has_bleak
+            or self.has_hcitool
+            or self.has_bluetoothctl
+            or self.has_ubertooth
         )
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'available': self.can_scan,  # Alias for frontend compatibility
-            'can_scan': self.can_scan,
-            'has_dbus': self.has_dbus,
-            'has_bluez': self.has_bluez,
-            'bluez_version': self.bluez_version,
-            'adapters': self.adapters,
-            'default_adapter': self.default_adapter,
-            'has_bluetooth_permission': self.has_bluetooth_permission,
-            'is_root': self.is_root,
-            'is_soft_blocked': self.is_soft_blocked,
-            'is_hard_blocked': self.is_hard_blocked,
-            'has_bleak': self.has_bleak,
-            'has_hcitool': self.has_hcitool,
-            'has_bluetoothctl': self.has_bluetoothctl,
-            'has_btmgmt': self.has_btmgmt,
-            'has_ubertooth': self.has_ubertooth,
-            'preferred_backend': self.recommended_backend,  # Alias for frontend
-            'recommended_backend': self.recommended_backend,
-            'issues': self.issues,
+            "available": self.can_scan,  # Alias for frontend compatibility
+            "can_scan": self.can_scan,
+            "has_dbus": self.has_dbus,
+            "has_bluez": self.has_bluez,
+            "bluez_version": self.bluez_version,
+            "adapters": self.adapters,
+            "default_adapter": self.default_adapter,
+            "has_bluetooth_permission": self.has_bluetooth_permission,
+            "is_root": self.is_root,
+            "is_soft_blocked": self.is_soft_blocked,
+            "is_hard_blocked": self.is_hard_blocked,
+            "has_bleak": self.has_bleak,
+            "has_hcitool": self.has_hcitool,
+            "has_bluetoothctl": self.has_bluetoothctl,
+            "has_btmgmt": self.has_btmgmt,
+            "has_ubertooth": self.has_ubertooth,
+            "preferred_backend": self.recommended_backend,  # Alias for frontend
+            "recommended_backend": self.recommended_backend,
+            "issues": self.issues,
         }

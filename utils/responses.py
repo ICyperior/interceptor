@@ -15,9 +15,9 @@ def api_success(data=None, message=None, status_code=200):
         message: Optional human-readable message.
         status_code: HTTP status code (default 200).
     """
-    payload = {'status': 'success'}
+    payload = {"status": "success"}
     if message:
-        payload['message'] = message
+        payload["message"] = message
     if data:
         payload.update(data)
     return jsonify(payload), status_code
@@ -31,7 +31,7 @@ def api_error(message, status_code=400, error_type=None):
         status_code: HTTP status code (default 400).
         error_type: Optional machine-readable error category (e.g. 'DEVICE_BUSY').
     """
-    payload = {'status': 'error', 'message': message}
+    payload = {"status": "error", "message": message}
     if error_type:
-        payload['error_type'] = error_type
+        payload["error_type"] = error_type
     return jsonify(payload), status_code

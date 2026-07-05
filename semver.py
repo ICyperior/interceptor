@@ -137,7 +137,7 @@ def match(version: str | VersionInfo, expr: str) -> bool:
     expression = str(expr).strip()
     for operator in ("<=", ">=", "==", "!=", "<", ">"):
         if expression.startswith(operator):
-            other = parse(expression[len(operator):].strip())
+            other = parse(expression[len(operator) :].strip())
             result = compare(version_info, other)
             return {
                 "<": result < 0,

@@ -39,7 +39,8 @@ def _hackrf_probe_blocked() -> bool:
     """Return True when probing HackRF would interfere with an active stream."""
     try:
         from utils.subghz import get_subghz_manager
-        return get_subghz_manager().active_mode in {'rx', 'decode', 'tx', 'sweep'}
+
+        return get_subghz_manager().active_mode in {"rx", "decode", "tx", "sweep"}
     except Exception:
         return False
 
@@ -75,20 +76,20 @@ def _get_capabilities_for_type(sdr_type: SDRType) -> SDRCapabilities:
         sample_rates=[2048000],
         supports_bias_t=False,
         supports_ppm=False,
-        tx_capable=False
+        tx_capable=False,
     )
 
 
 def _driver_to_sdr_type(driver: str) -> SDRType | None:
     """Map SoapySDR driver name to SDRType."""
     mapping = {
-        'rtlsdr': SDRType.RTL_SDR,
-        'lime': SDRType.LIME_SDR,
-        'limesdr': SDRType.LIME_SDR,
-        'hackrf': SDRType.HACKRF,
-        'airspy': SDRType.AIRSPY,
-        'airspyhf': SDRType.AIRSPY,  # Airspy HF+ uses same builder
-        'sdrplay': SDRType.SDRPLAY,
+        "rtlsdr": SDRType.RTL_SDR,
+        "lime": SDRType.LIME_SDR,
+        "limesdr": SDRType.LIME_SDR,
+        "hackrf": SDRType.HACKRF,
+        "airspy": SDRType.AIRSPY,
+        "airspyhf": SDRType.AIRSPY,  # Airspy HF+ uses same builder
+        "sdrplay": SDRType.SDRPLAY,
         # Future support
         # 'uhd': SDRType.USRP,
         # 'bladerf': SDRType.BLADE_RF,
@@ -105,7 +106,7 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
     """
     devices: list[SDRDevice] = []
 
-    rtl_test_path = get_tool_path('rtl_test')
+    rtl_test_path = get_tool_path("rtl_test")
     if not rtl_test_path:
         logger.debug("rtl_test not found, skipping RTL-SDR detection")
         return devices
@@ -113,21 +114,22 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
     try:
         import os
         import platform
+
         env = os.environ.copy()
 
-        if platform.system() == 'Darwin':
-            lib_paths = ['/usr/local/lib', '/opt/homebrew/lib']
-            current_ld = env.get('DYLD_LIBRARY_PATH', '')
-            env['DYLD_LIBRARY_PATH'] = ':'.join(lib_paths + [current_ld] if current_ld else lib_paths)
+        if platform.system() == "Darwin":
+            lib_paths = ["/usr/local/lib", "/opt/homebrew/lib"]
+            current_ld = env.get("DYLD_LIBRARY_PATH", "")
+            env["DYLD_LIBRARY_PATH"] = ":".join(lib_paths + [current_ld] if current_ld else lib_paths)
         try:
             result = subprocess.run(
-                [rtl_test_path, '-t'],
+                [rtl_test_path, "-t"],
                 capture_output=True,
                 text=True,
-                encoding='utf-8',
-                errors='replace',
+                encoding="utf-8",
+                errors="replace",
                 timeout=5,
-                env=env
+                env=env,
             )
         except subprocess.TimeoutExpired:
             logger.warning("rtl_test timed out after 5s")
@@ -137,37 +139,41 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
         # Parse device info from rtl_test output
         # Format: "0:  Realtek, RTL2838UHIDIR, SN: 00000001"
         # Require a non-empty serial to avoid matching malformed lines like "SN:".
-        device_pattern = r'(\d+):\s+(.+?),\s*SN:\s*(\S+)\s*$'
+        device_pattern = r"(\d+):\s+(.+?),\s*SN:\s*(\S+)\s*$"
 
         from .rtlsdr import RTLSDRCommandBuilder
 
-        for line in output.split('\n'):
+        for line in output.split("\n"):
             line = line.strip()
             match = re.match(device_pattern, line)
             if match:
-                devices.append(SDRDevice(
-                    sdr_type=SDRType.RTL_SDR,
-                    index=int(match.group(1)),
-                    name=match.group(2).strip().rstrip(','),
-                    serial=match.group(3),
-                    driver='rtlsdr',
-                    capabilities=RTLSDRCommandBuilder.CAPABILITIES
-                ))
+                devices.append(
+                    SDRDevice(
+                        sdr_type=SDRType.RTL_SDR,
+                        index=int(match.group(1)),
+                        name=match.group(2).strip().rstrip(","),
+                        serial=match.group(3),
+                        driver="rtlsdr",
+                        capabilities=RTLSDRCommandBuilder.CAPABILITIES,
+                    )
+                )
 
         # Fallback: if we found devices but couldn't parse details
         if not devices:
-            found_match = re.search(r'Found (\d+) device', output)
+            found_match = re.search(r"Found (\d+) device", output)
             if found_match:
                 count = int(found_match.group(1))
                 for i in range(count):
-                    devices.append(SDRDevice(
-                        sdr_type=SDRType.RTL_SDR,
-                        index=i,
-                        name=f'RTL-SDR Device {i}',
-                        serial='Unknown',
-                        driver='rtlsdr',
-                        capabilities=RTLSDRCommandBuilder.CAPABILITIES
-                    ))
+                    devices.append(
+                        SDRDevice(
+                            sdr_type=SDRType.RTL_SDR,
+                            index=i,
+                            name=f"RTL-SDR Device {i}",
+                            serial="Unknown",
+                            driver="rtlsdr",
+                            capabilities=RTLSDRCommandBuilder.CAPABILITIES,
+                        )
+                    )
 
     except subprocess.TimeoutExpired:
         logger.warning("rtl_test timed out")
@@ -180,7 +186,7 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
 def _find_soapy_util() -> str | None:
     """Find SoapySDR utility command (name varies by distribution)."""
     # Try different command names used across distributions
-    for cmd in ['SoapySDRUtil', 'soapy_sdr_util', 'soapysdr-util']:
+    for cmd in ["SoapySDRUtil", "soapy_sdr_util", "soapysdr-util"]:
         tool_path = get_tool_path(cmd)
         if tool_path:
             return tool_path
@@ -199,26 +205,27 @@ def _get_soapy_env() -> dict:
     """
     import os
     import platform
+
     env = os.environ.copy()
 
-    if platform.system() == 'Darwin':
+    if platform.system() == "Darwin":
         # Homebrew paths for Apple Silicon and Intel Macs
-        homebrew_paths = ['/opt/homebrew', '/usr/local']
+        homebrew_paths = ["/opt/homebrew", "/usr/local"]
         lib_paths = []
 
         for base in homebrew_paths:
-            lib_path = f'{base}/lib'
+            lib_path = f"{base}/lib"
             if os.path.isdir(lib_path):
                 lib_paths.append(lib_path)
 
         if lib_paths:
-            current_dyld = env.get('DYLD_LIBRARY_PATH', '')
-            env['DYLD_LIBRARY_PATH'] = ':'.join(lib_paths + ([current_dyld] if current_dyld else []))
+            current_dyld = env.get("DYLD_LIBRARY_PATH", "")
+            env["DYLD_LIBRARY_PATH"] = ":".join(lib_paths + ([current_dyld] if current_dyld else []))
 
         # Set SOAPY_SDR_ROOT if we found Homebrew installation
         for base in homebrew_paths:
-            if os.path.isdir(f'{base}/lib/SoapySDR'):
-                env['SOAPY_SDR_ROOT'] = base
+            if os.path.isdir(f"{base}/lib/SoapySDR"):
+                env["SOAPY_SDR_ROOT"] = base
                 break
 
     return env
@@ -244,13 +251,7 @@ def detect_soapy_devices(skip_types: set[SDRType] | None = None) -> list[SDRDevi
     try:
         # Use macOS-aware environment to find Homebrew-installed modules
         env = _get_soapy_env()
-        result = subprocess.run(
-            [soapy_cmd, '--find'],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            env=env
-        )
+        result = subprocess.run([soapy_cmd, "--find"], capture_output=True, text=True, timeout=10, env=env)
 
         # Parse SoapySDR output
         # Format varies but typically includes lines like:
@@ -261,25 +262,25 @@ def detect_soapy_devices(skip_types: set[SDRType] | None = None) -> list[SDRDevi
         current_device: dict = {}
         device_counts: dict[SDRType, int] = {}
 
-        for line in result.stdout.split('\n'):
+        for line in result.stdout.split("\n"):
             line = line.strip()
 
             # Start of new device block
-            if line.startswith('Found device'):
-                if current_device.get('driver'):
+            if line.startswith("Found device"):
+                if current_device.get("driver"):
                     _add_soapy_device(devices, current_device, device_counts, skip_types)
                 current_device = {}
                 continue
 
             # Parse key = value pairs
-            if ' = ' in line:
-                key, value = line.split(' = ', 1)
+            if " = " in line:
+                key, value = line.split(" = ", 1)
                 key = key.strip()
                 value = value.strip()
                 current_device[key] = value
 
         # Don't forget the last device
-        if current_device.get('driver'):
+        if current_device.get("driver"):
             _add_soapy_device(devices, current_device, device_counts, skip_types)
 
     except subprocess.TimeoutExpired:
@@ -291,13 +292,10 @@ def detect_soapy_devices(skip_types: set[SDRType] | None = None) -> list[SDRDevi
 
 
 def _add_soapy_device(
-    devices: list[SDRDevice],
-    device_info: dict,
-    device_counts: dict[SDRType, int],
-    skip_types: set[SDRType]
+    devices: list[SDRDevice], device_info: dict, device_counts: dict[SDRType, int], skip_types: set[SDRType]
 ) -> None:
     """Add a device from SoapySDR detection to the list."""
-    driver = device_info.get('driver', '').lower()
+    driver = device_info.get("driver", "").lower()
     sdr_type = _driver_to_sdr_type(driver)
 
     if not sdr_type:
@@ -316,14 +314,16 @@ def _add_soapy_device(
     index = device_counts[sdr_type]
     device_counts[sdr_type] += 1
 
-    devices.append(SDRDevice(
-        sdr_type=sdr_type,
-        index=index,
-        name=device_info.get('label', device_info.get('driver', 'Unknown')),
-        serial=device_info.get('serial', 'N/A'),
-        driver=driver,
-        capabilities=_get_capabilities_for_type(sdr_type)
-    ))
+    devices.append(
+        SDRDevice(
+            sdr_type=sdr_type,
+            index=index,
+            name=device_info.get("label", device_info.get("driver", "Unknown")),
+            serial=device_info.get("serial", "N/A"),
+            driver=driver,
+            capabilities=_get_capabilities_for_type(sdr_type),
+        )
+    )
 
 
 def detect_hackrf_devices() -> list[SDRDevice]:
@@ -345,19 +345,14 @@ def detect_hackrf_devices() -> list[SDRDevice]:
 
     devices: list[SDRDevice] = []
 
-    hackrf_info_path = get_tool_path('hackrf_info')
+    hackrf_info_path = get_tool_path("hackrf_info")
     if not hackrf_info_path:
         _hackrf_cache = devices
         _hackrf_cache_ts = now
         return devices
 
     try:
-        result = subprocess.run(
-            [hackrf_info_path],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        result = subprocess.run([hackrf_info_path], capture_output=True, text=True, timeout=5)
 
         # Combine stdout + stderr: newer firmware may print to stderr,
         # and hackrf_info may exit non-zero when device is briefly busy
@@ -369,46 +364,50 @@ def detect_hackrf_devices() -> list[SDRDevice]:
         from .hackrf import HackRFCommandBuilder
 
         serial_pattern = re.compile(
-            r'^\s*Serial\s+number:\s*(.+)$',
+            r"^\s*Serial\s+number:\s*(.+)$",
             re.IGNORECASE | re.MULTILINE,
         )
         board_pattern = re.compile(
-            r'Board\s+ID\s+Number:\s*\d+\s*\(([^)]+)\)',
+            r"Board\s+ID\s+Number:\s*\d+\s*\(([^)]+)\)",
             re.IGNORECASE,
         )
 
         serials_found = []
         for raw in serial_pattern.findall(output):
             # Normalise legacy formats like "0x1234 5678" to plain hex.
-            serial = re.sub(r'0x', '', raw, flags=re.IGNORECASE)
-            serial = re.sub(r'[^0-9A-Fa-f]', '', serial)
+            serial = re.sub(r"0x", "", raw, flags=re.IGNORECASE)
+            serial = re.sub(r"[^0-9A-Fa-f]", "", serial)
             if serial:
                 serials_found.append(serial)
         boards_found = board_pattern.findall(output)
 
         for i, serial in enumerate(serials_found):
-            board_name = boards_found[i] if i < len(boards_found) else 'HackRF'
-            devices.append(SDRDevice(
-                sdr_type=SDRType.HACKRF,
-                index=i,
-                name=board_name,
-                serial=serial,
-                driver='hackrf',
-                capabilities=HackRFCommandBuilder.CAPABILITIES
-            ))
+            board_name = boards_found[i] if i < len(boards_found) else "HackRF"
+            devices.append(
+                SDRDevice(
+                    sdr_type=SDRType.HACKRF,
+                    index=i,
+                    name=board_name,
+                    serial=serial,
+                    driver="hackrf",
+                    capabilities=HackRFCommandBuilder.CAPABILITIES,
+                )
+            )
 
         # Fallback: check if any HackRF found without serial
-        if not devices and re.search(r'Found\s+HackRF', output, re.IGNORECASE):
+        if not devices and re.search(r"Found\s+HackRF", output, re.IGNORECASE):
             board_match = board_pattern.search(output)
-            board_name = board_match.group(1) if board_match else 'HackRF'
-            devices.append(SDRDevice(
-                sdr_type=SDRType.HACKRF,
-                index=0,
-                name=board_name,
-                serial='Unknown',
-                driver='hackrf',
-                capabilities=HackRFCommandBuilder.CAPABILITIES
-            ))
+            board_name = board_match.group(1) if board_match else "HackRF"
+            devices.append(
+                SDRDevice(
+                    sdr_type=SDRType.HACKRF,
+                    index=0,
+                    name=board_name,
+                    serial="Unknown",
+                    driver="hackrf",
+                    capabilities=HackRFCommandBuilder.CAPABILITIES,
+                )
+            )
 
     except Exception as e:
         logger.debug(f"HackRF detection error: {e}")
@@ -432,7 +431,7 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
         An error message string if the device cannot be opened,
         or ``None`` if the device is available.
     """
-    rtl_test_path = get_tool_path('rtl_test')
+    rtl_test_path = get_tool_path("rtl_test")
     if not rtl_test_path:
         # Can't probe without rtl_test — let the caller proceed and
         # surface errors from the actual decoder process instead.
@@ -441,20 +440,19 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
     try:
         import os
         import platform
+
         env = os.environ.copy()
 
-        if platform.system() == 'Darwin':
-            lib_paths = ['/usr/local/lib', '/opt/homebrew/lib']
-            current_ld = env.get('DYLD_LIBRARY_PATH', '')
-            env['DYLD_LIBRARY_PATH'] = ':'.join(
-                lib_paths + [current_ld] if current_ld else lib_paths
-            )
+        if platform.system() == "Darwin":
+            lib_paths = ["/usr/local/lib", "/opt/homebrew/lib"]
+            current_ld = env.get("DYLD_LIBRARY_PATH", "")
+            env["DYLD_LIBRARY_PATH"] = ":".join(lib_paths + [current_ld] if current_ld else lib_paths)
 
         # Use Popen with early termination instead of run() with full timeout.
         # rtl_test prints device info to stderr quickly, then keeps running
         # its test loop. We kill it as soon as we see success or failure.
         proc = subprocess.Popen(
-            [rtl_test_path, '-d', str(device_index), '-t'],
+            [rtl_test_path, "-d", str(device_index), "-t"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -462,6 +460,7 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
         )
 
         import select
+
         error_found = False
         device_found = False
         deadline = time.monotonic() + 3.0
@@ -472,22 +471,20 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
                 if remaining <= 0:
                     break
                 # Wait for stderr output with timeout
-                ready, _, _ = select.select(
-                    [proc.stderr], [], [], min(remaining, 0.1)
-                )
+                ready, _, _ = select.select([proc.stderr], [], [], min(remaining, 0.1))
                 if ready:
                     line = proc.stderr.readline()
                     if not line:
                         break  # EOF — process closed stderr
                     # Check for no-device messages first (before success check,
                     # since "No supported devices found" also contains "Found" + "device")
-                    if 'no supported devices' in line.lower() or 'no matching devices' in line.lower():
+                    if "no supported devices" in line.lower() or "no matching devices" in line.lower():
                         error_found = True
                         break
-                    if 'usb_claim_interface' in line or 'Failed to open' in line:
+                    if "usb_claim_interface" in line or "Failed to open" in line:
                         error_found = True
                         break
-                    if 'Found' in line and 'device' in line.lower():
+                    if "Found" in line and "device" in line.lower():
                         # Device opened successfully — no need to wait longer
                         device_found = True
                         break
@@ -506,13 +503,10 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
                 time.sleep(0.5)
 
         if error_found:
-            logger.warning(
-                f"RTL-SDR device {device_index} USB probe failed: "
-                f"device busy or unavailable"
-            )
+            logger.warning(f"RTL-SDR device {device_index} USB probe failed: device busy or unavailable")
             return (
-                f'SDR device {device_index} is not available — '
-                f'check that the SDR device is connected and not in use by another process.'
+                f"SDR device {device_index} is not available — "
+                f"check that the SDR device is connected and not in use by another process."
             )
 
     except Exception as e:
@@ -589,4 +583,3 @@ def invalidate_device_cache() -> None:
     global _all_devices_cache, _all_devices_cache_ts
     _all_devices_cache = []
     _all_devices_cache_ts = 0.0
-

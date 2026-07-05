@@ -5,7 +5,7 @@ from __future__ import annotations
 from utils.logging import get_logger
 from utils.sigmf import SigMFMetadata, SigMFWriter
 
-logger = get_logger('intercept.ground_station.sigmf_consumer')
+logger = get_logger("intercept.ground_station.sigmf_consumer")
 
 
 class SigMFConsumer:

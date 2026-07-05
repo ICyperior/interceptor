@@ -23,15 +23,17 @@ from utils.tscm.signal_classification import (
     generate_hedged_statement,
 )
 
-logger = logging.getLogger('intercept.tscm.reports')
+logger = logging.getLogger("intercept.tscm.reports")
 
 # =============================================================================
 # Report Data Structures
 # =============================================================================
 
+
 @dataclass
 class ReportFinding:
     """A single finding for the report."""
+
     identifier: str
     protocol: str
     name: str | None
@@ -39,8 +41,8 @@ class ReportFinding:
     risk_score: int
     description: str
     indicators: list[dict] = field(default_factory=list)
-    recommended_action: str = ''
-    playbook_reference: str = ''
+    recommended_action: str = ""
+    playbook_reference: str = ""
     # Signal classification data
     signal_strength: str | None = None  # minimal, weak, moderate, strong, very_strong
     signal_confidence: str | None = None  # low, medium, high
@@ -51,6 +53,7 @@ class ReportFinding:
 @dataclass
 class ReportMeetingSummary:
     """Meeting window summary for report."""
+
     name: str | None
     start_time: str
     end_time: str | None
@@ -67,6 +70,7 @@ class TSCMReport:
 
     Contains all data needed for both client-safe PDF and technical annex.
     """
+
     # Report metadata
     report_id: str
     generated_at: datetime
@@ -75,13 +79,13 @@ class TSCMReport:
 
     # Location and context
     location: str | None = None
-    examiner_name: str = ''
+    examiner_name: str = ""
     baseline_id: int | None = None
     baseline_name: str | None = None
 
     # Executive summary
-    executive_summary: str = ''
-    overall_risk_assessment: str = 'low'  # low, moderate, elevated, high
+    executive_summary: str = ""
+    overall_risk_assessment: str = "low"  # low, moderate, elevated, high
     key_findings_count: int = 0
 
     # Capabilities used
@@ -173,6 +177,7 @@ policies and applicable privacy regulations.
 # Report Generation Functions
 # =============================================================================
 
+
 def generate_executive_summary(report: TSCMReport) -> str:
     """Generate executive summary text."""
     lines = []
@@ -185,13 +190,13 @@ def generate_executive_summary(report: TSCMReport) -> str:
 
     # Overall assessment
     assessment_text = {
-        'low': 'No significant indicators of surveillance activity were detected.',
-        'moderate': 'Some devices require review but no confirmed surveillance indicators.',
-        'elevated': 'Multiple indicators warrant further investigation.',
-        'high': 'Significant indicators detected requiring immediate attention.',
+        "low": "No significant indicators of surveillance activity were detected.",
+        "moderate": "Some devices require review but no confirmed surveillance indicators.",
+        "elevated": "Multiple indicators warrant further investigation.",
+        "high": "Significant indicators detected requiring immediate attention.",
     }
     lines.append(f"OVERALL ASSESSMENT: {report.overall_risk_assessment.upper()}")
-    lines.append(assessment_text.get(report.overall_risk_assessment, ''))
+    lines.append(assessment_text.get(report.overall_risk_assessment, ""))
     lines.append("")
 
     # Key statistics
@@ -221,9 +226,11 @@ def generate_executive_summary(report: TSCMReport) -> str:
     if report.meeting_summaries:
         lines.append("MEETING WINDOW ACTIVITY:")
         for meeting in report.meeting_summaries:
-            lines.append(f"  - {meeting.name or 'Unnamed meeting'}: "
-                        f"{meeting.devices_first_seen} new devices, "
-                        f"{meeting.high_interest_devices} high interest")
+            lines.append(
+                f"  - {meeting.name or 'Unnamed meeting'}: "
+                f"{meeting.devices_first_seen} new devices, "
+                f"{meeting.high_interest_devices} high interest"
+            )
         lines.append("")
 
     # Limitations
@@ -251,8 +258,8 @@ def generate_findings_section(findings: list[ReportFinding], title: str) -> str:
 
         # Signal classification with confidence
         if finding.signal_strength:
-            confidence_label = (finding.signal_confidence or 'low').capitalize()
-            strength_label = finding.signal_strength.replace('_', ' ').title()
+            confidence_label = (finding.signal_confidence or "low").capitalize()
+            strength_label = finding.signal_strength.replace("_", " ").title()
             lines.append(f"   Signal: {strength_label} (Confidence: {confidence_label})")
 
         lines.append(f"   Assessment: {finding.description}")
@@ -272,7 +279,7 @@ def generate_findings_section(findings: list[ReportFinding], title: str) -> str:
             lines.append(f"   Reference: {finding.playbook_reference}")
 
         # Include relevant caveats for high-interest findings
-        if finding.signal_caveats and finding.risk_level == 'high_interest':
+        if finding.signal_caveats and finding.risk_level == "high_interest":
             lines.append("   Note: " + finding.signal_caveats[0])
 
         lines.append("")
@@ -339,18 +346,12 @@ def generate_pdf_content(report: TSCMReport) -> str:
     # High Interest Findings
     if report.high_interest_findings:
         sections.append("-" * 70)
-        sections.append(generate_findings_section(
-            report.high_interest_findings,
-            "HIGH INTEREST FINDINGS"
-        ))
+        sections.append(generate_findings_section(report.high_interest_findings, "HIGH INTEREST FINDINGS"))
 
     # Needs Review Findings
     if report.needs_review_findings:
         sections.append("-" * 70)
-        sections.append(generate_findings_section(
-            report.needs_review_findings,
-            "FINDINGS REQUIRING REVIEW"
-        ))
+        sections.append(generate_findings_section(report.needs_review_findings, "FINDINGS REQUIRING REVIEW"))
 
     # Meeting Window Summary
     if report.meeting_summaries:
@@ -366,11 +367,11 @@ def generate_pdf_content(report: TSCMReport) -> str:
     if report.capabilities:
         caps = report.capabilities
         sections.append("Equipment Used:")
-        if caps.get('wifi', {}).get('mode') != 'unavailable':
+        if caps.get("wifi", {}).get("mode") != "unavailable":
             sections.append(f"  - WiFi: {caps.get('wifi', {}).get('mode', 'unknown')} mode")
-        if caps.get('bluetooth', {}).get('mode') != 'unavailable':
+        if caps.get("bluetooth", {}).get("mode") != "unavailable":
             sections.append(f"  - Bluetooth: {caps.get('bluetooth', {}).get('mode', 'unknown')}")
-        if caps.get('rf', {}).get('available'):
+        if caps.get("rf", {}).get("available"):
             sections.append(f"  - RF/SDR: {caps.get('rf', {}).get('device_type', 'unknown')}")
         sections.append("")
 
@@ -408,93 +409,87 @@ def generate_technical_annex_json(report: TSCMReport) -> dict:
     for audit and further analysis.
     """
     return {
-        'annex_type': 'tscm_technical_annex',
-        'report_id': report.report_id,
-        'generated_at': report.generated_at.isoformat(),
-        'sweep_id': report.sweep_id,
-        'disclaimer': ANNEX_DISCLAIMER.strip(),
-
-        'sweep_details': {
-            'type': report.sweep_type,
-            'location': report.location,
-            'start_time': report.sweep_start.isoformat() if report.sweep_start else None,
-            'end_time': report.sweep_end.isoformat() if report.sweep_end else None,
-            'duration_minutes': report.duration_minutes,
-            'baseline_id': report.baseline_id,
-            'baseline_name': report.baseline_name,
+        "annex_type": "tscm_technical_annex",
+        "report_id": report.report_id,
+        "generated_at": report.generated_at.isoformat(),
+        "sweep_id": report.sweep_id,
+        "disclaimer": ANNEX_DISCLAIMER.strip(),
+        "sweep_details": {
+            "type": report.sweep_type,
+            "location": report.location,
+            "start_time": report.sweep_start.isoformat() if report.sweep_start else None,
+            "end_time": report.sweep_end.isoformat() if report.sweep_end else None,
+            "duration_minutes": report.duration_minutes,
+            "baseline_id": report.baseline_id,
+            "baseline_name": report.baseline_name,
         },
-
-        'capabilities': report.capabilities,
-        'limitations': report.limitations,
-
-        'statistics': {
-            'total_devices': report.total_devices_scanned,
-            'wifi_devices': report.wifi_devices,
-            'wifi_clients': report.wifi_clients,
-            'bluetooth_devices': report.bluetooth_devices,
-            'rf_signals': report.rf_signals,
-            'new_devices': report.new_devices,
-            'missing_devices': report.missing_devices,
-            'high_interest_count': len(report.high_interest_findings),
-            'needs_review_count': len(report.needs_review_findings),
-            'informational_count': len(report.informational_findings),
+        "capabilities": report.capabilities,
+        "limitations": report.limitations,
+        "statistics": {
+            "total_devices": report.total_devices_scanned,
+            "wifi_devices": report.wifi_devices,
+            "wifi_clients": report.wifi_clients,
+            "bluetooth_devices": report.bluetooth_devices,
+            "rf_signals": report.rf_signals,
+            "new_devices": report.new_devices,
+            "missing_devices": report.missing_devices,
+            "high_interest_count": len(report.high_interest_findings),
+            "needs_review_count": len(report.needs_review_findings),
+            "informational_count": len(report.informational_findings),
         },
-
-        'findings': {
-            'high_interest': [
+        "findings": {
+            "high_interest": [
                 {
-                    'identifier': f.identifier,
-                    'protocol': f.protocol,
-                    'name': f.name,
-                    'risk_score': f.risk_score,
-                    'description': f.description,
-                    'indicators': f.indicators,
-                    'recommended_action': f.recommended_action,
-                    'signal_classification': {
-                        'strength': f.signal_strength,
-                        'confidence': f.signal_confidence,
-                        'interpretation': f.signal_interpretation,
-                        'caveats': f.signal_caveats,
+                    "identifier": f.identifier,
+                    "protocol": f.protocol,
+                    "name": f.name,
+                    "risk_score": f.risk_score,
+                    "description": f.description,
+                    "indicators": f.indicators,
+                    "recommended_action": f.recommended_action,
+                    "signal_classification": {
+                        "strength": f.signal_strength,
+                        "confidence": f.signal_confidence,
+                        "interpretation": f.signal_interpretation,
+                        "caveats": f.signal_caveats,
                     },
                 }
                 for f in report.high_interest_findings
             ],
-            'needs_review': [
+            "needs_review": [
                 {
-                    'identifier': f.identifier,
-                    'protocol': f.protocol,
-                    'name': f.name,
-                    'risk_score': f.risk_score,
-                    'description': f.description,
-                    'indicators': f.indicators,
-                    'signal_classification': {
-                        'strength': f.signal_strength,
-                        'confidence': f.signal_confidence,
-                        'interpretation': f.signal_interpretation,
-                        'caveats': f.signal_caveats,
+                    "identifier": f.identifier,
+                    "protocol": f.protocol,
+                    "name": f.name,
+                    "risk_score": f.risk_score,
+                    "description": f.description,
+                    "indicators": f.indicators,
+                    "signal_classification": {
+                        "strength": f.signal_strength,
+                        "confidence": f.signal_confidence,
+                        "interpretation": f.signal_interpretation,
+                        "caveats": f.signal_caveats,
                     },
                 }
                 for f in report.needs_review_findings
             ],
         },
-
-        'meeting_windows': [
+        "meeting_windows": [
             {
-                'name': m.name,
-                'start_time': m.start_time,
-                'end_time': m.end_time,
-                'duration_minutes': m.duration_minutes,
-                'devices_first_seen': m.devices_first_seen,
-                'behavior_changes': m.behavior_changes,
-                'high_interest_devices': m.high_interest_devices,
+                "name": m.name,
+                "start_time": m.start_time,
+                "end_time": m.end_time,
+                "duration_minutes": m.duration_minutes,
+                "devices_first_seen": m.devices_first_seen,
+                "behavior_changes": m.behavior_changes,
+                "high_interest_devices": m.high_interest_devices,
             }
             for m in report.meeting_summaries
         ],
-
-        'device_timelines': report.device_timelines,
-        'all_indicators': report.all_indicators,
-        'baseline_diff': report.baseline_diff,
-        'correlations': report.correlation_data,
+        "device_timelines": report.device_timelines,
+        "all_indicators": report.all_indicators,
+        "baseline_diff": report.baseline_diff,
+        "correlations": report.correlation_data,
     }
 
 
@@ -508,80 +503,88 @@ def generate_technical_annex_csv(report: TSCMReport) -> str:
     writer = csv.writer(output)
 
     # Header
-    writer.writerow([
-        'identifier',
-        'protocol',
-        'name',
-        'risk_level',
-        'risk_score',
-        'first_seen',
-        'last_seen',
-        'observation_count',
-        'rssi_min',
-        'rssi_max',
-        'rssi_mean',
-        'rssi_stability',
-        'movement_pattern',
-        'meeting_correlated',
-        'indicators',
-    ])
+    writer.writerow(
+        [
+            "identifier",
+            "protocol",
+            "name",
+            "risk_level",
+            "risk_score",
+            "first_seen",
+            "last_seen",
+            "observation_count",
+            "rssi_min",
+            "rssi_max",
+            "rssi_mean",
+            "rssi_stability",
+            "movement_pattern",
+            "meeting_correlated",
+            "indicators",
+        ]
+    )
 
     # Device data from timelines
     for timeline in report.device_timelines:
-        indicators_str = '; '.join(
-            f"{i.get('type', '')}({i.get('score', 0)})"
-            for i in timeline.get('indicators', [])
+        indicators_str = "; ".join(f"{i.get('type', '')}({i.get('score', 0)})" for i in timeline.get("indicators", []))
+
+        signal = timeline.get("signal", {})
+        metrics = timeline.get("metrics", {})
+        movement = timeline.get("movement", {})
+        meeting = timeline.get("meeting_correlation", {})
+
+        writer.writerow(
+            [
+                timeline.get("identifier", ""),
+                timeline.get("protocol", ""),
+                timeline.get("name", ""),
+                timeline.get("risk_level", "informational"),
+                timeline.get("risk_score", 0),
+                metrics.get("first_seen", ""),
+                metrics.get("last_seen", ""),
+                metrics.get("total_observations", 0),
+                signal.get("rssi_min", ""),
+                signal.get("rssi_max", ""),
+                signal.get("rssi_mean", ""),
+                signal.get("stability", ""),
+                movement.get("pattern", ""),
+                meeting.get("correlated", False),
+                indicators_str,
+            ]
         )
-
-        signal = timeline.get('signal', {})
-        metrics = timeline.get('metrics', {})
-        movement = timeline.get('movement', {})
-        meeting = timeline.get('meeting_correlation', {})
-
-        writer.writerow([
-            timeline.get('identifier', ''),
-            timeline.get('protocol', ''),
-            timeline.get('name', ''),
-            timeline.get('risk_level', 'informational'),
-            timeline.get('risk_score', 0),
-            metrics.get('first_seen', ''),
-            metrics.get('last_seen', ''),
-            metrics.get('total_observations', 0),
-            signal.get('rssi_min', ''),
-            signal.get('rssi_max', ''),
-            signal.get('rssi_mean', ''),
-            signal.get('stability', ''),
-            movement.get('pattern', ''),
-            meeting.get('correlated', False),
-            indicators_str,
-        ])
 
     # Also add findings summary
     writer.writerow([])
-    writer.writerow(['--- FINDINGS SUMMARY ---'])
-    writer.writerow([
-        'identifier', 'protocol', 'risk_level', 'risk_score',
-        'signal_strength', 'signal_confidence',
-        'description', 'interpretation', 'recommended_action'
-    ])
-
-    all_findings = (
-        report.high_interest_findings +
-        report.needs_review_findings
+    writer.writerow(["--- FINDINGS SUMMARY ---"])
+    writer.writerow(
+        [
+            "identifier",
+            "protocol",
+            "risk_level",
+            "risk_score",
+            "signal_strength",
+            "signal_confidence",
+            "description",
+            "interpretation",
+            "recommended_action",
+        ]
     )
 
+    all_findings = report.high_interest_findings + report.needs_review_findings
+
     for finding in all_findings:
-        writer.writerow([
-            finding.identifier,
-            finding.protocol,
-            finding.risk_level,
-            finding.risk_score,
-            finding.signal_strength or '',
-            finding.signal_confidence or '',
-            finding.description,
-            finding.signal_interpretation or '',
-            finding.recommended_action,
-        ])
+        writer.writerow(
+            [
+                finding.identifier,
+                finding.protocol,
+                finding.risk_level,
+                finding.risk_score,
+                finding.signal_strength or "",
+                finding.signal_confidence or "",
+                finding.description,
+                finding.signal_interpretation or "",
+                finding.recommended_action,
+            ]
+        )
 
     return output.getvalue()
 
@@ -589,6 +592,7 @@ def generate_technical_annex_csv(report: TSCMReport) -> str:
 # =============================================================================
 # Report Builder
 # =============================================================================
+
 
 class TSCMReportBuilder:
     """
@@ -608,7 +612,7 @@ class TSCMReportBuilder:
             report_id=f"TSCM-{sweep_id}-{datetime.now().strftime('%Y%m%d%H%M%S')}",
             generated_at=datetime.now(),
             sweep_id=sweep_id,
-            sweep_type='standard',
+            sweep_type="standard",
         )
 
     def set_sweep_type(self, sweep_type: str) -> TSCMReportBuilder:
@@ -628,27 +632,21 @@ class TSCMReportBuilder:
         self.report.baseline_name = baseline_name
         return self
 
-    def set_sweep_times(
-        self,
-        start: datetime,
-        end: datetime | None = None
-    ) -> TSCMReportBuilder:
+    def set_sweep_times(self, start: datetime, end: datetime | None = None) -> TSCMReportBuilder:
         self.report.sweep_start = start
         self.report.sweep_end = end or datetime.now()
-        self.report.duration_minutes = (
-            (self.report.sweep_end - self.report.sweep_start).total_seconds() / 60
-        )
+        self.report.duration_minutes = (self.report.sweep_end - self.report.sweep_start).total_seconds() / 60
         return self
 
     def add_capabilities(self, capabilities: dict) -> TSCMReportBuilder:
         self.report.capabilities = capabilities
-        self.report.limitations = capabilities.get('all_limitations', [])
+        self.report.limitations = capabilities.get("all_limitations", [])
         return self
 
     def add_finding(self, finding: ReportFinding) -> TSCMReportBuilder:
-        if finding.risk_level == 'high_interest':
+        if finding.risk_level == "high_interest":
             self.report.high_interest_findings.append(finding)
-        elif finding.risk_level in ['review', 'needs_review']:
+        elif finding.risk_level in ["review", "needs_review"]:
             self.report.needs_review_findings.append(finding)
         else:
             self.report.informational_findings.append(finding)
@@ -661,19 +659,19 @@ class TSCMReportBuilder:
             signal_data = self._classify_finding_signal(profile)
 
             finding = ReportFinding(
-                identifier=profile.get('identifier', ''),
-                protocol=profile.get('protocol', ''),
-                name=profile.get('name'),
-                risk_level=profile.get('risk_level', 'informational'),
-                risk_score=profile.get('total_score', 0),
+                identifier=profile.get("identifier", ""),
+                protocol=profile.get("protocol", ""),
+                name=profile.get("name"),
+                risk_level=profile.get("risk_level", "informational"),
+                risk_score=profile.get("total_score", 0),
                 description=self._generate_finding_description(profile),
-                indicators=profile.get('indicators', []),
-                recommended_action=profile.get('recommended_action', 'monitor'),
+                indicators=profile.get("indicators", []),
+                recommended_action=profile.get("recommended_action", "monitor"),
                 playbook_reference=self._get_playbook_reference(profile),
-                signal_strength=signal_data['signal_strength'],
-                signal_confidence=signal_data['signal_confidence'],
-                signal_interpretation=signal_data['signal_interpretation'],
-                signal_caveats=signal_data['signal_caveats'],
+                signal_strength=signal_data["signal_strength"],
+                signal_confidence=signal_data["signal_confidence"],
+                signal_interpretation=signal_data["signal_interpretation"],
+                signal_caveats=signal_data["signal_caveats"],
             )
             self.add_finding(finding)
 
@@ -681,13 +679,13 @@ class TSCMReportBuilder:
 
     def _generate_finding_description(self, profile: dict) -> str:
         """Generate description from profile indicators using hedged language."""
-        indicators = profile.get('indicators', [])
-        protocol = profile.get('protocol', 'Unknown').upper()
+        indicators = profile.get("indicators", [])
+        protocol = profile.get("protocol", "Unknown").upper()
 
         # Get signal data for context
-        rssi = profile.get('rssi_mean') or profile.get('rssi')
-        duration = profile.get('observation_duration_seconds')
-        observation_count = profile.get('observation_count', 1)
+        rssi = profile.get("rssi_mean") or profile.get("rssi")
+        duration = profile.get("observation_duration_seconds")
+        observation_count = profile.get("observation_count", 1)
 
         # Assess signal to determine confidence
         assessment = assess_signal(rssi, duration, observation_count)
@@ -695,44 +693,24 @@ class TSCMReportBuilder:
 
         if not indicators:
             # Use hedged language based on confidence
-            return generate_hedged_statement(
-                f"Observed {protocol} signal",
-                'device_presence',
-                confidence
-            )
+            return generate_hedged_statement(f"Observed {protocol} signal", "device_presence", confidence)
 
         # Build description with hedged language
         primary = indicators[0]
-        indicator_type = primary.get('type', 'pattern')
+        indicator_type = primary.get("type", "pattern")
 
         # Map indicator types to hedged descriptions
-        if indicator_type in ('airtag_detected', 'tile_detected', 'smarttag_detected', 'known_tracker'):
-            desc = generate_hedged_statement(
-                f"{protocol} signal characteristics",
-                'device_presence',
-                confidence
-            )
+        if indicator_type in ("airtag_detected", "tile_detected", "smarttag_detected", "known_tracker"):
+            desc = generate_hedged_statement(f"{protocol} signal characteristics", "device_presence", confidence)
             desc += f" - pattern consistent with {indicator_type.replace('_', ' ')}"
-        elif indicator_type == 'audio_capable':
-            desc = generate_hedged_statement(
-                "Device characteristics",
-                'surveillance_indicator',
-                confidence
-            )
+        elif indicator_type == "audio_capable":
+            desc = generate_hedged_statement("Device characteristics", "surveillance_indicator", confidence)
             desc += " - audio-capable device type identified"
-        elif indicator_type in ('hidden_identity', 'hidden_ssid'):
-            desc = generate_hedged_statement(
-                "Network configuration",
-                'surveillance_indicator',
-                confidence
-            )
+        elif indicator_type in ("hidden_identity", "hidden_ssid"):
+            desc = generate_hedged_statement("Network configuration", "surveillance_indicator", confidence)
             desc += " - concealed identity pattern observed"
         else:
-            desc = generate_hedged_statement(
-                f"{protocol} signal pattern",
-                'device_presence',
-                confidence
-            )
+            desc = generate_hedged_statement(f"{protocol} signal pattern", "device_presence", confidence)
 
         if len(indicators) > 1:
             desc += f" (+{len(indicators) - 1} additional indicators)"
@@ -741,58 +719,52 @@ class TSCMReportBuilder:
 
     def _classify_finding_signal(self, profile: dict) -> dict:
         """Extract signal classification data for a finding."""
-        rssi = profile.get('rssi_mean') or profile.get('rssi')
-        duration = profile.get('observation_duration_seconds')
-        observation_count = profile.get('observation_count', 1)
+        rssi = profile.get("rssi_mean") or profile.get("rssi")
+        duration = profile.get("observation_duration_seconds")
+        observation_count = profile.get("observation_count", 1)
 
         assessment = assess_signal(rssi, duration, observation_count)
 
         return {
-            'signal_strength': assessment.signal_strength.value,
-            'signal_confidence': assessment.confidence.value,
-            'signal_interpretation': assessment.interpretation,
-            'signal_caveats': assessment.caveats,
+            "signal_strength": assessment.signal_strength.value,
+            "signal_confidence": assessment.confidence.value,
+            "signal_interpretation": assessment.interpretation,
+            "signal_caveats": assessment.caveats,
         }
 
     def _get_playbook_reference(self, profile: dict) -> str:
         """Get playbook reference based on profile."""
-        risk_level = profile.get('risk_level', 'informational')
-        indicators = profile.get('indicators', [])
+        risk_level = profile.get("risk_level", "informational")
+        indicators = profile.get("indicators", [])
 
         # Check for tracker
-        tracker_types = ['airtag_detected', 'tile_detected', 'smarttag_detected', 'known_tracker']
-        if any(i.get('type') in tracker_types for i in indicators) and risk_level == 'high_interest':
-            return 'PB-001 (Tracker Detection)'
+        tracker_types = ["airtag_detected", "tile_detected", "smarttag_detected", "known_tracker"]
+        if any(i.get("type") in tracker_types for i in indicators) and risk_level == "high_interest":
+            return "PB-001 (Tracker Detection)"
 
-        if risk_level == 'high_interest':
-            return 'PB-002 (Suspicious Device)'
-        elif risk_level in ['review', 'needs_review']:
-            return 'PB-003 (Unknown Device)'
+        if risk_level == "high_interest":
+            return "PB-002 (Suspicious Device)"
+        elif risk_level in ["review", "needs_review"]:
+            return "PB-003 (Unknown Device)"
 
-        return ''
+        return ""
 
     def add_meeting_summary(self, summary: dict) -> TSCMReportBuilder:
         """Add meeting window summary."""
         meeting = ReportMeetingSummary(
-            name=summary.get('name'),
-            start_time=summary.get('start_time', ''),
-            end_time=summary.get('end_time'),
-            duration_minutes=summary.get('duration_minutes', 0),
-            devices_first_seen=summary.get('devices_first_seen', 0),
-            behavior_changes=summary.get('behavior_changes', 0),
-            high_interest_devices=summary.get('high_interest_devices', 0),
+            name=summary.get("name"),
+            start_time=summary.get("start_time", ""),
+            end_time=summary.get("end_time"),
+            duration_minutes=summary.get("duration_minutes", 0),
+            devices_first_seen=summary.get("devices_first_seen", 0),
+            behavior_changes=summary.get("behavior_changes", 0),
+            high_interest_devices=summary.get("high_interest_devices", 0),
         )
         self.report.meeting_summaries.append(meeting)
         return self
 
     def add_statistics(
-        self,
-        wifi: int = 0,
-        wifi_clients: int = 0,
-        bluetooth: int = 0,
-        rf: int = 0,
-        new: int = 0,
-        missing: int = 0
+        self, wifi: int = 0, wifi_clients: int = 0, bluetooth: int = 0, rf: int = 0, new: int = 0, missing: int = 0
     ) -> TSCMReportBuilder:
         self.report.wifi_devices = wifi
         self.report.wifi_clients = wifi_clients
@@ -824,17 +796,16 @@ class TSCMReportBuilder:
         # Calculate overall risk assessment
         if self.report.high_interest_findings:
             if len(self.report.high_interest_findings) >= 3:
-                self.report.overall_risk_assessment = 'high'
+                self.report.overall_risk_assessment = "high"
             else:
-                self.report.overall_risk_assessment = 'elevated'
+                self.report.overall_risk_assessment = "elevated"
         elif self.report.needs_review_findings:
-            self.report.overall_risk_assessment = 'moderate'
+            self.report.overall_risk_assessment = "moderate"
         else:
-            self.report.overall_risk_assessment = 'low'
+            self.report.overall_risk_assessment = "low"
 
-        self.report.key_findings_count = (
-            len(self.report.high_interest_findings) +
-            len(self.report.needs_review_findings)
+        self.report.key_findings_count = len(self.report.high_interest_findings) + len(
+            self.report.needs_review_findings
         )
 
         # Generate executive summary
@@ -847,6 +818,7 @@ class TSCMReportBuilder:
 # Report Generation API Functions
 # =============================================================================
 
+
 def generate_report(
     sweep_id: int,
     sweep_data: dict,
@@ -857,8 +829,8 @@ def generate_report(
     meeting_summaries: list[dict] | None = None,
     correlations: list[dict] | None = None,
     categories: list[str] | None = None,
-    site_name: str = '',
-    examiner_name: str = '',
+    site_name: str = "",
+    examiner_name: str = "",
 ) -> TSCMReport:
     """
     Generate a complete TSCM report from sweep data.
@@ -879,20 +851,20 @@ def generate_report(
     builder = TSCMReportBuilder(sweep_id)
 
     # Basic info
-    builder.set_sweep_type(sweep_data.get('sweep_type', 'standard'))
+    builder.set_sweep_type(sweep_data.get("sweep_type", "standard"))
     if site_name:
         builder.set_location(site_name)
     if examiner_name:
         builder.set_examiner(examiner_name)
 
     # Parse times
-    started_at = sweep_data.get('started_at')
-    completed_at = sweep_data.get('completed_at')
+    started_at = sweep_data.get("started_at")
+    completed_at = sweep_data.get("completed_at")
     if started_at:
         if isinstance(started_at, str):
-            started_at = datetime.fromisoformat(started_at.replace('Z', '+00:00')).replace(tzinfo=None)
+            started_at = datetime.fromisoformat(started_at.replace("Z", "+00:00")).replace(tzinfo=None)
         if completed_at and isinstance(completed_at, str):
-            completed_at = datetime.fromisoformat(completed_at.replace('Z', '+00:00')).replace(tzinfo=None)
+            completed_at = datetime.fromisoformat(completed_at.replace("Z", "+00:00")).replace(tzinfo=None)
         builder.set_sweep_times(started_at, completed_at)
 
     # Capabilities
@@ -900,43 +872,40 @@ def generate_report(
 
     # Apply category filter before building findings
     if categories:
-        _cat_map = {'needs_review': {'review', 'needs_review'}}
+        _cat_map = {"needs_review": {"review", "needs_review"}}
         allowed = set()
         for c in categories:
             allowed |= _cat_map.get(c, {c})
-        device_profiles = [
-            p for p in device_profiles
-            if p.get('risk_level', 'informational') in allowed
-        ]
+        device_profiles = [p for p in device_profiles if p.get("risk_level", "informational") in allowed]
 
     # Add findings from profiles
     builder.add_findings_from_profiles(device_profiles)
 
     # Statistics
-    results = sweep_data.get('results', {})
-    wifi_count = results.get('wifi_count')
+    results = sweep_data.get("results", {})
+    wifi_count = results.get("wifi_count")
     if wifi_count is None:
-        wifi_count = len(results.get('wifi_devices', results.get('wifi', [])))
+        wifi_count = len(results.get("wifi_devices", results.get("wifi", [])))
 
-    wifi_client_count = results.get('wifi_client_count')
+    wifi_client_count = results.get("wifi_client_count")
     if wifi_client_count is None:
-        wifi_client_count = len(results.get('wifi_clients', []))
+        wifi_client_count = len(results.get("wifi_clients", []))
 
-    bt_count = results.get('bt_count')
+    bt_count = results.get("bt_count")
     if bt_count is None:
-        bt_count = len(results.get('bt_devices', results.get('bluetooth', [])))
+        bt_count = len(results.get("bt_devices", results.get("bluetooth", [])))
 
-    rf_count = results.get('rf_count')
+    rf_count = results.get("rf_count")
     if rf_count is None:
-        rf_count = len(results.get('rf_signals', results.get('rf', [])))
+        rf_count = len(results.get("rf_signals", results.get("rf", [])))
 
     builder.add_statistics(
         wifi=wifi_count,
         wifi_clients=wifi_client_count,
         bluetooth=bt_count,
         rf=rf_count,
-        new=baseline_diff.get('summary', {}).get('new_devices', 0) if baseline_diff else 0,
-        missing=baseline_diff.get('summary', {}).get('missing_devices', 0) if baseline_diff else 0,
+        new=baseline_diff.get("summary", {}).get("new_devices", 0) if baseline_diff else 0,
+        missing=baseline_diff.get("summary", {}).get("missing_devices", 0) if baseline_diff else 0,
     )
 
     # Technical data
@@ -955,12 +924,8 @@ def generate_report(
     # Extract all indicators
     all_indicators = []
     for profile in device_profiles:
-        for ind in profile.get('indicators', []):
-            all_indicators.append({
-                'device': profile.get('identifier'),
-                'protocol': profile.get('protocol'),
-                **ind
-            })
+        for ind in profile.get("indicators", []):
+            all_indicators.append({"device": profile.get("identifier"), "protocol": profile.get("protocol"), **ind})
     builder.add_all_indicators(all_indicators)
 
     return builder.build()

@@ -49,30 +49,30 @@ def test_auto_connect_attaches_callbacks_when_reader_already_running(client, mon
             self.sky_callbacks.append(callback)
 
     reader = FakeReader()
-    monkeypatch.setattr(gps_routes, 'get_gps_reader', lambda: reader)
+    monkeypatch.setattr(gps_routes, "get_gps_reader", lambda: reader)
 
     with client.session_transaction() as sess:
-        sess['logged_in'] = True
+        sess["logged_in"] = True
 
-    response = client.post('/gps/auto-connect')
+    response = client.post("/gps/auto-connect")
     payload = response.get_json()
 
     assert response.status_code == 200
-    assert payload['status'] == 'connected'
+    assert payload["status"] == "connected"
     assert reader.position_callbacks == [gps_routes._position_callback]
     assert reader.sky_callbacks == [gps_routes._sky_callback]
 
 
 def test_satellites_returns_waiting_when_reader_not_running(client, monkeypatch):
     """Satellite endpoint should return a non-error waiting state when reader is down."""
-    monkeypatch.setattr(gps_routes, 'get_gps_reader', lambda: None)
+    monkeypatch.setattr(gps_routes, "get_gps_reader", lambda: None)
 
     with client.session_transaction() as sess:
-        sess['logged_in'] = True
+        sess["logged_in"] = True
 
-    response = client.get('/gps/satellites')
+    response = client.get("/gps/satellites")
     payload = response.get_json()
 
     assert response.status_code == 200
-    assert payload['status'] == 'waiting'
-    assert payload['running'] is False
+    assert payload["status"] == "waiting"
+    assert payload["running"] is False

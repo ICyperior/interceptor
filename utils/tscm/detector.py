@@ -20,33 +20,48 @@ from utils.tscm.signal_classification import (
     get_signal_strength_info,
 )
 
-logger = logging.getLogger('intercept.tscm.detector')
+logger = logging.getLogger("intercept.tscm.detector")
 
 # Classification levels for TSCM devices
 CLASSIFICATION_LEVELS = {
-    'informational': {
-        'color': '#00cc00',  # Green
-        'label': 'Informational',
-        'description': 'Known device, expected infrastructure, or background noise',
+    "informational": {
+        "color": "#00cc00",  # Green
+        "label": "Informational",
+        "description": "Known device, expected infrastructure, or background noise",
     },
-    'review': {
-        'color': '#ffcc00',  # Yellow
-        'label': 'Needs Review',
-        'description': 'Unknown device requiring investigation',
+    "review": {
+        "color": "#ffcc00",  # Yellow
+        "label": "Needs Review",
+        "description": "Unknown device requiring investigation",
     },
-    'high_interest': {
-        'color': '#ff3333',  # Red
-        'label': 'High Interest',
-        'description': 'Suspicious device requiring immediate attention',
+    "high_interest": {
+        "color": "#ff3333",  # Red
+        "label": "High Interest",
+        "description": "Suspicious device requiring immediate attention",
     },
 }
 
 # BLE device types that can transmit audio (potential bugs)
 AUDIO_CAPABLE_BLE_NAMES = [
-    'headphone', 'headset', 'earphone', 'earbud', 'speaker',
-    'audio', 'mic', 'microphone', 'airpod', 'buds',
-    'jabra', 'bose', 'sony wf', 'sony wh', 'beats',
-    'jbl', 'soundcore', 'anker', 'skullcandy',
+    "headphone",
+    "headset",
+    "earphone",
+    "earbud",
+    "speaker",
+    "audio",
+    "mic",
+    "microphone",
+    "airpod",
+    "buds",
+    "jabra",
+    "bose",
+    "sony wf",
+    "sony wh",
+    "beats",
+    "jbl",
+    "soundcore",
+    "anker",
+    "skullcandy",
 ]
 
 # Device history for tracking repeat detections across scans
@@ -62,10 +77,7 @@ def _record_device_seen(identifier: str) -> int:
 
     # Clean old entries
     cutoff = now.timestamp() - (_history_window_hours * 3600)
-    _device_history[identifier] = [
-        dt for dt in _device_history[identifier]
-        if dt.timestamp() > cutoff
-    ]
+    _device_history[identifier] = [dt for dt in _device_history[identifier] if dt.timestamp() > cutoff]
 
     _device_history[identifier].append(now)
     return len(_device_history[identifier])
@@ -80,7 +92,7 @@ def _is_audio_capable_ble(name: str | None, device_type: str | None = None) -> b
                 return True
     if device_type:
         type_lower = device_type.lower()
-        if any(t in type_lower for t in ['audio', 'headset', 'headphone', 'speaker']):
+        if any(t in type_lower for t in ["audio", "headset", "headphone", "speaker"]):
             return True
     return False
 
@@ -108,27 +120,27 @@ class ThreatDetector:
     def _load_baseline(self, baseline: dict) -> None:
         """Load baseline device identifiers for comparison."""
         # WiFi networks and clients
-        for network in baseline.get('wifi_networks', []):
-            if 'bssid' in network:
-                self.baseline_wifi_macs.add(network['bssid'].upper())
-            if 'clients' in network:
-                for client in network['clients']:
-                    if 'mac' in client:
-                        self.baseline_wifi_macs.add(client['mac'].upper())
+        for network in baseline.get("wifi_networks", []):
+            if "bssid" in network:
+                self.baseline_wifi_macs.add(network["bssid"].upper())
+            if "clients" in network:
+                for client in network["clients"]:
+                    if "mac" in client:
+                        self.baseline_wifi_macs.add(client["mac"].upper())
 
-        for client in baseline.get('wifi_clients', []):
-            if 'mac' in client:
-                self.baseline_wifi_macs.add(client['mac'].upper())
+        for client in baseline.get("wifi_clients", []):
+            if "mac" in client:
+                self.baseline_wifi_macs.add(client["mac"].upper())
 
         # Bluetooth devices
-        for device in baseline.get('bt_devices', []):
-            if 'mac' in device:
-                self.baseline_bt_macs.add(device['mac'].upper())
+        for device in baseline.get("bt_devices", []):
+            if "mac" in device:
+                self.baseline_bt_macs.add(device["mac"].upper())
 
         # RF frequencies (rounded to nearest 0.1 MHz)
-        for freq in baseline.get('rf_frequencies', []):
+        for freq in baseline.get("rf_frequencies", []):
             if isinstance(freq, dict):
-                self.baseline_rf_freqs.add(round(freq.get('frequency', 0), 1))
+                self.baseline_rf_freqs.add(round(freq.get("frequency", 0), 1))
             else:
                 self.baseline_rf_freqs.add(round(freq, 1))
 
@@ -144,31 +156,31 @@ class ThreatDetector:
         Returns:
             Dict with 'classification', 'reasons', and metadata
         """
-        mac = device.get('bssid', device.get('mac', '')).upper()
-        ssid = device.get('essid', device.get('ssid', ''))
-        signal = device.get('power', device.get('signal', -100))
+        mac = device.get("bssid", device.get("mac", "")).upper()
+        ssid = device.get("essid", device.get("ssid", ""))
+        signal = device.get("power", device.get("signal", -100))
 
         reasons = []
-        classification = 'informational'
+        classification = "informational"
 
         # Track repeat detections
-        times_seen = _record_device_seen(f'wifi:{mac}') if mac else 1
+        times_seen = _record_device_seen(f"wifi:{mac}") if mac else 1
 
         # Check if in baseline (known device)
         in_baseline = mac in self.baseline_wifi_macs if self.baseline else False
 
         if in_baseline:
-            reasons.append('Known device in baseline')
-            classification = 'informational'
+            reasons.append("Known device in baseline")
+            classification = "informational"
         else:
             # New/unknown device
-            reasons.append('New WiFi access point')
-            classification = 'review'
+            reasons.append("New WiFi access point")
+            classification = "review"
 
             # Check for suspicious patterns -> high interest
             if is_potential_camera(ssid=ssid, mac=mac):
-                reasons.append('Matches camera device patterns')
-                classification = 'high_interest'
+                reasons.append("Matches camera device patterns")
+                classification = "high_interest"
 
             try:
                 signal_val = int(signal) if signal else -100
@@ -177,27 +189,27 @@ class ThreatDetector:
 
             # Use standardized signal classification
             signal_info = get_signal_strength_info(signal_val)
-            if not ssid and signal_info['strength'] in ('strong', 'very_strong'):
+            if not ssid and signal_info["strength"] in ("strong", "very_strong"):
                 reasons.append(f"Hidden SSID with {signal_info['label'].lower()} signal")
-                classification = 'high_interest'
+                classification = "high_interest"
 
             # Repeat detections across scans
             if times_seen >= 3:
-                reasons.append(f'Repeat detection ({times_seen} times)')
-                if classification != 'high_interest':
-                    classification = 'high_interest'
+                reasons.append(f"Repeat detection ({times_seen} times)")
+                if classification != "high_interest":
+                    classification = "high_interest"
 
         # Include standardized signal classification
         signal_info = get_signal_strength_info(signal_val)
 
         return {
-            'classification': classification,
-            'reasons': reasons,
-            'in_baseline': in_baseline,
-            'times_seen': times_seen,
-            'signal_strength': signal_info['strength'],
-            'signal_label': signal_info['label'],
-            'signal_confidence': signal_info['confidence'],
+            "classification": classification,
+            "reasons": reasons,
+            "in_baseline": in_baseline,
+            "times_seen": times_seen,
+            "signal_strength": signal_info["strength"],
+            "signal_label": signal_info["label"],
+            "signal_confidence": signal_info["confidence"],
         }
 
     def classify_bt_device(self, device: dict) -> dict:
@@ -209,33 +221,33 @@ class ThreatDetector:
         Returns:
             Dict with 'classification', 'reasons', and metadata
         """
-        mac = device.get('mac', device.get('address', '')).upper()
-        name = device.get('name', '')
-        rssi = device.get('rssi', device.get('signal', -100))
-        device_type = device.get('type', '')
-        manufacturer_data = device.get('manufacturer_data')
+        mac = device.get("mac", device.get("address", "")).upper()
+        name = device.get("name", "")
+        rssi = device.get("rssi", device.get("signal", -100))
+        device_type = device.get("type", "")
+        manufacturer_data = device.get("manufacturer_data")
 
         reasons = []
-        classification = 'informational'
+        classification = "informational"
 
         # Track repeat detections
-        times_seen = _record_device_seen(f'bt:{mac}') if mac else 1
+        times_seen = _record_device_seen(f"bt:{mac}") if mac else 1
 
         # Check if in baseline (known device)
         in_baseline = mac in self.baseline_bt_macs if self.baseline else False
 
         # Use v2 tracker detection data if available (from get_tscm_bluetooth_snapshot)
-        tracker_data = device.get('tracker', {})
-        is_tracker_v2 = tracker_data.get('is_tracker', False)
-        tracker_type_v2 = tracker_data.get('type')
-        tracker_name_v2 = tracker_data.get('name')
-        tracker_confidence_v2 = tracker_data.get('confidence')
-        tracker_evidence_v2 = tracker_data.get('evidence', [])
+        tracker_data = device.get("tracker", {})
+        is_tracker_v2 = tracker_data.get("is_tracker", False)
+        tracker_type_v2 = tracker_data.get("type")
+        tracker_name_v2 = tracker_data.get("name")
+        tracker_confidence_v2 = tracker_data.get("confidence")
+        tracker_evidence_v2 = tracker_data.get("evidence", [])
 
         # Use v2 risk analysis if available
-        risk_data = device.get('risk_analysis', {})
-        risk_score = risk_data.get('risk_score', 0)
-        risk_factors = risk_data.get('risk_factors', [])
+        risk_data = device.get("risk_analysis", {})
+        risk_score = risk_data.get("risk_score", 0)
+        risk_factors = risk_data.get("risk_factors", [])
 
         # Fall back to legacy detection if v2 not available
         tracker_info_legacy = None
@@ -245,23 +257,23 @@ class ThreatDetector:
         is_tracker = is_tracker_v2 or (tracker_info_legacy is not None)
 
         if in_baseline:
-            reasons.append('Known device in baseline')
-            classification = 'informational'
+            reasons.append("Known device in baseline")
+            classification = "informational"
         else:
             # New/unknown BLE device
-            if not name or name == 'Unknown':
-                reasons.append('Unknown BLE device')
-                classification = 'review'
+            if not name or name == "Unknown":
+                reasons.append("Unknown BLE device")
+                classification = "review"
             else:
-                reasons.append('New Bluetooth device')
-                classification = 'review'
+                reasons.append("New Bluetooth device")
+                classification = "review"
 
             # Check for trackers -> high interest
             if is_tracker_v2:
-                tracker_label = tracker_name_v2 or tracker_type_v2 or 'Unknown tracker'
-                conf_label = f' ({tracker_confidence_v2})' if tracker_confidence_v2 else ''
+                tracker_label = tracker_name_v2 or tracker_type_v2 or "Unknown tracker"
+                conf_label = f" ({tracker_confidence_v2})" if tracker_confidence_v2 else ""
                 reasons.append(f"Tracker detected: {tracker_label}{conf_label}")
-                classification = 'high_interest'
+                classification = "high_interest"
 
                 # Add evidence from v2 detection
                 for evidence_item in tracker_evidence_v2[:2]:  # First 2 items
@@ -275,12 +287,12 @@ class ThreatDetector:
 
             elif tracker_info_legacy:
                 reasons.append(f"Known tracker: {tracker_info_legacy.get('name', 'Unknown')}")
-                classification = 'high_interest'
+                classification = "high_interest"
 
             # Check for audio-capable devices -> high interest
             if _is_audio_capable_ble(name, device_type):
-                reasons.append('Audio-capable BLE device')
-                classification = 'high_interest'
+                reasons.append("Audio-capable BLE device")
+                classification = "high_interest"
 
             # Strong signal from unknown device - use standardized classification
             try:
@@ -289,15 +301,15 @@ class ThreatDetector:
                 rssi_val = -100
 
             signal_info = get_signal_strength_info(rssi_val)
-            if signal_info['strength'] in ('strong', 'very_strong') and not name:
+            if signal_info["strength"] in ("strong", "very_strong") and not name:
                 reasons.append(f"{signal_info['label']} signal from unnamed device")
-                classification = 'high_interest'
+                classification = "high_interest"
 
             # Repeat detections across scans
             if times_seen >= 3:
-                reasons.append(f'Repeat detection ({times_seen} times)')
-                if classification != 'high_interest':
-                    classification = 'high_interest'
+                reasons.append(f"Repeat detection ({times_seen} times)")
+                if classification != "high_interest":
+                    classification = "high_interest"
 
         # Include standardized signal classification
         try:
@@ -307,19 +319,19 @@ class ThreatDetector:
         signal_info = get_signal_strength_info(rssi_val)
 
         return {
-            'classification': classification,
-            'reasons': reasons,
-            'in_baseline': in_baseline,
-            'times_seen': times_seen,
-            'is_tracker': is_tracker,
-            'tracker_type': tracker_type_v2,
-            'tracker_name': tracker_name_v2,
-            'tracker_confidence': tracker_confidence_v2,
-            'risk_score': risk_score,
-            'is_audio_capable': _is_audio_capable_ble(name, device_type),
-            'signal_strength': signal_info['strength'],
-            'signal_label': signal_info['label'],
-            'signal_confidence': signal_info['confidence'],
+            "classification": classification,
+            "reasons": reasons,
+            "in_baseline": in_baseline,
+            "times_seen": times_seen,
+            "is_tracker": is_tracker,
+            "tracker_type": tracker_type_v2,
+            "tracker_name": tracker_name_v2,
+            "tracker_confidence": tracker_confidence_v2,
+            "risk_score": risk_score,
+            "is_audio_capable": _is_audio_capable_ble(name, device_type),
+            "signal_strength": signal_info["strength"],
+            "signal_label": signal_info["label"],
+            "signal_confidence": signal_info["confidence"],
         }
 
     def classify_rf_signal(self, signal: dict) -> dict:
@@ -329,16 +341,16 @@ class ThreatDetector:
         Returns:
             Dict with 'classification', 'reasons', and metadata
         """
-        frequency = signal.get('frequency', 0)
-        power = signal.get('power', signal.get('level', -100))
-        signal.get('band', '')
+        frequency = signal.get("frequency", 0)
+        power = signal.get("power", signal.get("level", -100))
+        signal.get("band", "")
 
         reasons = []
-        classification = 'informational'
+        classification = "informational"
         freq_rounded = round(frequency, 1)
 
         # Track repeat detections
-        times_seen = _record_device_seen(f'rf:{freq_rounded}')
+        times_seen = _record_device_seen(f"rf:{freq_rounded}")
 
         # Check if in baseline (known frequency)
         in_baseline = freq_rounded in self.baseline_rf_freqs if self.baseline else False
@@ -347,33 +359,33 @@ class ThreatDetector:
         risk, band_name = get_frequency_risk(frequency)
 
         if in_baseline:
-            reasons.append('Known frequency in baseline')
-            classification = 'informational'
+            reasons.append("Known frequency in baseline")
+            classification = "informational"
         else:
             # New/unidentified RF carrier
-            reasons.append(f'Unidentified RF carrier in {band_name}')
+            reasons.append(f"Unidentified RF carrier in {band_name}")
 
-            if risk == 'low':
-                reasons.append('Background RF noise band')
-                classification = 'review'
-            elif risk == 'medium':
-                reasons.append('ISM band signal')
-                classification = 'review'
-            elif risk in ['high', 'critical']:
-                reasons.append(f'High-risk surveillance band: {band_name}')
-                classification = 'high_interest'
+            if risk == "low":
+                reasons.append("Background RF noise band")
+                classification = "review"
+            elif risk == "medium":
+                reasons.append("ISM band signal")
+                classification = "review"
+            elif risk in ["high", "critical"]:
+                reasons.append(f"High-risk surveillance band: {band_name}")
+                classification = "high_interest"
 
             # Strong persistent signal - use standardized classification
             if power:
                 power_info = get_signal_strength_info(float(power))
-                if power_info['strength'] in ('strong', 'very_strong'):
+                if power_info["strength"] in ("strong", "very_strong"):
                     reasons.append(f"{power_info['label']} persistent transmitter")
-                    classification = 'high_interest'
+                    classification = "high_interest"
 
             # Repeat detections (persistent transmitter)
             if times_seen >= 2:
-                reasons.append(f'Persistent transmitter ({times_seen} detections)')
-                classification = 'high_interest'
+                reasons.append(f"Persistent transmitter ({times_seen} detections)")
+                classification = "high_interest"
 
         # Include standardized signal classification
         try:
@@ -383,15 +395,15 @@ class ThreatDetector:
         signal_info = get_signal_strength_info(power_val)
 
         return {
-            'classification': classification,
-            'reasons': reasons,
-            'in_baseline': in_baseline,
-            'times_seen': times_seen,
-            'risk_level': risk,
-            'band_name': band_name,
-            'signal_strength': signal_info['strength'],
-            'signal_label': signal_info['label'],
-            'signal_confidence': signal_info['confidence'],
+            "classification": classification,
+            "reasons": reasons,
+            "in_baseline": in_baseline,
+            "times_seen": times_seen,
+            "risk_level": risk,
+            "band_name": band_name,
+            "signal_strength": signal_info["strength"],
+            "signal_label": signal_info["label"],
+            "signal_confidence": signal_info["confidence"],
         }
 
     def analyze_wifi_device(self, device: dict) -> dict | None:
@@ -404,28 +416,32 @@ class ThreatDetector:
         Returns:
             Threat dict if threat detected, None otherwise
         """
-        mac = device.get('bssid', device.get('mac', '')).upper()
-        ssid = device.get('essid', device.get('ssid', ''))
-        vendor = device.get('vendor', '')
-        signal = device.get('power', device.get('signal', -100))
+        mac = device.get("bssid", device.get("mac", "")).upper()
+        ssid = device.get("essid", device.get("ssid", ""))
+        vendor = device.get("vendor", "")
+        signal = device.get("power", device.get("signal", -100))
 
         threats = []
 
         # Check if new device (not in baseline)
         if self.baseline and mac and mac not in self.baseline_wifi_macs:
-            threats.append({
-                'type': 'new_device',
-                'severity': get_threat_severity('new_device', {'signal_strength': signal}),
-                'reason': 'Device not present in baseline',
-            })
+            threats.append(
+                {
+                    "type": "new_device",
+                    "severity": get_threat_severity("new_device", {"signal_strength": signal}),
+                    "reason": "Device not present in baseline",
+                }
+            )
 
         # Check for hidden camera patterns
         if is_potential_camera(ssid=ssid, mac=mac, vendor=vendor):
-            threats.append({
-                'type': 'hidden_camera',
-                'severity': get_threat_severity('hidden_camera', {'signal_strength': signal}),
-                'reason': 'Device matches WiFi camera patterns',
-            })
+            threats.append(
+                {
+                    "type": "hidden_camera",
+                    "severity": get_threat_severity("hidden_camera", {"signal_strength": signal}),
+                    "reason": "Device matches WiFi camera patterns",
+                }
+            )
 
         # Check for hidden SSID with strong signal - use standardized classification
         try:
@@ -434,31 +450,33 @@ class ThreatDetector:
             signal_int = -100
 
         signal_info = get_signal_strength_info(signal_int)
-        if not ssid and signal_info['strength'] in ('strong', 'very_strong'):
-            threats.append({
-                'type': 'anomaly',
-                'severity': 'medium',
-                'reason': f"Hidden SSID with {signal_info['label'].lower()} signal",
-            })
+        if not ssid and signal_info["strength"] in ("strong", "very_strong"):
+            threats.append(
+                {
+                    "type": "anomaly",
+                    "severity": "medium",
+                    "reason": f"Hidden SSID with {signal_info['label'].lower()} signal",
+                }
+            )
 
         if not threats:
             return None
 
         # Return highest severity threat
-        threats.sort(key=lambda t: ['low', 'medium', 'high', 'critical'].index(t['severity']), reverse=True)
+        threats.sort(key=lambda t: ["low", "medium", "high", "critical"].index(t["severity"]), reverse=True)
 
         return {
-            'threat_type': threats[0]['type'],
-            'severity': threats[0]['severity'],
-            'source': 'wifi',
-            'identifier': mac,
-            'name': ssid or 'Hidden Network',
-            'signal_strength': signal,
-            'details': {
-                'all_threats': threats,
-                'vendor': vendor,
-                'ssid': ssid,
-            }
+            "threat_type": threats[0]["type"],
+            "severity": threats[0]["severity"],
+            "source": "wifi",
+            "identifier": mac,
+            "name": ssid or "Hidden Network",
+            "signal_strength": signal,
+            "details": {
+                "all_threats": threats,
+                "vendor": vendor,
+                "ssid": ssid,
+            },
         }
 
     def analyze_bt_device(self, device: dict) -> dict | None:
@@ -471,46 +489,52 @@ class ThreatDetector:
         Returns:
             Threat dict if threat detected, None otherwise
         """
-        mac = device.get('mac', device.get('address', '')).upper()
-        name = device.get('name', '')
-        rssi = device.get('rssi', device.get('signal', -100))
-        manufacturer = device.get('manufacturer', '')
-        device_type = device.get('type', '')
-        manufacturer_data = device.get('manufacturer_data')
-        tracker_data = device.get('tracker', {}) or {}
+        mac = device.get("mac", device.get("address", "")).upper()
+        name = device.get("name", "")
+        rssi = device.get("rssi", device.get("signal", -100))
+        manufacturer = device.get("manufacturer", "")
+        device_type = device.get("type", "")
+        manufacturer_data = device.get("manufacturer_data")
+        tracker_data = device.get("tracker", {}) or {}
 
         threats = []
 
         # Check if new device (not in baseline)
         if self.baseline and mac and mac not in self.baseline_bt_macs:
-            threats.append({
-                'type': 'new_device',
-                'severity': get_threat_severity('new_device', {'signal_strength': rssi}),
-                'reason': 'Device not present in baseline',
-            })
+            threats.append(
+                {
+                    "type": "new_device",
+                    "severity": get_threat_severity("new_device", {"signal_strength": rssi}),
+                    "reason": "Device not present in baseline",
+                }
+            )
 
         # Check for known trackers (v2 tracker data if available)
-        if tracker_data.get('is_tracker'):
-            tracker_label = tracker_data.get('name') or tracker_data.get('type') or 'Tracker'
-            confidence = str(tracker_data.get('confidence') or '').lower()
-            severity = 'high' if confidence in ('high', 'medium') else 'medium'
-            threats.append({
-                'type': 'tracker',
-                'severity': severity,
-                'reason': f"Tracker detected: {tracker_label}",
-                'tracker_type': tracker_label,
-                'details': tracker_data.get('evidence', []),
-            })
+        if tracker_data.get("is_tracker"):
+            tracker_label = tracker_data.get("name") or tracker_data.get("type") or "Tracker"
+            confidence = str(tracker_data.get("confidence") or "").lower()
+            severity = "high" if confidence in ("high", "medium") else "medium"
+            threats.append(
+                {
+                    "type": "tracker",
+                    "severity": severity,
+                    "reason": f"Tracker detected: {tracker_label}",
+                    "tracker_type": tracker_label,
+                    "details": tracker_data.get("evidence", []),
+                }
+            )
 
         # Check for known trackers (legacy patterns)
         tracker_info = is_known_tracker(name, manufacturer_data)
         if tracker_info:
-            threats.append({
-                'type': 'tracker',
-                'severity': tracker_info.get('risk', 'high'),
-                'reason': f"Known tracker detected: {tracker_info.get('name', 'Unknown')}",
-                'tracker_type': tracker_info.get('name'),
-            })
+            threats.append(
+                {
+                    "type": "tracker",
+                    "severity": tracker_info.get("risk", "high"),
+                    "reason": f"Known tracker detected: {tracker_info.get('name', 'Unknown')}",
+                    "tracker_type": tracker_info.get("name"),
+                }
+            )
 
         # Check for suspicious BLE beacons (unnamed, persistent) - use standardized classification
         try:
@@ -519,31 +543,33 @@ class ThreatDetector:
             rssi_int = -100
 
         signal_info = get_signal_strength_info(rssi_int)
-        if not name and signal_info['strength'] in ('moderate', 'strong', 'very_strong'):
-            threats.append({
-                'type': 'anomaly',
-                'severity': 'medium',
-                'reason': f"Unnamed BLE device with {signal_info['label'].lower()} signal",
-            })
+        if not name and signal_info["strength"] in ("moderate", "strong", "very_strong"):
+            threats.append(
+                {
+                    "type": "anomaly",
+                    "severity": "medium",
+                    "reason": f"Unnamed BLE device with {signal_info['label'].lower()} signal",
+                }
+            )
 
         if not threats:
             return None
 
         # Return highest severity threat
-        threats.sort(key=lambda t: ['low', 'medium', 'high', 'critical'].index(t['severity']), reverse=True)
+        threats.sort(key=lambda t: ["low", "medium", "high", "critical"].index(t["severity"]), reverse=True)
 
         return {
-            'threat_type': threats[0]['type'],
-            'severity': threats[0]['severity'],
-            'source': 'bluetooth',
-            'identifier': mac,
-            'name': name or 'Unknown BLE Device',
-            'signal_strength': rssi,
-            'details': {
-                'all_threats': threats,
-                'manufacturer': manufacturer,
-                'device_type': device_type,
-            }
+            "threat_type": threats[0]["type"],
+            "severity": threats[0]["severity"],
+            "source": "bluetooth",
+            "identifier": mac,
+            "name": name or "Unknown BLE Device",
+            "signal_strength": rssi,
+            "details": {
+                "all_threats": threats,
+                "manufacturer": manufacturer,
+                "device_type": device_type,
+            },
         }
 
     def analyze_rf_signal(self, signal: dict) -> dict | None:
@@ -556,9 +582,9 @@ class ThreatDetector:
         Returns:
             Threat dict if threat detected, None otherwise
         """
-        frequency = signal.get('frequency', 0)
-        level = signal.get('level', signal.get('power', -100))
-        modulation = signal.get('modulation', '')
+        frequency = signal.get("frequency", 0)
+        level = signal.get("level", signal.get("power", -100))
+        modulation = signal.get("modulation", "")
 
         if not frequency:
             return None
@@ -569,47 +595,51 @@ class ThreatDetector:
         # Check if new frequency (not in baseline)
         if self.baseline and freq_rounded not in self.baseline_rf_freqs:
             risk, band_name = get_frequency_risk(frequency)
-            threats.append({
-                'type': 'unknown_signal',
-                'severity': risk,
-                'reason': f'New signal in {band_name}',
-            })
+            threats.append(
+                {
+                    "type": "unknown_signal",
+                    "severity": risk,
+                    "reason": f"New signal in {band_name}",
+                }
+            )
 
         # Check frequency risk even without baseline
         risk, band_name = get_frequency_risk(frequency)
-        if risk in ['high', 'critical']:
-            threats.append({
-                'type': 'unknown_signal',
-                'severity': risk,
-                'reason': f'Signal in high-risk band: {band_name}',
-            })
+        if risk in ["high", "critical"]:
+            threats.append(
+                {
+                    "type": "unknown_signal",
+                    "severity": risk,
+                    "reason": f"Signal in high-risk band: {band_name}",
+                }
+            )
 
         if not threats:
             return None
 
         # Return highest severity threat
-        threats.sort(key=lambda t: ['low', 'medium', 'high', 'critical'].index(t['severity']), reverse=True)
+        threats.sort(key=lambda t: ["low", "medium", "high", "critical"].index(t["severity"]), reverse=True)
 
         return {
-            'threat_type': threats[0]['type'],
-            'severity': threats[0]['severity'],
-            'source': 'rf',
-            'identifier': f'{frequency:.3f} MHz',
-            'name': f'RF Signal @ {frequency:.3f} MHz',
-            'signal_strength': level,
-            'frequency': frequency,
-            'details': {
-                'all_threats': threats,
-                'modulation': modulation,
-                'band_name': band_name,
-            }
+            "threat_type": threats[0]["type"],
+            "severity": threats[0]["severity"],
+            "source": "rf",
+            "identifier": f"{frequency:.3f} MHz",
+            "name": f"RF Signal @ {frequency:.3f} MHz",
+            "signal_strength": level,
+            "frequency": frequency,
+            "details": {
+                "all_threats": threats,
+                "modulation": modulation,
+                "band_name": band_name,
+            },
         }
 
     def analyze_all(
         self,
         wifi_devices: list[dict] | None = None,
         bt_devices: list[dict] | None = None,
-        rf_signals: list[dict] | None = None
+        rf_signals: list[dict] | None = None,
     ) -> list[dict]:
         """
         Analyze all provided devices and signals for threats.
@@ -638,17 +668,13 @@ class ThreatDetector:
                     threats.append(threat)
 
         # Sort by severity (critical first)
-        severity_order = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3}
-        threats.sort(key=lambda t: severity_order.get(t.get('severity', 'low'), 3))
+        severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+        threats.sort(key=lambda t: severity_order.get(t.get("severity", "low"), 3))
 
         return threats
 
 
-def classify_device_threat(
-    source: str,
-    device: dict,
-    baseline: dict | None = None
-) -> dict | None:
+def classify_device_threat(source: str, device: dict, baseline: dict | None = None) -> dict | None:
     """
     Convenience function to classify a single device.
 
@@ -662,11 +688,11 @@ def classify_device_threat(
     """
     detector = ThreatDetector(baseline)
 
-    if source == 'wifi':
+    if source == "wifi":
         return detector.analyze_wifi_device(device)
-    elif source == 'bluetooth':
+    elif source == "bluetooth":
         return detector.analyze_bt_device(device)
-    elif source == 'rf':
+    elif source == "rf":
         return detector.analyze_rf_signal(device)
 
     return None

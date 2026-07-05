@@ -20,15 +20,17 @@ import numpy as np
 
 class PingState(enum.Enum):
     """Detection state machine states."""
-    IDLE = 'idle'
-    DETECTING = 'detecting'
-    ACTIVE = 'active'
-    COOLDOWN = 'cooldown'
+
+    IDLE = "idle"
+    DETECTING = "detecting"
+    ACTIVE = "active"
+    COOLDOWN = "cooldown"
 
 
 @dataclass
 class MeteorEvent:
     """A detected meteor scatter ping."""
+
     id: str
     start_ts: float
     end_ts: float
@@ -164,8 +166,8 @@ class MeteorDetector:
             if self._noise_floor is not None and len(self._noise_floor) == len(window):
                 mask = window < (self._noise_floor + self.snr_threshold_db * 0.5)
                 alpha = self.noise_alpha
-                self._noise_floor[mask] = (
-                    (1 - alpha) * self._noise_floor[mask] + alpha * window[mask].astype(np.float64)
+                self._noise_floor[mask] = (1 - alpha) * self._noise_floor[mask] + alpha * window[mask].astype(
+                    np.float64
                 )
             else:
                 self._noise_floor = window.copy().astype(np.float64)
@@ -262,17 +264,17 @@ class MeteorDetector:
         # Tags
         tags: list[str] = []
         if self._peak_snr >= 20:
-            tags.append('strong')
+            tags.append("strong")
         elif self._peak_snr >= 10:
-            tags.append('moderate')
+            tags.append("moderate")
         else:
-            tags.append('weak')
+            tags.append("weak")
         if duration_ms >= 5000:
-            tags.append('long-duration')
+            tags.append("long-duration")
         elif duration_ms >= 1000:
-            tags.append('medium')
+            tags.append("medium")
         else:
-            tags.append('short')
+            tags.append("short")
 
         event = MeteorEvent(
             id=str(uuid.uuid4())[:8],
@@ -304,13 +306,13 @@ class MeteorDetector:
         pings_last_10min = sum(1 for e in self._events if e.start_ts >= cutoff)
 
         return {
-            'type': 'stats',
-            'state': self._state.value,
-            'pings_total': self._pings_total,
-            'pings_last_10min': pings_last_10min,
-            'strongest_snr': round(self._strongest_snr, 1),
-            'current_noise_floor': round(self._current_noise_floor_db, 1),
-            'uptime_s': round(uptime_s, 1),
+            "type": "stats",
+            "state": self._state.value,
+            "pings_total": self._pings_total,
+            "pings_last_10min": pings_last_10min,
+            "strongest_snr": round(self._strongest_snr, 1),
+            "current_noise_floor": round(self._current_noise_floor_db, 1),
+            "uptime_s": round(uptime_s, 1),
         }
 
     def get_events(self, limit: int = 500) -> list[dict[str, Any]]:
@@ -329,17 +331,37 @@ class MeteorDetector:
         """Export events as CSV string."""
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow([
-            'id', 'start_ts', 'end_ts', 'duration_ms', 'peak_db',
-            'snr_db', 'center_freq_hz', 'peak_freq_hz', 'freq_offset_hz',
-            'confidence', 'tags',
-        ])
+        writer.writerow(
+            [
+                "id",
+                "start_ts",
+                "end_ts",
+                "duration_ms",
+                "peak_db",
+                "snr_db",
+                "center_freq_hz",
+                "peak_freq_hz",
+                "freq_offset_hz",
+                "confidence",
+                "tags",
+            ]
+        )
         for e in self._events:
-            writer.writerow([
-                e.id, e.start_ts, e.end_ts, e.duration_ms, e.peak_db,
-                e.snr_db, e.center_freq_hz, e.peak_freq_hz, e.freq_offset_hz,
-                e.confidence, ';'.join(e.tags),
-            ])
+            writer.writerow(
+                [
+                    e.id,
+                    e.start_ts,
+                    e.end_ts,
+                    e.duration_ms,
+                    e.peak_db,
+                    e.snr_db,
+                    e.center_freq_hz,
+                    e.peak_freq_hz,
+                    e.freq_offset_hz,
+                    e.confidence,
+                    ";".join(e.tags),
+                ]
+            )
         return output.getvalue()
 
     def export_events_json(self) -> str:

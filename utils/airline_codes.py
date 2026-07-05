@@ -119,7 +119,7 @@ IATA_TO_ICAO: dict[str, str] = {
 ICAO_TO_IATA: dict[str, str] = {v: k for k, v in IATA_TO_ICAO.items()}
 
 # Regex to split flight number into airline prefix and numeric part
-_FLIGHT_RE = re.compile(r'^([A-Z]{2,3})(\d+[A-Z]?)$')
+_FLIGHT_RE = re.compile(r"^([A-Z]{2,3})(\d+[A-Z]?)$")
 
 
 def translate_flight(flight: str) -> list[str]:

@@ -20,7 +20,7 @@ from utils.waterfall_fft import (
     quantize_to_uint8,
 )
 
-logger = get_logger('intercept.ground_station.waterfall_consumer')
+logger = get_logger("intercept.ground_station.waterfall_consumer")
 
 FFT_SIZE = 1024
 AVG_COUNT = 4
@@ -52,7 +52,7 @@ class WaterfallConsumer:
         self._start_freq = 0.0
         self._end_freq = 0.0
         self._sample_rate = 0
-        self._buffer = b''
+        self._buffer = b""
         self._required_bytes = 0
         self._frame_interval = 1.0 / max(1, fps)
         self._last_frame_time = 0.0
@@ -80,7 +80,7 @@ class WaterfallConsumer:
         )
         self._required_bytes = required_samples * 2  # 1 byte I + 1 byte Q
         self._frame_interval = 1.0 / max(1, self._fps)
-        self._buffer = b''
+        self._buffer = b""
         self._last_frame_time = 0.0
 
     def on_chunk(self, raw: bytes) -> None:
@@ -91,15 +91,13 @@ class WaterfallConsumer:
         if len(self._buffer) < self._required_bytes:
             return
 
-        chunk = self._buffer[-self._required_bytes:]
-        self._buffer = b''
+        chunk = self._buffer[-self._required_bytes :]
+        self._buffer = b""
         self._last_frame_time = now
 
         try:
             samples = cu8_to_complex(chunk)
-            power_db = compute_power_spectrum(
-                samples, fft_size=self._fft_size, avg_count=self._avg_count
-            )
+            power_db = compute_power_spectrum(samples, fft_size=self._fft_size, avg_count=self._avg_count)
             quantized = quantize_to_uint8(power_db, db_min=self._db_min, db_max=self._db_max)
             frame = build_binary_frame(self._start_freq, self._end_freq, quantized)
         except Exception as e:
@@ -118,4 +116,4 @@ class WaterfallConsumer:
             pass
 
     def on_stop(self) -> None:
-        self._buffer = b''
+        self._buffer = b""

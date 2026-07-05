@@ -8,23 +8,23 @@ from utils.alerts import get_alert_manager
 from utils.recording import get_recording_manager
 from utils.temporal_patterns import get_pattern_detector
 
-IGNORE_TYPES = {'keepalive', 'ping'}
+IGNORE_TYPES = {"keepalive", "ping"}
 
 
 DEVICE_ID_FIELDS = (
-    'device_id',
-    'id',
-    'mac',
-    'mac_address',
-    'address',
-    'bssid',
-    'station_mac',
-    'client_mac',
-    'icao',
-    'callsign',
-    'mmsi',
-    'uuid',
-    'hash',
+    "device_id",
+    "id",
+    "mac",
+    "mac_address",
+    "address",
+    "bssid",
+    "station_mac",
+    "client_mac",
+    "icao",
+    "callsign",
+    "mmsi",
+    "uuid",
+    "hash",
 )
 
 
@@ -54,6 +54,7 @@ def process_event(mode: str, event: dict | Any, event_type: str | None = None) -
         # Alert failures should never break streaming
         pass
 
+
 def _extract_device_id(event: dict) -> str | None:
     for field in DEVICE_ID_FIELDS:
         value = event.get(field)
@@ -63,7 +64,7 @@ def _extract_device_id(event: dict) -> str | None:
         if text:
             return text
 
-    nested_candidates = ('target', 'device', 'source', 'aircraft', 'vessel')
+    nested_candidates = ("target", "device", "source", "aircraft", "vessel")
     for key in nested_candidates:
         nested = event.get(key)
         if isinstance(nested, dict):

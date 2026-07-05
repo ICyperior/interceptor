@@ -12,18 +12,20 @@ from typing import Any
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-logger = logging.getLogger('intercept.aircraft_db')
+logger = logging.getLogger("intercept.aircraft_db")
 
 # Database file location (persisted under data/adsb/ for Docker volume compatibility)
-DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'adsb')
+DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "adsb")
 os.makedirs(DB_DIR, exist_ok=True)
-DB_FILE = os.path.join(DB_DIR, 'aircraft_db.json')
-DB_META_FILE = os.path.join(DB_DIR, 'aircraft_db_meta.json')
+DB_FILE = os.path.join(DB_DIR, "aircraft_db.json")
+DB_META_FILE = os.path.join(DB_DIR, "aircraft_db_meta.json")
 
 # Mictronics database URLs (raw GitHub)
-AIRCRAFT_DB_URL = 'https://raw.githubusercontent.com/Mictronics/readsb-protobuf/dev/webapp/src/db/aircrafts.json'
-TYPES_DB_URL = 'https://raw.githubusercontent.com/Mictronics/readsb-protobuf/dev/webapp/src/db/types.json'
-GITHUB_API_URL = 'https://api.github.com/repos/Mictronics/readsb-protobuf/commits?path=webapp/src/db/aircrafts.json&per_page=1'
+AIRCRAFT_DB_URL = "https://raw.githubusercontent.com/Mictronics/readsb-protobuf/dev/webapp/src/db/aircrafts.json"
+TYPES_DB_URL = "https://raw.githubusercontent.com/Mictronics/readsb-protobuf/dev/webapp/src/db/types.json"
+GITHUB_API_URL = (
+    "https://api.github.com/repos/Mictronics/readsb-protobuf/commits?path=webapp/src/db/aircrafts.json&per_page=1"
+)
 
 # In-memory cache
 _aircraft_cache: dict[str, dict[str, str]] = {}
@@ -41,12 +43,12 @@ def get_db_status() -> dict[str, Any]:
     meta = _load_meta()
 
     return {
-        'installed': exists,
-        'version': meta.get('version') if meta else None,
-        'downloaded': meta.get('downloaded') if meta else None,
-        'aircraft_count': len(_aircraft_cache) if _db_loaded else 0,
-        'update_available': _update_available,
-        'latest_version': _latest_version,
+        "installed": exists,
+        "version": meta.get("version") if meta else None,
+        "downloaded": meta.get("downloaded") if meta else None,
+        "aircraft_count": len(_aircraft_cache) if _db_loaded else 0,
+        "update_available": _update_available,
+        "latest_version": _latest_version,
     }
 
 
@@ -69,10 +71,10 @@ def _save_meta(version: str) -> None:
     """Save database metadata."""
     try:
         meta = {
-            'version': version,
-            'downloaded': datetime.utcnow().isoformat() + 'Z',
+            "version": version,
+            "downloaded": datetime.utcnow().isoformat() + "Z",
         }
-        with open(DB_META_FILE, 'w') as f:
+        with open(DB_META_FILE, "w") as f:
             json.dump(meta, f, indent=2)
     except Exception as e:
         logger.warning(f"Error saving aircraft db meta: {e}")
@@ -91,12 +93,12 @@ def load_database() -> bool:
             with open(DB_FILE) as f:
                 data = json.load(f)
 
-            _aircraft_cache = data.get('aircraft', {})
-            _types_cache = data.get('types', {})
+            _aircraft_cache = data.get("aircraft", {})
+            _types_cache = data.get("types", {})
             _db_loaded = True
 
             meta = _load_meta()
-            _db_version = meta.get('version') if meta else 'unknown'
+            _db_version = meta.get("version") if meta else "unknown"
 
             logger.info(f"Loaded aircraft database: {len(_aircraft_cache)} aircraft, {len(_types_cache)} types")
             return True
@@ -125,22 +127,22 @@ def lookup(icao: str) -> dict[str, str] | None:
         # Database format is array: [registration, type_code, flags, ...]
         # Handle both list format (from Mictronics) and dict format (legacy)
         if isinstance(aircraft, list):
-            reg = aircraft[0] if len(aircraft) > 0 else ''
-            type_code = aircraft[1] if len(aircraft) > 1 else ''
+            reg = aircraft[0] if len(aircraft) > 0 else ""
+            type_code = aircraft[1] if len(aircraft) > 1 else ""
         else:
             # Dict format fallback
-            reg = aircraft.get('r', '')
-            type_code = aircraft.get('t', '')
+            reg = aircraft.get("r", "")
+            type_code = aircraft.get("t", "")
 
         # Look up type description
-        type_desc = ''
+        type_desc = ""
         if type_code and type_code in _types_cache:
             type_desc = _types_cache[type_code]
 
         return {
-            'registration': reg,
-            'type_code': type_code,
-            'type_desc': type_desc,
+            "registration": reg,
+            "type_code": type_code,
+            "type_desc": type_desc,
         }
 
 
@@ -152,34 +154,34 @@ def check_for_updates() -> dict[str, Any]:
     global _update_available, _latest_version
 
     try:
-        req = Request(GITHUB_API_URL, headers={'User-Agent': 'Intercept-SIGINT'})
+        req = Request(GITHUB_API_URL, headers={"User-Agent": "Intercept-SIGINT"})
         with urlopen(req, timeout=10) as response:
-            commits = json.loads(response.read().decode('utf-8'))
+            commits = json.loads(response.read().decode("utf-8"))
 
             if commits and len(commits) > 0:
-                latest_sha = commits[0]['sha'][:8]
-                latest_date = commits[0]['commit']['committer']['date']
+                latest_sha = commits[0]["sha"][:8]
+                latest_date = commits[0]["commit"]["committer"]["date"]
                 _latest_version = f"{latest_date[:10]}_{latest_sha}"
 
                 meta = _load_meta()
-                current_version = meta.get('version') if meta else None
+                current_version = meta.get("version") if meta else None
 
                 _update_available = current_version != _latest_version
 
                 return {
-                    'success': True,
-                    'current_version': current_version,
-                    'latest_version': _latest_version,
-                    'update_available': _update_available,
+                    "success": True,
+                    "current_version": current_version,
+                    "latest_version": _latest_version,
+                    "update_available": _update_available,
                 }
     except URLError as e:
         logger.warning(f"Failed to check for updates: {e}")
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
     except Exception as e:
         logger.warning(f"Error checking for updates: {e}")
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
 
-    return {'success': False, 'error': 'Unknown error'}
+    return {"success": False, "error": "Unknown error"}
 
 
 def download_database(progress_callback=None) -> dict[str, Any]:
@@ -191,43 +193,43 @@ def download_database(progress_callback=None) -> dict[str, Any]:
 
     try:
         if progress_callback:
-            progress_callback('Downloading aircraft database...')
+            progress_callback("Downloading aircraft database...")
 
         # Download aircraft database
-        req = Request(AIRCRAFT_DB_URL, headers={'User-Agent': 'Intercept-SIGINT'})
+        req = Request(AIRCRAFT_DB_URL, headers={"User-Agent": "Intercept-SIGINT"})
         with urlopen(req, timeout=60) as response:
-            aircraft_data = json.loads(response.read().decode('utf-8'))
+            aircraft_data = json.loads(response.read().decode("utf-8"))
 
         if progress_callback:
-            progress_callback('Downloading type codes...')
+            progress_callback("Downloading type codes...")
 
         # Download types database
-        req = Request(TYPES_DB_URL, headers={'User-Agent': 'Intercept-SIGINT'})
+        req = Request(TYPES_DB_URL, headers={"User-Agent": "Intercept-SIGINT"})
         with urlopen(req, timeout=30) as response:
-            types_data = json.loads(response.read().decode('utf-8'))
+            types_data = json.loads(response.read().decode("utf-8"))
 
         if progress_callback:
-            progress_callback('Processing database...')
+            progress_callback("Processing database...")
 
         # Combine into single file
         combined = {
-            'aircraft': aircraft_data,
-            'types': types_data,
+            "aircraft": aircraft_data,
+            "types": types_data,
         }
 
         # Save to file
-        with open(DB_FILE, 'w') as f:
-            json.dump(combined, f, separators=(',', ':'))  # Compact JSON
+        with open(DB_FILE, "w") as f:
+            json.dump(combined, f, separators=(",", ":"))  # Compact JSON
 
         # Get version from GitHub
-        version = datetime.utcnow().strftime('%Y-%m-%d')
+        version = datetime.utcnow().strftime("%Y-%m-%d")
         try:
-            req = Request(GITHUB_API_URL, headers={'User-Agent': 'Intercept-SIGINT'})
+            req = Request(GITHUB_API_URL, headers={"User-Agent": "Intercept-SIGINT"})
             with urlopen(req, timeout=10) as response:
-                commits = json.loads(response.read().decode('utf-8'))
+                commits = json.loads(response.read().decode("utf-8"))
                 if commits:
-                    sha = commits[0]['sha'][:8]
-                    date = commits[0]['commit']['committer']['date'][:10]
+                    sha = commits[0]["sha"][:8]
+                    date = commits[0]["commit"]["committer"]["date"][:10]
                     version = f"{date}_{sha}"
         except Exception:
             pass
@@ -239,17 +241,17 @@ def download_database(progress_callback=None) -> dict[str, Any]:
         load_database()
 
         return {
-            'success': True,
-            'message': f'Downloaded {len(aircraft_data)} aircraft, {len(types_data)} types',
-            'version': version,
+            "success": True,
+            "message": f"Downloaded {len(aircraft_data)} aircraft, {len(types_data)} types",
+            "version": version,
         }
 
     except URLError as e:
         logger.error(f"Download failed: {e}")
-        return {'success': False, 'error': f'Download failed: {e}'}
+        return {"success": False, "error": f"Download failed: {e}"}
     except Exception as e:
         logger.error(f"Error downloading database: {e}")
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}
 
 
 def delete_database() -> dict[str, Any]:
@@ -268,6 +270,6 @@ def delete_database() -> dict[str, Any]:
         if os.path.exists(DB_META_FILE):
             os.remove(DB_META_FILE)
 
-        return {'success': True, 'message': 'Database deleted'}
+        return {"success": True, "message": "Database deleted"}
     except Exception as e:
-        return {'success': False, 'error': str(e)}
+        return {"success": False, "error": str(e)}

@@ -57,6 +57,7 @@ DEAUTH_REASON_CODES = {
 @dataclass
 class DeauthPacketInfo:
     """Information about a captured deauth/disassoc packet."""
+
     timestamp: float
     frame_type: str  # 'deauth' or 'disassoc'
     src_mac: str
@@ -69,6 +70,7 @@ class DeauthPacketInfo:
 @dataclass
 class DeauthTracker:
     """Tracks deauth packets for a specific source/dest/bssid combination."""
+
     packets: list[DeauthPacketInfo] = field(default_factory=list)
     first_seen: float = 0.0
     last_seen: float = 0.0
@@ -100,6 +102,7 @@ class DeauthTracker:
 @dataclass
 class DeauthAlert:
     """A deauthentication attack alert."""
+
     id: str
     timestamp: float
     severity: str  # 'low', 'medium', 'high'
@@ -136,38 +139,38 @@ class DeauthAlert:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'id': self.id,
-            'type': 'deauth_alert',
-            'timestamp': self.timestamp,
-            'severity': self.severity,
-            'attacker': {
-                'mac': self.attacker_mac,
-                'vendor': self.attacker_vendor,
-                'signal_dbm': self.attacker_signal_dbm,
-                'is_spoofed_ap': self.is_spoofed_ap,
+            "id": self.id,
+            "type": "deauth_alert",
+            "timestamp": self.timestamp,
+            "severity": self.severity,
+            "attacker": {
+                "mac": self.attacker_mac,
+                "vendor": self.attacker_vendor,
+                "signal_dbm": self.attacker_signal_dbm,
+                "is_spoofed_ap": self.is_spoofed_ap,
             },
-            'target': {
-                'mac': self.target_mac,
-                'vendor': self.target_vendor,
-                'type': self.target_type,
-                'known_from_scan': self.target_known_from_scan,
+            "target": {
+                "mac": self.target_mac,
+                "vendor": self.target_vendor,
+                "type": self.target_type,
+                "known_from_scan": self.target_known_from_scan,
             },
-            'access_point': {
-                'bssid': self.ap_bssid,
-                'essid': self.ap_essid,
-                'channel': self.ap_channel,
+            "access_point": {
+                "bssid": self.ap_bssid,
+                "essid": self.ap_essid,
+                "channel": self.ap_channel,
             },
-            'attack_info': {
-                'frame_type': self.frame_type,
-                'reason_code': self.reason_code,
-                'reason_text': self.reason_text,
-                'packet_count': self.packet_count,
-                'window_seconds': self.window_seconds,
-                'packets_per_second': self.packets_per_second,
+            "attack_info": {
+                "frame_type": self.frame_type,
+                "reason_code": self.reason_code,
+                "reason_text": self.reason_text,
+                "packet_count": self.packet_count,
+                "window_seconds": self.window_seconds,
+                "packets_per_second": self.packets_per_second,
             },
-            'analysis': {
-                'attack_type': self.attack_type,
-                'description': self.description,
+            "analysis": {
+                "attack_type": self.attack_type,
+                "description": self.description,
             },
         }
 
@@ -226,12 +229,12 @@ class DeauthDetector:
     def stats(self) -> dict:
         """Get detector statistics."""
         return {
-            'is_running': self.is_running,
-            'interface': self.interface,
-            'started_at': self._started_at,
-            'packets_captured': self._packets_captured,
-            'alerts_generated': self._alerts_generated,
-            'active_trackers': len(self._trackers),
+            "is_running": self.is_running,
+            "interface": self.interface,
+            "started_at": self._started_at,
+            "packets_captured": self._packets_captured,
+            "alerts_generated": self._alerts_generated,
+            "active_trackers": len(self._trackers),
         }
 
     def start(self) -> bool:
@@ -299,10 +302,12 @@ class DeauthDetector:
             from scapy.all import Dot11, Dot11Deauth, Dot11Disas, sniff
         except ImportError:
             logger.error("scapy not installed. Install with: pip install scapy")
-            self.event_callback({
-                'type': 'deauth_error',
-                'error': 'scapy not installed',
-            })
+            self.event_callback(
+                {
+                    "type": "deauth_error",
+                    "error": "scapy not installed",
+                }
+            )
             return
 
         logger.info(f"Starting deauth sniff on {self.interface}")
@@ -341,22 +346,28 @@ class DeauthDetector:
         except OSError as e:
             if "No such device" in str(e):
                 logger.error(f"Interface {self.interface} not found")
-                self.event_callback({
-                    'type': 'deauth_error',
-                    'error': f'Interface {self.interface} not found',
-                })
+                self.event_callback(
+                    {
+                        "type": "deauth_error",
+                        "error": f"Interface {self.interface} not found",
+                    }
+                )
             else:
                 logger.exception(f"Sniff error: {e}")
-                self.event_callback({
-                    'type': 'deauth_error',
-                    'error': str(e),
-                })
+                self.event_callback(
+                    {
+                        "type": "deauth_error",
+                        "error": str(e),
+                    }
+                )
         except Exception as e:
             logger.exception(f"Sniff error: {e}")
-            self.event_callback({
-                'type': 'deauth_error',
-                'error': str(e),
-            })
+            self.event_callback(
+                {
+                    "type": "deauth_error",
+                    "error": str(e),
+                }
+            )
 
     def _process_deauth_packet(self, pkt):
         """Process a deauth/disassoc packet and emit alert if threshold exceeded."""
@@ -367,19 +378,19 @@ class DeauthDetector:
 
         # Determine frame type
         if pkt.haslayer(Dot11Deauth):
-            frame_type = 'deauth'
+            frame_type = "deauth"
             reason_code = pkt[Dot11Deauth].reason
         elif pkt.haslayer(Dot11Disas):
-            frame_type = 'disassoc'
+            frame_type = "disassoc"
             reason_code = pkt[Dot11Disas].reason
         else:
             return
 
         # Extract addresses from Dot11 layer
         dot11 = pkt[Dot11]
-        dst_mac = (dot11.addr1 or '').upper()
-        src_mac = (dot11.addr2 or '').upper()
-        bssid = (dot11.addr3 or '').upper()
+        dst_mac = (dot11.addr1 or "").upper()
+        src_mac = (dot11.addr2 or "").upper()
+        bssid = (dot11.addr3 or "").upper()
 
         # Skip if addresses are missing
         if not src_mac or not dst_mac:
@@ -448,11 +459,11 @@ class DeauthDetector:
 
         # Determine severity
         if packet_count >= DEAUTH_CRITICAL_THRESHOLD:
-            severity = 'high'
+            severity = "high"
         elif packet_count >= DEAUTH_ALERT_THRESHOLD * 2.5:
-            severity = 'medium'
+            severity = "medium"
         else:
-            severity = 'low'
+            severity = "low"
 
         # Lookup AP info
         ap_info = self._lookup_ap(bssid)
@@ -461,12 +472,12 @@ class DeauthDetector:
         target_info = self._lookup_device(dst_mac)
 
         # Determine target type
-        if dst_mac == 'FF:FF:FF:FF:FF:FF':
-            target_type = 'broadcast'
+        if dst_mac == "FF:FF:FF:FF:FF:FF":
+            target_type = "broadcast"
         elif dst_mac in self._get_known_aps():
-            target_type = 'ap'
+            target_type = "ap"
         else:
-            target_type = 'client'
+            target_type = "client"
 
         # Check if source is spoofed (matches known AP)
         is_spoofed = self._check_spoofed_source(src_mac)
@@ -482,15 +493,17 @@ class DeauthDetector:
             pps = 0.0
 
         # Determine attack type and description
-        if dst_mac == 'FF:FF:FF:FF:FF:FF':
-            attack_type = 'broadcast'
+        if dst_mac == "FF:FF:FF:FF:FF:FF":
+            attack_type = "broadcast"
             description = "Broadcast deauth flood targeting all clients on the network"
-        elif target_type == 'ap':
-            attack_type = 'ap_flood'
+        elif target_type == "ap":
+            attack_type = "ap_flood"
             description = "Deauth flood targeting access point"
         else:
-            attack_type = 'targeted'
-            description = f"Targeted deauth flood against {'known' if target_info.get('known_from_scan') else 'unknown'} client"
+            attack_type = "targeted"
+            description = (
+                f"Targeted deauth flood against {'known' if target_info.get('known_from_scan') else 'unknown'} client"
+            )
 
         # Get reason code info
         reason_code = latest_pkt.reason_code if latest_pkt else 0
@@ -516,13 +529,13 @@ class DeauthDetector:
             attacker_signal_dbm=signal_dbm,
             is_spoofed_ap=is_spoofed,
             target_mac=dst_mac,
-            target_vendor=target_info.get('vendor'),
+            target_vendor=target_info.get("vendor"),
             target_type=target_type,
-            target_known_from_scan=target_info.get('known_from_scan', False),
+            target_known_from_scan=target_info.get("known_from_scan", False),
             ap_bssid=bssid,
-            ap_essid=ap_info.get('essid'),
-            ap_channel=ap_info.get('channel'),
-            frame_type=latest_pkt.frame_type if latest_pkt else 'deauth',
+            ap_essid=ap_info.get("essid"),
+            ap_channel=ap_info.get("channel"),
+            frame_type=latest_pkt.frame_type if latest_pkt else "deauth",
             reason_code=reason_code,
             reason_text=reason_text,
             packet_count=packet_count,
@@ -535,21 +548,21 @@ class DeauthDetector:
     def _lookup_ap(self, bssid: str) -> dict:
         """Get AP info from current scan data."""
         if not self.get_networks:
-            return {'bssid': bssid, 'essid': None, 'channel': None}
+            return {"bssid": bssid, "essid": None, "channel": None}
 
         try:
             networks = self.get_networks()
             ap = networks.get(bssid.upper())
             if ap:
                 return {
-                    'bssid': bssid,
-                    'essid': ap.get('essid') or ap.get('ssid'),
-                    'channel': ap.get('channel'),
+                    "bssid": bssid,
+                    "essid": ap.get("essid") or ap.get("ssid"),
+                    "channel": ap.get("channel"),
                 }
         except Exception as e:
             logger.debug(f"Error looking up AP {bssid}: {e}")
 
-        return {'bssid': bssid, 'essid': None, 'channel': None}
+        return {"bssid": bssid, "essid": None, "channel": None}
 
     def _lookup_device(self, mac: str) -> dict:
         """Get device info and vendor from MAC."""
@@ -565,9 +578,9 @@ class DeauthDetector:
                 pass
 
         return {
-            'mac': mac,
-            'vendor': vendor,
-            'known_from_scan': known_from_scan,
+            "mac": mac,
+            "vendor": vendor,
+            "known_from_scan": known_from_scan,
         }
 
     def _get_known_aps(self) -> set[str]:
@@ -589,14 +602,16 @@ class DeauthDetector:
         """Get vendor from MAC OUI."""
         try:
             from data.oui import get_manufacturer
+
             vendor = get_manufacturer(mac)
-            return vendor if vendor != 'Unknown' else None
+            return vendor if vendor != "Unknown" else None
         except Exception:
             pass
 
         # Fallback to wifi constants
         try:
             from utils.wifi.constants import get_vendor_from_mac
+
             return get_vendor_from_mac(mac)
         except Exception:
             return None

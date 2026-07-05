@@ -21,10 +21,10 @@ def get_logger(name: str) -> logging.Logger:
 
 
 # Pre-configured loggers for each module
-app_logger = get_logger('intercept')
-pager_logger = get_logger('intercept.pager')
-sensor_logger = get_logger('intercept.sensor')
-wifi_logger = get_logger('intercept.wifi')
-bluetooth_logger = get_logger('intercept.bluetooth')
-adsb_logger = get_logger('intercept.adsb')
-satellite_logger = get_logger('intercept.satellite')
+app_logger = get_logger("intercept")
+pager_logger = get_logger("intercept.pager")
+sensor_logger = get_logger("intercept.sensor")
+wifi_logger = get_logger("intercept.wifi")
+bluetooth_logger = get_logger("intercept.bluetooth")
+adsb_logger = get_logger("intercept.adsb")
+satellite_logger = get_logger("intercept.satellite")

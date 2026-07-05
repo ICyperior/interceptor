@@ -20,14 +20,14 @@ from .sstv_decoder import (
 )
 
 __all__ = [
-    'DecodeProgress',
-    'DopplerInfo',
-    'DopplerTracker',
-    'ISS_SSTV_FREQ',
-    'SSTV_MODES',
-    'SSTVDecoder',
-    'SSTVImage',
-    'get_general_sstv_decoder',
-    'get_sstv_decoder',
-    'is_sstv_available',
+    "DecodeProgress",
+    "DopplerInfo",
+    "DopplerTracker",
+    "ISS_SSTV_FREQ",
+    "SSTV_MODES",
+    "SSTVDecoder",
+    "SSTVImage",
+    "get_general_sstv_decoder",
+    "get_sstv_decoder",
+    "is_sstv_available",
 ]

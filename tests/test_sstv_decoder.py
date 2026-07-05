@@ -62,9 +62,8 @@ from utils.sstv.vis import VISDetector, VISState
 # Helpers
 # ---------------------------------------------------------------------------
 
-def generate_tone(freq: float, duration_s: float,
-                  sample_rate: int = SAMPLE_RATE,
-                  amplitude: float = 0.8) -> np.ndarray:
+
+def generate_tone(freq: float, duration_s: float, sample_rate: int = SAMPLE_RATE, amplitude: float = 0.8) -> np.ndarray:
     """Generate a pure sine tone."""
     t = np.arange(int(duration_s * sample_rate)) / sample_rate
     return amplitude * np.sin(2 * np.pi * freq * t)
@@ -117,6 +116,7 @@ def generate_vis_header(vis_code: int, sample_rate: int = SAMPLE_RATE) -> np.nda
 # ---------------------------------------------------------------------------
 # Goertzel / DSP tests
 # ---------------------------------------------------------------------------
+
 
 class TestGoertzel:
     """Tests for the Goertzel algorithm."""
@@ -257,8 +257,7 @@ class TestGoertzelBatch:
         for i in range(10):
             for j, f in enumerate(freqs):
                 scalar = goertzel(audio_matrix[i], f)
-                assert abs(batch_result[i, j] - scalar) < 1e-6, \
-                    f"Mismatch at pixel {i}, freq {f}"
+                assert abs(batch_result[i, j] - scalar) < 1e-6, f"Mismatch at pixel {i}, freq {f}"
 
     def test_detects_correct_frequency(self):
         """Batch should find peak at the correct frequency for each pixel.
@@ -296,6 +295,7 @@ class TestGoertzelBatch:
 # VIS detection tests
 # ---------------------------------------------------------------------------
 
+
 class TestVISDetector:
     """Tests for VIS header detection."""
 
@@ -317,17 +317,19 @@ class TestVISDetector:
         detector = VISDetector()
         header = generate_vis_header(8)  # Robot36
         # Add some silence before and after
-        audio = np.concatenate([
-            np.zeros(2400),
-            header,
-            np.zeros(2400),
-        ])
+        audio = np.concatenate(
+            [
+                np.zeros(2400),
+                header,
+                np.zeros(2400),
+            ]
+        )
 
         result = detector.feed(audio)
         assert result is not None
         vis_code, mode_name = result
         assert vis_code == 8
-        assert mode_name == 'Robot36'
+        assert mode_name == "Robot36"
 
     def test_detect_martin1(self):
         """Should detect Martin1 VIS code (44)."""
@@ -339,7 +341,7 @@ class TestVISDetector:
         assert result is not None
         vis_code, mode_name = result
         assert vis_code == 44
-        assert mode_name == 'Martin1'
+        assert mode_name == "Martin1"
 
     def test_detect_scottie1(self):
         """Should detect Scottie1 VIS code (60)."""
@@ -351,7 +353,7 @@ class TestVISDetector:
         assert result is not None
         vis_code, mode_name = result
         assert vis_code == 60
-        assert mode_name == 'Scottie1'
+        assert mode_name == "Scottie1"
 
     def test_detect_pd120(self):
         """Should detect PD120 VIS code (95)."""
@@ -363,7 +365,7 @@ class TestVISDetector:
         assert result is not None
         vis_code, mode_name = result
         assert vis_code == 95
-        assert mode_name == 'PD120'
+        assert mode_name == "PD120"
 
     def test_noise_rejection(self):
         """Should not falsely detect VIS in noise."""
@@ -384,7 +386,7 @@ class TestVISDetector:
         result = None
         offset = 0
         while offset < len(audio):
-            chunk = audio[offset:offset + chunk_size]
+            chunk = audio[offset : offset + chunk_size]
             offset += chunk_size
             result = detector.feed(chunk)
             if result is not None:
@@ -393,7 +395,7 @@ class TestVISDetector:
         assert result is not None
         vis_code, mode_name = result
         assert vis_code == 8
-        assert mode_name == 'Robot36'
+        assert mode_name == "Robot36"
 
     def test_noisy_leader_detection(self):
         """Should detect VIS despite intermittent None windows in leader.
@@ -428,15 +430,14 @@ class TestVISDetector:
             else:
                 parts.append(generate_tone(FREQ_VIS_BIT_0, 0.030))
         parity = ones_count % 2
-        parts.append(generate_tone(
-            FREQ_VIS_BIT_1 if parity else FREQ_VIS_BIT_0, 0.030))
+        parts.append(generate_tone(FREQ_VIS_BIT_1 if parity else FREQ_VIS_BIT_0, 0.030))
         parts.append(generate_tone(FREQ_SYNC, 0.030))  # stop bit
 
         audio = np.concatenate([np.zeros(2400)] + parts + [np.zeros(2400)])
         result = detector.feed(audio)
         assert result is not None
         assert result[0] == 8
-        assert result[1] == 'Robot36'
+        assert result[1] == "Robot36"
 
     def test_vis_error_correction_parity_bit(self):
         """Should recover when only the parity bit is corrupted."""
@@ -461,15 +462,14 @@ class TestVISDetector:
         # Wrong parity (flip it)
         correct_parity = ones_count % 2
         wrong_parity = 1 - correct_parity
-        parts.append(generate_tone(
-            FREQ_VIS_BIT_1 if wrong_parity else FREQ_VIS_BIT_0, 0.030))
+        parts.append(generate_tone(FREQ_VIS_BIT_1 if wrong_parity else FREQ_VIS_BIT_0, 0.030))
         parts.append(generate_tone(FREQ_SYNC, 0.030))  # stop bit
 
         audio = np.concatenate([np.zeros(2400)] + parts + [np.zeros(2400)])
         result = detector.feed(audio)
         assert result is not None
         assert result[0] == 44
-        assert result[1] == 'Martin1'
+        assert result[1] == "Martin1"
 
     def test_vis_error_correction_data_bit(self):
         """Should recover Martin1 when one data bit is flipped by HF noise.
@@ -480,7 +480,7 @@ class TestVISDetector:
         correction tries flipping each data bit and finds VIS 44.
         """
         detector = VISDetector()
-        original_code = 44   # Martin1
+        original_code = 44  # Martin1
         corrupted_code = 44 ^ 1  # flip bit 0 → 45
 
         parts = []
@@ -498,22 +498,22 @@ class TestVISDetector:
                 parts.append(generate_tone(FREQ_VIS_BIT_0, 0.030))
 
         # Parity bit computed for the ORIGINAL code (received correctly)
-        original_ones = bin(original_code).count('1')
+        original_ones = bin(original_code).count("1")
         parity = original_ones % 2
-        parts.append(generate_tone(
-            FREQ_VIS_BIT_1 if parity else FREQ_VIS_BIT_0, 0.030))
+        parts.append(generate_tone(FREQ_VIS_BIT_1 if parity else FREQ_VIS_BIT_0, 0.030))
         parts.append(generate_tone(FREQ_SYNC, 0.030))  # stop bit
 
         audio = np.concatenate([np.zeros(2400)] + parts + [np.zeros(2400)])
         result = detector.feed(audio)
         assert result is not None
         assert result[0] == 44
-        assert result[1] == 'Martin1'
+        assert result[1] == "Martin1"
 
 
 # ---------------------------------------------------------------------------
 # Mode spec tests
 # ---------------------------------------------------------------------------
+
 
 class TestModes:
     """Tests for SSTV mode specifications."""
@@ -560,13 +560,13 @@ class TestModes:
 
     def test_get_mode_by_name(self):
         """Should look up modes by name."""
-        mode = get_mode_by_name('Robot36')
+        mode = get_mode_by_name("Robot36")
         assert mode is not None
         assert mode.vis_code == 8
 
     def test_mode_by_name_unknown(self):
         """Unknown mode name should return None."""
-        assert get_mode_by_name('FakeMode') is None
+        assert get_mode_by_name("FakeMode") is None
 
     def test_robot72_spec(self):
         """Robot72 should have 3 channels and full-rate chroma."""
@@ -588,29 +588,33 @@ class TestModes:
         """PD120 channel durations should sum to line_duration minus sync+porch."""
         channel_sum = sum(ch.duration_ms for ch in PD_120.channels)
         expected = PD_120.line_duration_ms - PD_120.sync_duration_ms - PD_120.sync_porch_ms
-        assert abs(channel_sum - expected) < 0.1, \
-            f"PD120 channels sum to {channel_sum}ms, expected {expected}ms"
+        assert abs(channel_sum - expected) < 0.1, f"PD120 channels sum to {channel_sum}ms, expected {expected}ms"
 
     def test_pd180_channel_timings(self):
         """PD180 channel durations should sum to line_duration minus sync+porch."""
         channel_sum = sum(ch.duration_ms for ch in PD_180.channels)
         expected = PD_180.line_duration_ms - PD_180.sync_duration_ms - PD_180.sync_porch_ms
-        assert abs(channel_sum - expected) < 0.1, \
-            f"PD180 channels sum to {channel_sum}ms, expected {expected}ms"
+        assert abs(channel_sum - expected) < 0.1, f"PD180 channels sum to {channel_sum}ms, expected {expected}ms"
 
     def test_robot36_timing_consistency(self):
         """Robot36 total channel + sync + porch + separator should equal line_duration."""
-        total = (ROBOT_36.sync_duration_ms + ROBOT_36.sync_porch_ms
-                 + sum(ch.duration_ms for ch in ROBOT_36.channels)
-                 + ROBOT_36.channel_separator_ms)  # 1 separator for 2 channels
+        total = (
+            ROBOT_36.sync_duration_ms
+            + ROBOT_36.sync_porch_ms
+            + sum(ch.duration_ms for ch in ROBOT_36.channels)
+            + ROBOT_36.channel_separator_ms
+        )  # 1 separator for 2 channels
         assert abs(total - ROBOT_36.line_duration_ms) < 0.1
 
     def test_robot72_timing_consistency(self):
         """Robot72 total should equal line_duration."""
         # 3 channels with 2 separators
-        total = (ROBOT_72.sync_duration_ms + ROBOT_72.sync_porch_ms
-                 + sum(ch.duration_ms for ch in ROBOT_72.channels)
-                 + ROBOT_72.channel_separator_ms * 2)
+        total = (
+            ROBOT_72.sync_duration_ms
+            + ROBOT_72.sync_porch_ms
+            + sum(ch.duration_ms for ch in ROBOT_72.channels)
+            + ROBOT_72.channel_separator_ms * 2
+        )
         assert abs(total - ROBOT_72.line_duration_ms) < 0.1
 
     def test_all_modes_have_positive_dimensions(self):
@@ -625,12 +629,14 @@ class TestModes:
 # Image decoder tests
 # ---------------------------------------------------------------------------
 
+
 class TestImageDecoder:
     """Tests for the SSTV image decoder."""
 
     def test_creates_decoder(self):
         """Should create an image decoder for any supported mode."""
         from utils.sstv.image_decoder import SSTVImageDecoder
+
         decoder = SSTVImageDecoder(ROBOT_36)
         assert decoder.is_complete is False
         assert decoder.current_line == 0
@@ -639,18 +645,20 @@ class TestImageDecoder:
     def test_pd120_dual_luminance_lines(self):
         """PD120 decoder should expect half the image height in audio lines."""
         from utils.sstv.image_decoder import SSTVImageDecoder
+
         decoder = SSTVImageDecoder(PD_120)
         assert decoder.total_lines == 248  # 496 / 2
 
     def test_progress_percent(self):
         """Progress should start at 0."""
         from utils.sstv.image_decoder import SSTVImageDecoder
+
         decoder = SSTVImageDecoder(ROBOT_36)
         assert decoder.progress_percent == 0
 
     def test_synthetic_robot36_decode(self):
         """Should decode a synthetic Robot36 image (all white)."""
-        pytest.importorskip('PIL')
+        pytest.importorskip("PIL")
         from utils.sstv.image_decoder import SSTVImageDecoder
 
         decoder = SSTVImageDecoder(ROBOT_36)
@@ -673,10 +681,7 @@ class TestImageDecoder:
             line_audio = np.concatenate(parts)
             line_samples = samples_for_duration(ROBOT_36.line_duration_ms / 1000.0)
             if len(line_audio) < line_samples:
-                line_audio = np.concatenate([
-                    line_audio,
-                    np.zeros(line_samples - len(line_audio))
-                ])
+                line_audio = np.concatenate([line_audio, np.zeros(line_samples - len(line_audio))])
 
             decoder.feed(line_audio)
 
@@ -687,14 +692,14 @@ class TestImageDecoder:
 
     def test_slant_correction_wraps_rows_without_blank_wedge(self):
         """Slant correction should rotate rows, not introduce black fill."""
-        PIL = pytest.importorskip('PIL')
+        PIL = pytest.importorskip("PIL")
         from utils.sstv.image_decoder import SSTVImageDecoder
 
         decoder = SSTVImageDecoder(SCOTTIE_1)
         decoder._sync_deviations = [float(i * 4) for i in range(SCOTTIE_1.height)]
 
         source = np.full((SCOTTIE_1.height, SCOTTIE_1.width, 3), 128, dtype=np.uint8)
-        img = PIL.Image.fromarray(source, 'RGB')
+        img = PIL.Image.fromarray(source, "RGB")
 
         corrected = decoder._apply_slant_correction(img)
         corrected_arr = np.array(corrected)
@@ -705,14 +710,14 @@ class TestImageDecoder:
 
     def test_slant_correction_skips_implausible_drift(self):
         """Very large estimated drift should be treated as a bad fit and ignored."""
-        PIL = pytest.importorskip('PIL')
+        PIL = pytest.importorskip("PIL")
         from utils.sstv.image_decoder import SSTVImageDecoder
 
         decoder = SSTVImageDecoder(SCOTTIE_1)
         decoder._sync_deviations = [float(i * 40) for i in range(SCOTTIE_1.height)]
 
         source = np.full((SCOTTIE_1.height, SCOTTIE_1.width, 3), 177, dtype=np.uint8)
-        img = PIL.Image.fromarray(source, 'RGB')
+        img = PIL.Image.fromarray(source, "RGB")
 
         corrected = decoder._apply_slant_correction(img)
 
@@ -724,13 +729,14 @@ class TestImageDecoder:
 # SSTVDecoder orchestrator tests
 # ---------------------------------------------------------------------------
 
+
 class TestSSTVDecoder:
     """Tests for the SSTVDecoder orchestrator."""
 
     def test_decoder_available(self):
         """Python decoder should always be available."""
         decoder = SSTVDecoder(output_dir=tempfile.mkdtemp())
-        assert decoder.decoder_available == 'python-sstv'
+        assert decoder.decoder_available == "python-sstv"
 
     def test_is_sstv_available(self):
         """is_sstv_available() should always return True."""
@@ -758,7 +764,7 @@ class TestSSTVDecoder:
         cb = MagicMock()
         decoder.set_callback(cb)
         # Trigger a progress emit
-        decoder._emit_progress(DecodeProgress(status='detecting'))
+        decoder._emit_progress(DecodeProgress(status="detecting"))
         cb.assert_called_once()
 
     def test_get_images_empty(self):
@@ -771,11 +777,11 @@ class TestSSTVDecoder:
         """Should raise FileNotFoundError for missing file."""
         decoder = SSTVDecoder(output_dir=tempfile.mkdtemp())
         with pytest.raises(FileNotFoundError):
-            decoder.decode_file('/nonexistent/audio.wav')
+            decoder.decode_file("/nonexistent/audio.wav")
 
     def test_decode_file_with_synthetic_wav(self):
         """Should process a WAV file through the decode pipeline."""
-        pytest.importorskip('PIL')
+        pytest.importorskip("PIL")
 
         output_dir = tempfile.mkdtemp()
         decoder = SSTVDecoder(output_dir=output_dir)
@@ -795,23 +801,22 @@ class TestSSTVDecoder:
             line_audio = np.concatenate(parts)
             line_samples = samples_for_duration(ROBOT_36.line_duration_ms / 1000.0)
             if len(line_audio) < line_samples:
-                line_audio = np.concatenate([
-                    line_audio,
-                    np.zeros(line_samples - len(line_audio))
-                ])
+                line_audio = np.concatenate([line_audio, np.zeros(line_samples - len(line_audio))])
             image_lines.append(line_audio)
 
-        audio = np.concatenate([
-            np.zeros(4800),  # 100ms silence
-            vis_header,
-            *image_lines,
-            np.zeros(4800),
-        ])
+        audio = np.concatenate(
+            [
+                np.zeros(4800),  # 100ms silence
+                vis_header,
+                *image_lines,
+                np.zeros(4800),
+            ]
+        )
 
         # Write WAV file
-        wav_path = Path(output_dir) / 'test_input.wav'
+        wav_path = Path(output_dir) / "test_input.wav"
         raw_int16 = (audio * 32767).astype(np.int16)
-        with wave.open(str(wav_path), 'wb') as wf:
+        with wave.open(str(wav_path), "wb") as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)
             wf.setframerate(SAMPLE_RATE)
@@ -819,7 +824,7 @@ class TestSSTVDecoder:
 
         images = decoder.decode_file(wav_path)
         assert len(images) >= 1
-        assert images[0].mode == 'Robot36'
+        assert images[0].mode == "Robot36"
         assert Path(images[0].path).exists()
 
 
@@ -827,51 +832,54 @@ class TestSSTVDecoder:
 # Dataclass tests
 # ---------------------------------------------------------------------------
 
+
 class TestDataclasses:
     """Tests for dataclass serialization."""
 
     def test_decode_progress_to_dict(self):
         """DecodeProgress should serialize correctly."""
         progress = DecodeProgress(
-            status='decoding',
-            mode='Robot36',
+            status="decoding",
+            mode="Robot36",
             progress_percent=50,
-            message='Halfway done',
+            message="Halfway done",
         )
         d = progress.to_dict()
-        assert d['type'] == 'sstv_progress'
-        assert d['status'] == 'decoding'
-        assert d['mode'] == 'Robot36'
-        assert d['progress'] == 50
-        assert d['message'] == 'Halfway done'
+        assert d["type"] == "sstv_progress"
+        assert d["status"] == "decoding"
+        assert d["mode"] == "Robot36"
+        assert d["progress"] == 50
+        assert d["message"] == "Halfway done"
 
     def test_decode_progress_minimal(self):
         """DecodeProgress with only status should omit optional fields."""
-        progress = DecodeProgress(status='detecting')
+        progress = DecodeProgress(status="detecting")
         d = progress.to_dict()
-        assert 'mode' not in d
-        assert 'message' not in d
-        assert 'image' not in d
+        assert "mode" not in d
+        assert "message" not in d
+        assert "image" not in d
 
     def test_sstv_image_to_dict(self):
         """SSTVImage should serialize with URL."""
         from datetime import datetime, timezone
+
         image = SSTVImage(
-            filename='test.png',
-            path=Path('/tmp/test.png'),
-            mode='Robot36',
+            filename="test.png",
+            path=Path("/tmp/test.png"),
+            mode="Robot36",
             timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
             frequency=145.800,
             size_bytes=1234,
         )
         d = image.to_dict()
-        assert d['filename'] == 'test.png'
-        assert d['mode'] == 'Robot36'
-        assert d['url'] == '/sstv/images/test.png'
+        assert d["filename"] == "test.png"
+        assert d["mode"] == "Robot36"
+        assert d["url"] == "/sstv/images/test.png"
 
     def test_doppler_info_to_dict(self):
         """DopplerInfo should serialize with rounding."""
         from datetime import datetime, timezone
+
         info = DopplerInfo(
             frequency_hz=145800123.456,
             shift_hz=123.456,
@@ -881,14 +889,15 @@ class TestDataclasses:
             timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
         )
         d = info.to_dict()
-        assert d['shift_hz'] == 123.5
-        assert d['range_rate_km_s'] == -1.235
-        assert d['elevation'] == 45.7
+        assert d["shift_hz"] == 123.5
+        assert d["range_rate_km_s"] == -1.235
+        assert d["elevation"] == 45.7
 
 
 # ---------------------------------------------------------------------------
 # Integration tests
 # ---------------------------------------------------------------------------
+
 
 class TestIntegration:
     """Integration tests verifying the package works as a drop-in replacement."""
@@ -899,35 +908,38 @@ class TestIntegration:
             ISS_SSTV_FREQ,
             is_sstv_available,
         )
+
         assert ISS_SSTV_FREQ == 145.800
         assert is_sstv_available() is True
 
     def test_sstv_modes_constant(self):
         """SSTV_MODES list should be importable."""
         from utils.sstv import SSTV_MODES
-        assert 'Robot36' in SSTV_MODES
-        assert 'Martin1' in SSTV_MODES
-        assert 'PD120' in SSTV_MODES
+
+        assert "Robot36" in SSTV_MODES
+        assert "Martin1" in SSTV_MODES
+        assert "PD120" in SSTV_MODES
 
     def test_decoder_singleton(self):
         """get_sstv_decoder should return a valid decoder."""
         # Reset the global singleton for test isolation
         import utils.sstv.sstv_decoder as mod
+
         old = mod._decoder
         mod._decoder = None
         try:
             decoder = get_sstv_decoder()
             assert decoder is not None
-            assert decoder.decoder_available == 'python-sstv'
+            assert decoder.decoder_available == "python-sstv"
         finally:
             mod._decoder = old
 
-    @patch('subprocess.Popen')
+    @patch("subprocess.Popen")
     def test_start_creates_subprocess(self, mock_popen):
         """start() should create an rtl_fm subprocess."""
         mock_process = MagicMock()
         mock_process.stdout = MagicMock()
-        mock_process.stdout.read = MagicMock(return_value=b'')
+        mock_process.stdout.read = MagicMock(return_value=b"")
         mock_process.stderr = MagicMock()
         mock_popen.return_value = mock_process
 
@@ -939,9 +951,9 @@ class TestIntegration:
         # Verify rtl_fm was called
         mock_popen.assert_called_once()
         cmd = mock_popen.call_args[0][0]
-        assert cmd[0] == 'rtl_fm'
-        assert '-f' in cmd
-        assert '-M' in cmd
+        assert cmd[0] == "rtl_fm"
+        assert "-f" in cmd
+        assert "-M" in cmd
 
         decoder.stop()
         assert decoder.is_running is False

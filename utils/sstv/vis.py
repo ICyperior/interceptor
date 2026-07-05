@@ -40,15 +40,16 @@ VIS_WINDOW = 480
 
 class VISState(enum.Enum):
     """States of the VIS detection state machine."""
-    IDLE = 'idle'
-    LEADER_1 = 'leader_1'
-    BREAK = 'break'
-    LEADER_2 = 'leader_2'
-    START_BIT = 'start_bit'
-    DATA_BITS = 'data_bits'
-    PARITY = 'parity'
-    STOP_BIT = 'stop_bit'
-    DETECTED = 'detected'
+
+    IDLE = "idle"
+    LEADER_1 = "leader_1"
+    BREAK = "break"
+    LEADER_2 = "leader_2"
+    START_BIT = "start_bit"
+    DATA_BITS = "data_bits"
+    PARITY = "parity"
+    STOP_BIT = "stop_bit"
+    DETECTED = "detected"
 
 
 # The four tone classes we need to distinguish in VIS detection.
@@ -56,8 +57,7 @@ _VIS_FREQS = [FREQ_VIS_BIT_1, FREQ_SYNC, FREQ_VIS_BIT_0, FREQ_LEADER]
 # 1100, 1200, 1300, 1900 Hz
 
 
-def _classify_tone(samples: np.ndarray,
-                   sample_rate: int = SAMPLE_RATE) -> float | None:
+def _classify_tone(samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> float | None:
     """Classify which VIS tone is present in the given samples.
 
     Computes Goertzel energy at each of the four VIS frequencies and returns
@@ -78,8 +78,7 @@ def _classify_tone(samples: np.ndarray,
 
     # Require the best frequency to be at least 2x stronger than the
     # next-strongest tone.
-    others = sorted(
-        [e for f, e in energies.items() if f != best_freq], reverse=True)
+    others = sorted([e for f, e in energies.items() if f != best_freq], reverse=True)
     second_best = others[0] if others else 0.0
 
     if second_best > 0 and best_energy / second_best < 2.0:
@@ -170,8 +169,8 @@ class VISDetector:
         self._buffer = np.concatenate([self._buffer, samples])
 
         while len(self._buffer) >= self._window:
-            result = self._process_window(self._buffer[:self._window])
-            self._buffer = self._buffer[self._window:]
+            result = self._process_window(self._buffer[: self._window])
+            self._buffer = self._buffer[self._window :]
 
             if result is not None:
                 return result
@@ -387,9 +386,7 @@ class VISDetector:
         for flip in range(8):
             corrected = vis_code ^ (1 << flip)
             # Flipping one data bit should fix parity too
-            corrected_parity_ok = (
-                bin(corrected).count('1') + self._parity_bit
-            ) % 2 == 0
+            corrected_parity_ok = (bin(corrected).count("1") + self._parity_bit) % 2 == 0
             if corrected_parity_ok:
                 mode_name = VIS_CODES.get(corrected)
                 if mode_name is not None:

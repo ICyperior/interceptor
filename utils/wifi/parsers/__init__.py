@@ -11,9 +11,9 @@ from .iwlist import parse_iwlist_scan
 from .nmcli import parse_nmcli_scan
 
 __all__ = [
-    'parse_airport_scan',
-    'parse_nmcli_scan',
-    'parse_iw_scan',
-    'parse_iwlist_scan',
-    'parse_airodump_csv',
+    "parse_airport_scan",
+    "parse_nmcli_scan",
+    "parse_iw_scan",
+    "parse_iwlist_scan",
+    "parse_airodump_csv",
 ]

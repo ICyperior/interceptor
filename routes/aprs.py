@@ -41,7 +41,7 @@ from utils.validation import (
     validate_rtl_tcp_port,
 )
 
-aprs_bp = Blueprint('aprs', __name__, url_prefix='/aprs')
+aprs_bp = Blueprint("aprs", __name__, url_prefix="/aprs")
 
 # Track which SDR device is being used
 aprs_active_device: int | None = None
@@ -49,17 +49,17 @@ aprs_active_sdr_type: str | None = None
 
 # APRS frequencies by region (MHz)
 APRS_FREQUENCIES = {
-    'north_america': '144.390',
-    'europe': '144.800',
-    'uk': '144.800',
-    'australia': '145.175',
-    'new_zealand': '144.575',
-    'argentina': '144.930',
-    'brazil': '145.570',
-    'japan': '144.640',
-    'china': '144.640',
-    'iss': '145.825',
-    'sonate2': '145.825',
+    "north_america": "144.390",
+    "europe": "144.800",
+    "uk": "144.800",
+    "australia": "145.175",
+    "new_zealand": "144.575",
+    "argentina": "144.930",
+    "brazil": "145.570",
+    "japan": "144.640",
+    "china": "144.640",
+    "iss": "145.825",
+    "sonate2": "145.825",
 }
 
 # Statistics
@@ -78,31 +78,31 @@ METER_MIN_CHANGE = 2  # Only send if level changes by at least this much
 
 def find_direwolf() -> str | None:
     """Find direwolf binary."""
-    return shutil.which('direwolf')
+    return shutil.which("direwolf")
 
 
 def find_multimon_ng() -> str | None:
     """Find multimon-ng binary."""
-    return shutil.which('multimon-ng')
+    return shutil.which("multimon-ng")
 
 
 def find_rtl_fm() -> str | None:
     """Find rtl_fm binary."""
-    return shutil.which('rtl_fm')
+    return shutil.which("rtl_fm")
 
 
 def find_rx_fm() -> str | None:
     """Find SoapySDR rx_fm binary."""
-    return shutil.which('rx_fm')
+    return shutil.which("rx_fm")
 
 
 def find_rtl_power() -> str | None:
     """Find rtl_power binary for spectrum scanning."""
-    return shutil.which('rtl_power')
+    return shutil.which("rtl_power")
 
 
 # Path to direwolf config file
-DIREWOLF_CONFIG_PATH = os.path.join(tempfile.gettempdir(), 'intercept_direwolf.conf')
+DIREWOLF_CONFIG_PATH = os.path.join(tempfile.gettempdir(), "intercept_direwolf.conf")
 
 
 def create_direwolf_config() -> str:
@@ -118,7 +118,7 @@ FIX_BITS 1
 AGWPORT 0
 KISSPORT 0
 """
-    with open(DIREWOLF_CONFIG_PATH, 'w') as f:
+    with open(DIREWOLF_CONFIG_PATH, "w") as f:
         f.write(config)
     return DIREWOLF_CONFIG_PATH
 
@@ -131,15 +131,15 @@ def normalize_aprs_output_line(line: str) -> str:
     - direwolf tags: ``[0.4] ...``, ``[0L] ...``, etc.
     """
     if not line:
-        return ''
+        return ""
 
     normalized = line.strip()
-    if normalized.startswith('AFSK1200:'):
+    if normalized.startswith("AFSK1200:"):
         normalized = normalized[9:].strip()
 
     # Strip one or more leading bracket tags emitted by decoders.
     # Examples: [0.4], [0L], [NONE]
-    normalized = re.sub(r'^(?:\[[^\]]+\]\s*)+', '', normalized)
+    normalized = re.sub(r"^(?:\[[^\]]+\]\s*)+", "", normalized)
     return normalized
 
 
@@ -167,7 +167,7 @@ def parse_aprs_packet(raw_packet: str) -> dict | None:
         # Example: N0CALL-9>APRS,TCPIP*:@092345z4903.50N/07201.75W_090/000g005t077
 
         # Source callsigns can include tactical suffixes like "/1" on some stations.
-        match = re.match(r'^([A-Z0-9/\-]+)>([^:]+):(.+)$', raw_packet, re.IGNORECASE)
+        match = re.match(r"^([A-Z0-9/\-]+)>([^:]+):(.+)$", raw_packet, re.IGNORECASE)
         if not match:
             return None
 
@@ -176,50 +176,50 @@ def parse_aprs_packet(raw_packet: str) -> dict | None:
         data = match.group(3)
 
         packet = {
-            'type': 'aprs',
-            'callsign': callsign,
-            'path': path,
-            'raw': raw_packet,
-            'timestamp': datetime.utcnow().isoformat() + 'Z',
+            "type": "aprs",
+            "callsign": callsign,
+            "path": path,
+            "raw": raw_packet,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
         }
 
         # Extract destination from path (first element before any comma)
-        dest_parts = path.split(',')
-        dest = dest_parts[0] if dest_parts else ''
+        dest_parts = path.split(",")
+        dest = dest_parts[0] if dest_parts else ""
 
         # Check for Mic-E format first (data starts with ` or ' and dest is 6+ chars)
-        if len(data) >= 9 and data[0] in '`\'' and len(dest) >= 6:
+        if len(data) >= 9 and data[0] in "`'" and len(dest) >= 6:
             mic_e_data = parse_mic_e(dest, data)
             if mic_e_data:
-                packet['packet_type'] = 'position'
-                packet['position_format'] = 'mic_e'
+                packet["packet_type"] = "position"
+                packet["position_format"] = "mic_e"
                 packet.update(mic_e_data)
                 return packet
 
         # Determine packet type and parse accordingly
-        if data.startswith('!') or data.startswith('='):
+        if data.startswith("!") or data.startswith("="):
             # Position without timestamp (! = no messaging, = = with messaging)
-            packet['packet_type'] = 'position'
-            packet['messaging_capable'] = data.startswith('=')
+            packet["packet_type"] = "position"
+            packet["messaging_capable"] = data.startswith("=")
             pos_data = data[1:]
 
             # Check for compressed format (starts with /\[A-Za-z])
-            if len(pos_data) >= 13 and pos_data[0] in '/\\':
+            if len(pos_data) >= 13 and pos_data[0] in "/\\":
                 pos = parse_compressed_position(pos_data)
                 if pos:
-                    packet['position_format'] = 'compressed'
+                    packet["position_format"] = "compressed"
                     packet.update(pos)
             else:
                 pos = parse_position(pos_data)
                 if pos:
-                    packet['position_format'] = 'uncompressed'
+                    packet["position_format"] = "uncompressed"
                     packet.update(pos)
 
             # Check for weather data in position packet (after position)
-            if '_' in pos_data or 'g' in pos_data or 't' in pos_data[15:] if len(pos_data) > 15 else False:
+            if "_" in pos_data or "g" in pos_data or "t" in pos_data[15:] if len(pos_data) > 15 else False:
                 weather = parse_weather(pos_data)
                 if weather:
-                    packet['weather'] = weather
+                    packet["weather"] = weather
 
             # Check for PHG data
             phg = parse_phg(pos_data)
@@ -236,10 +236,10 @@ def parse_aprs_packet(raw_packet: str) -> dict | None:
             if df:
                 packet.update(df)
 
-        elif data.startswith('/') or data.startswith('@'):
+        elif data.startswith("/") or data.startswith("@"):
             # Position with timestamp (/ = no messaging, @ = with messaging)
-            packet['packet_type'] = 'position'
-            packet['messaging_capable'] = data.startswith('@')
+            packet["packet_type"] = "position"
+            packet["messaging_capable"] = data.startswith("@")
 
             # Parse timestamp (first 7 chars after type indicator)
             if len(data) > 8:
@@ -250,21 +250,21 @@ def parse_aprs_packet(raw_packet: str) -> dict | None:
                 pos_data = data[8:]
 
                 # Check for compressed format
-                if len(pos_data) >= 13 and pos_data[0] in '/\\':
+                if len(pos_data) >= 13 and pos_data[0] in "/\\":
                     pos = parse_compressed_position(pos_data)
                     if pos:
-                        packet['position_format'] = 'compressed'
+                        packet["position_format"] = "compressed"
                         packet.update(pos)
                 else:
                     pos = parse_position(pos_data)
                     if pos:
-                        packet['position_format'] = 'uncompressed'
+                        packet["position_format"] = "uncompressed"
                         packet.update(pos)
 
                 # Check for weather data in position packet
                 weather = parse_weather(pos_data)
                 if weather:
-                    packet['weather'] = weather
+                    packet["weather"] = weather
 
                 # Check for PHG data
                 phg = parse_phg(pos_data)
@@ -276,154 +276,154 @@ def parse_aprs_packet(raw_packet: str) -> dict | None:
                 if rng:
                     packet.update(rng)
 
-        elif data.startswith('>'):
+        elif data.startswith(">"):
             # Status message
-            packet['packet_type'] = 'status'
+            packet["packet_type"] = "status"
             status_data = data[1:]
-            packet['status'] = status_data
+            packet["status"] = status_data
 
             # Check for Maidenhead grid locator in status (common pattern)
-            grid_match = re.match(r'^([A-R]{2}[0-9]{2}[A-X]{0,2})\s*', status_data, re.IGNORECASE)
+            grid_match = re.match(r"^([A-R]{2}[0-9]{2}[A-X]{0,2})\s*", status_data, re.IGNORECASE)
             if grid_match:
-                packet['grid'] = grid_match.group(1).upper()
+                packet["grid"] = grid_match.group(1).upper()
 
-        elif data.startswith(':'):
+        elif data.startswith(":"):
             # Message format - check for various subtypes
-            packet['packet_type'] = 'message'
+            packet["packet_type"] = "message"
 
             # Standard message: :ADDRESSEE:MESSAGE
-            msg_match = re.match(r'^:([A-Z0-9 -]{9}):(.*)$', data, re.IGNORECASE)
+            msg_match = re.match(r"^:([A-Z0-9 -]{9}):(.*)$", data, re.IGNORECASE)
             if msg_match:
                 addressee = msg_match.group(1).strip()
                 message = msg_match.group(2)
-                packet['addressee'] = addressee
+                packet["addressee"] = addressee
 
                 # Check for telemetry definition messages
-                telem_def_match = re.match(r'^(PARM|UNIT|EQNS|BITS)\.(.*)$', message)
+                telem_def_match = re.match(r"^(PARM|UNIT|EQNS|BITS)\.(.*)$", message)
                 if telem_def_match:
-                    packet['packet_type'] = 'telemetry_definition'
+                    packet["packet_type"] = "telemetry_definition"
                     telem_def = parse_telemetry_definition(
                         addressee, telem_def_match.group(1), telem_def_match.group(2)
                     )
                     if telem_def:
                         packet.update(telem_def)
                 else:
-                    packet['message'] = message
+                    packet["message"] = message
 
                     # Check for ACK/REJ
-                    ack_match = re.match(r'^ack(\w+)$', message, re.IGNORECASE)
+                    ack_match = re.match(r"^ack(\w+)$", message, re.IGNORECASE)
                     if ack_match:
-                        packet['message_type'] = 'ack'
-                        packet['ack_id'] = ack_match.group(1)
+                        packet["message_type"] = "ack"
+                        packet["ack_id"] = ack_match.group(1)
 
-                    rej_match = re.match(r'^rej(\w+)$', message, re.IGNORECASE)
+                    rej_match = re.match(r"^rej(\w+)$", message, re.IGNORECASE)
                     if rej_match:
-                        packet['message_type'] = 'rej'
-                        packet['rej_id'] = rej_match.group(1)
+                        packet["message_type"] = "rej"
+                        packet["rej_id"] = rej_match.group(1)
 
                     # Check for message ID (for acknowledgment)
-                    msgid_match = re.search(r'\{(\w{1,5})$', message)
+                    msgid_match = re.search(r"\{(\w{1,5})$", message)
                     if msgid_match:
-                        packet['message_id'] = msgid_match.group(1)
-                        packet['message'] = message[:message.rfind('{')]
+                        packet["message_id"] = msgid_match.group(1)
+                        packet["message"] = message[: message.rfind("{")]
 
             # Bulletin format: :BLNn     :message
-            elif data[1:4] == 'BLN':
-                packet['packet_type'] = 'bulletin'
-                bln_match = re.match(r'^:BLN([0-9A-Z])[ ]*:(.*)$', data, re.IGNORECASE)
+            elif data[1:4] == "BLN":
+                packet["packet_type"] = "bulletin"
+                bln_match = re.match(r"^:BLN([0-9A-Z])[ ]*:(.*)$", data, re.IGNORECASE)
                 if bln_match:
-                    packet['bulletin_id'] = bln_match.group(1)
-                    packet['bulletin'] = bln_match.group(2)
+                    packet["bulletin_id"] = bln_match.group(1)
+                    packet["bulletin"] = bln_match.group(2)
 
             # NWS weather alert: :NWS-xxxxx:message
-            elif data[1:5] == 'NWS-':
-                packet['packet_type'] = 'nws_alert'
-                nws_match = re.match(r'^:NWS-([A-Z]+)[ ]*:(.*)$', data, re.IGNORECASE)
+            elif data[1:5] == "NWS-":
+                packet["packet_type"] = "nws_alert"
+                nws_match = re.match(r"^:NWS-([A-Z]+)[ ]*:(.*)$", data, re.IGNORECASE)
                 if nws_match:
-                    packet['nws_id'] = nws_match.group(1)
-                    packet['alert'] = nws_match.group(2)
+                    packet["nws_id"] = nws_match.group(1)
+                    packet["alert"] = nws_match.group(2)
 
-        elif data.startswith('_'):
+        elif data.startswith("_"):
             # Weather report (Positionless)
-            packet['packet_type'] = 'weather'
-            packet['weather'] = parse_weather(data)
+            packet["packet_type"] = "weather"
+            packet["weather"] = parse_weather(data)
 
-        elif data.startswith(';'):
+        elif data.startswith(";"):
             # Object format: ;OBJECTNAME*DDHHMMzPOSITION or ;OBJECTNAME_DDHHMMzPOSITION
-            packet['packet_type'] = 'object'
+            packet["packet_type"] = "object"
             obj_data = parse_object(data)
             if obj_data:
                 packet.update(obj_data)
 
                 # Check for weather data in object
-                remaining = data[18:] if len(data) > 18 else ''
+                remaining = data[18:] if len(data) > 18 else ""
                 weather = parse_weather(remaining)
                 if weather:
-                    packet['weather'] = weather
+                    packet["weather"] = weather
 
-        elif data.startswith(')'):
+        elif data.startswith(")"):
             # Item format: )ITEMNAME!POSITION or )ITEMNAME_POSITION
-            packet['packet_type'] = 'item'
+            packet["packet_type"] = "item"
             item_data = parse_item(data)
             if item_data:
                 packet.update(item_data)
 
-        elif data.startswith('T'):
+        elif data.startswith("T"):
             # Telemetry
-            packet['packet_type'] = 'telemetry'
+            packet["packet_type"] = "telemetry"
             telem = parse_telemetry(data)
             if telem:
                 packet.update(telem)
 
-        elif data.startswith('}'):
+        elif data.startswith("}"):
             # Third-party traffic
-            packet['packet_type'] = 'third_party'
+            packet["packet_type"] = "third_party"
             third = parse_third_party(data)
             if third:
                 packet.update(third)
 
-        elif data.startswith('$'):
+        elif data.startswith("$"):
             # Raw GPS NMEA data
-            packet['packet_type'] = 'nmea'
+            packet["packet_type"] = "nmea"
             nmea = parse_nmea(data)
             if nmea:
                 packet.update(nmea)
 
-        elif data.startswith('{'):
+        elif data.startswith("{"):
             # User-defined format
-            packet['packet_type'] = 'user_defined'
+            packet["packet_type"] = "user_defined"
             user = parse_user_defined(data)
             if user:
                 packet.update(user)
 
-        elif data.startswith('<'):
+        elif data.startswith("<"):
             # Station capabilities
-            packet['packet_type'] = 'capabilities'
+            packet["packet_type"] = "capabilities"
             caps = parse_capabilities(data)
             if caps:
                 packet.update(caps)
 
-        elif data.startswith('?'):
+        elif data.startswith("?"):
             # Query
-            packet['packet_type'] = 'query'
+            packet["packet_type"] = "query"
             query = parse_capabilities(data)
             if query:
                 packet.update(query)
 
         else:
-            packet['packet_type'] = 'other'
-            packet['data'] = data
+            packet["packet_type"] = "other"
+            packet["data"] = data
 
         # Extract comment if present (after standard data)
         # Many APRS packets have freeform comments at the end
-        if 'data' not in packet and packet['packet_type'] in ('position', 'object', 'item'):
+        if "data" not in packet and packet["packet_type"] in ("position", "object", "item"):
             # Look for common comment patterns
-            comment_match = re.search(r'/([^/]+)$', data)
-            if comment_match and not re.match(r'^A=[-\d]+', comment_match.group(1)):
+            comment_match = re.search(r"/([^/]+)$", data)
+            if comment_match and not re.match(r"^A=[-\d]+", comment_match.group(1)):
                 potential_comment = comment_match.group(1)
                 # Exclude things that look like data fields
-                if len(potential_comment) > 3 and not re.match(r'^\d{3}/', potential_comment):
-                    packet['comment'] = potential_comment
+                if len(potential_comment) > 3 and not re.match(r"^\d{3}/", potential_comment):
+                    packet["comment"] = potential_comment
 
         return packet
 
@@ -438,10 +438,7 @@ def parse_position(data: str) -> dict | None:
         # Format: DDMM.mmN/DDDMM.mmW (or similar with symbols)
         # Example: 4903.50N/07201.75W
 
-        pos_match = re.match(
-            r'^(\d{2})(\d{2}\.\d+)([NS])(.)(\d{3})(\d{2}\.\d+)([EW])(.)?',
-            data
-        )
+        pos_match = re.match(r"^(\d{2})(\d{2}\.\d+)([NS])(.)(\d{3})(\d{2}\.\d+)([EW])(.)?", data)
 
         if pos_match:
             lat_deg = int(pos_match.group(1))
@@ -451,44 +448,41 @@ def parse_position(data: str) -> dict | None:
             lon_deg = int(pos_match.group(5))
             lon_min = float(pos_match.group(6))
             lon_dir = pos_match.group(7)
-            symbol_code = pos_match.group(8) or ''
+            symbol_code = pos_match.group(8) or ""
 
             lat = lat_deg + lat_min / 60.0
-            if lat_dir == 'S':
+            if lat_dir == "S":
                 lat = -lat
 
             lon = lon_deg + lon_min / 60.0
-            if lon_dir == 'W':
+            if lon_dir == "W":
                 lon = -lon
 
             result = {
-                'lat': round(lat, 6),
-                'lon': round(lon, 6),
-                'symbol': symbol_table + symbol_code,
+                "lat": round(lat, 6),
+                "lon": round(lon, 6),
+                "symbol": symbol_table + symbol_code,
             }
 
             # Parse additional data after position (course/speed, altitude, etc.)
-            remaining = data[18:] if len(data) > 18 else ''
+            remaining = data[18:] if len(data) > 18 else ""
 
             # Course/Speed: CCC/SSS
-            cs_match = re.search(r'(\d{3})/(\d{3})', remaining)
+            cs_match = re.search(r"(\d{3})/(\d{3})", remaining)
             if cs_match:
-                result['course'] = int(cs_match.group(1))
-                result['speed'] = int(cs_match.group(2))  # knots
+                result["course"] = int(cs_match.group(1))
+                result["speed"] = int(cs_match.group(2))  # knots
 
             # Altitude: /A=NNNNNN
-            alt_match = re.search(r'/A=(-?\d+)', remaining)
+            alt_match = re.search(r"/A=(-?\d+)", remaining)
             if alt_match:
-                result['altitude'] = int(alt_match.group(1))  # feet
+                result["altitude"] = int(alt_match.group(1))  # feet
 
             return result
 
         # Legacy/no-decimal variant occasionally seen in degraded decodes:
         # DDMMN/DDDMMW (symbol chars still present between/after coords).
-        nodot_match = re.match(
-            r'^(\d{2})(\d{2})([NS])(.)(\d{3})(\d{2})([EW])(.)?',
-            data
-        )
+        nodot_match = re.match(r"^(\d{2})(\d{2})([NS])(.)(\d{3})(\d{2})([EW])(.)?", data)
         if nodot_match:
             lat_deg = int(nodot_match.group(1))
             lat_min = float(nodot_match.group(2))
@@ -497,32 +491,32 @@ def parse_position(data: str) -> dict | None:
             lon_deg = int(nodot_match.group(5))
             lon_min = float(nodot_match.group(6))
             lon_dir = nodot_match.group(7)
-            symbol_code = nodot_match.group(8) or ''
+            symbol_code = nodot_match.group(8) or ""
 
             lat = lat_deg + lat_min / 60.0
-            if lat_dir == 'S':
+            if lat_dir == "S":
                 lat = -lat
 
             lon = lon_deg + lon_min / 60.0
-            if lon_dir == 'W':
+            if lon_dir == "W":
                 lon = -lon
 
             result = {
-                'lat': round(lat, 6),
-                'lon': round(lon, 6),
-                'symbol': symbol_table + symbol_code,
+                "lat": round(lat, 6),
+                "lon": round(lon, 6),
+                "symbol": symbol_table + symbol_code,
             }
 
-            remaining = data[13:] if len(data) > 13 else ''
+            remaining = data[13:] if len(data) > 13 else ""
 
-            cs_match = re.search(r'(\d{3})/(\d{3})', remaining)
+            cs_match = re.search(r"(\d{3})/(\d{3})", remaining)
             if cs_match:
-                result['course'] = int(cs_match.group(1))
-                result['speed'] = int(cs_match.group(2))
+                result["course"] = int(cs_match.group(1))
+                result["speed"] = int(cs_match.group(2))
 
-            alt_match = re.search(r'/A=(-?\d+)', remaining)
+            alt_match = re.search(r"/A=(-?\d+)", remaining)
             if alt_match:
-                result['altitude'] = int(alt_match.group(1))
+                result["altitude"] = int(alt_match.group(1))
 
             return result
 
@@ -531,27 +525,22 @@ def parse_position(data: str) -> dict | None:
         if len(data) >= 18:
             lat_field = data[0:7]
             lat_dir = data[7]
-            symbol_table = data[8] if len(data) > 8 else ''
-            lon_field = data[9:17] if len(data) >= 17 else ''
-            lon_dir = data[17] if len(data) > 17 else ''
-            symbol_code = data[18] if len(data) > 18 else ''
+            symbol_table = data[8] if len(data) > 8 else ""
+            lon_field = data[9:17] if len(data) >= 17 else ""
+            lon_dir = data[17] if len(data) > 17 else ""
+            symbol_code = data[18] if len(data) > 18 else ""
 
-            if (
-                len(lat_field) == 7
-                and len(lon_field) == 8
-                and lat_dir in ('N', 'S')
-                and lon_dir in ('E', 'W')
-            ):
+            if len(lat_field) == 7 and len(lon_field) == 8 and lat_dir in ("N", "S") and lon_dir in ("E", "W"):
                 lat_deg_txt = lat_field[:2]
-                lat_min_txt = lat_field[2:].replace(' ', '0')
+                lat_min_txt = lat_field[2:].replace(" ", "0")
                 lon_deg_txt = lon_field[:3]
-                lon_min_txt = lon_field[3:].replace(' ', '0')
+                lon_min_txt = lon_field[3:].replace(" ", "0")
 
                 if (
                     lat_deg_txt.isdigit()
                     and lon_deg_txt.isdigit()
-                    and re.match(r'^\d{2}\.\d+$', lat_min_txt)
-                    and re.match(r'^\d{2}\.\d+$', lon_min_txt)
+                    and re.match(r"^\d{2}\.\d+$", lat_min_txt)
+                    and re.match(r"^\d{2}\.\d+$", lon_min_txt)
                 ):
                     lat_deg = int(lat_deg_txt)
                     lon_deg = int(lon_deg_txt)
@@ -559,30 +548,30 @@ def parse_position(data: str) -> dict | None:
                     lon_min = float(lon_min_txt)
 
                     lat = lat_deg + lat_min / 60.0
-                    if lat_dir == 'S':
+                    if lat_dir == "S":
                         lat = -lat
 
                     lon = lon_deg + lon_min / 60.0
-                    if lon_dir == 'W':
+                    if lon_dir == "W":
                         lon = -lon
 
                     result = {
-                        'lat': round(lat, 6),
-                        'lon': round(lon, 6),
-                        'symbol': symbol_table + symbol_code,
+                        "lat": round(lat, 6),
+                        "lon": round(lon, 6),
+                        "symbol": symbol_table + symbol_code,
                     }
 
                     # Keep same extension parsing behavior as primary branch.
-                    remaining = data[19:] if len(data) > 19 else ''
+                    remaining = data[19:] if len(data) > 19 else ""
 
-                    cs_match = re.search(r'(\d{3})/(\d{3})', remaining)
+                    cs_match = re.search(r"(\d{3})/(\d{3})", remaining)
                     if cs_match:
-                        result['course'] = int(cs_match.group(1))
-                        result['speed'] = int(cs_match.group(2))
+                        result["course"] = int(cs_match.group(1))
+                        result["speed"] = int(cs_match.group(2))
 
-                    alt_match = re.search(r'/A=(-?\d+)', remaining)
+                    alt_match = re.search(r"/A=(-?\d+)", remaining)
                     if alt_match:
-                        result['altitude'] = int(alt_match.group(1))
+                        result["altitude"] = int(alt_match.group(1))
 
                     return result
 
@@ -606,14 +595,14 @@ def parse_object(data: str) -> dict | None:
     character rather than assuming exact position.
     """
     try:
-        if not data.startswith(';') or len(data) < 18:
+        if not data.startswith(";") or len(data) < 18:
             return None
 
         # Find the status character (* or _) which marks end of object name
         # It should be around position 10, but allow some flexibility
         status_pos = -1
         for i in range(10, min(13, len(data))):
-            if data[i] in '*_':
+            if data[i] in "*_":
                 status_pos = i
                 break
 
@@ -625,8 +614,8 @@ def parse_object(data: str) -> dict | None:
         obj_name = data[1:status_pos].strip()
 
         # Get status character
-        status_char = data[status_pos] if status_pos < len(data) else '*'
-        is_live = status_char == '*'
+        status_char = data[status_pos] if status_pos < len(data) else "*"
+        is_live = status_char == "*"
 
         # Timestamp is 7 chars after status, position follows
         pos_start = status_pos + 8  # status + 7 char timestamp
@@ -636,8 +625,8 @@ def parse_object(data: str) -> dict | None:
             pos = None
 
         result = {
-            'object_name': obj_name,
-            'object_live': is_live,
+            "object_name": obj_name,
+            "object_live": is_live,
         }
 
         if pos:
@@ -660,14 +649,14 @@ def parse_item(data: str) -> dict | None:
     - Position follows immediately in standard APRS format
     """
     try:
-        if not data.startswith(')') or len(data) < 5:
+        if not data.startswith(")") or len(data) < 5:
             return None
 
         # Find the status delimiter (! or _) which terminates the name
         # Item name is 3-9 chars, so check positions 4-10 (1-based: chars 4-10 after ')')
         status_pos = -1
         for i in range(4, min(11, len(data))):
-            if data[i] in '!_':
+            if data[i] in "!_":
                 status_pos = i
                 break
 
@@ -677,17 +666,17 @@ def parse_item(data: str) -> dict | None:
         # Extract item name and status
         item_name = data[1:status_pos].strip()
         status_char = data[status_pos]
-        is_live = status_char == '!'
+        is_live = status_char == "!"
 
         # Parse position after status character
         if len(data) > status_pos + 1:
-            pos = parse_position(data[status_pos + 1:])
+            pos = parse_position(data[status_pos + 1 :])
         else:
             pos = None
 
         result = {
-            'item_name': item_name,
-            'item_live': is_live,
+            "item_name": item_name,
+            "item_live": is_live,
         }
 
         if pos:
@@ -709,125 +698,147 @@ def parse_weather(data: str) -> dict:
     weather = {}
 
     # Wind direction: cCCC (degrees) or _CCC at start of positionless
-    match = re.search(r'c(\d{3})', data)
+    match = re.search(r"c(\d{3})", data)
     if match:
-        weather['wind_direction'] = int(match.group(1))
-    elif data.startswith('_') and len(data) > 4:
+        weather["wind_direction"] = int(match.group(1))
+    elif data.startswith("_") and len(data) > 4:
         # Positionless format starts with _MMDDhhmm then wind dir
-        wind_match = re.match(r'_\d{8}(\d{3})', data)
+        wind_match = re.match(r"_\d{8}(\d{3})", data)
         if wind_match:
-            weather['wind_direction'] = int(wind_match.group(1))
+            weather["wind_direction"] = int(wind_match.group(1))
 
     # Wind speed: sSSS (mph)
-    match = re.search(r's(\d{3})', data)
+    match = re.search(r"s(\d{3})", data)
     if match:
-        weather['wind_speed'] = int(match.group(1))
+        weather["wind_speed"] = int(match.group(1))
 
     # Wind gust: gGGG (mph)
-    match = re.search(r'g(\d{3})', data)
+    match = re.search(r"g(\d{3})", data)
     if match:
-        weather['wind_gust'] = int(match.group(1))
+        weather["wind_gust"] = int(match.group(1))
 
     # Temperature: tTTT (Fahrenheit, can be negative)
-    match = re.search(r't(-?\d{2,3})', data)
+    match = re.search(r"t(-?\d{2,3})", data)
     if match:
-        weather['temperature'] = int(match.group(1))
+        weather["temperature"] = int(match.group(1))
 
     # Rain last hour: rRRR (hundredths of inch)
-    match = re.search(r'r(\d{3})', data)
+    match = re.search(r"r(\d{3})", data)
     if match:
-        weather['rain_1h'] = int(match.group(1)) / 100.0
+        weather["rain_1h"] = int(match.group(1)) / 100.0
 
     # Rain last 24h: pPPP (hundredths of inch)
-    match = re.search(r'p(\d{3})', data)
+    match = re.search(r"p(\d{3})", data)
     if match:
-        weather['rain_24h'] = int(match.group(1)) / 100.0
+        weather["rain_24h"] = int(match.group(1)) / 100.0
 
     # Rain since midnight: PPPP (hundredths of inch)
-    match = re.search(r'P(\d{3})', data)
+    match = re.search(r"P(\d{3})", data)
     if match:
-        weather['rain_midnight'] = int(match.group(1)) / 100.0
+        weather["rain_midnight"] = int(match.group(1)) / 100.0
 
     # Humidity: hHH (%, 00 = 100%)
-    match = re.search(r'h(\d{2})', data)
+    match = re.search(r"h(\d{2})", data)
     if match:
         h = int(match.group(1))
-        weather['humidity'] = 100 if h == 0 else h
+        weather["humidity"] = 100 if h == 0 else h
 
     # Barometric pressure: bBBBBB (tenths of millibars)
-    match = re.search(r'b(\d{5})', data)
+    match = re.search(r"b(\d{5})", data)
     if match:
-        weather['pressure'] = int(match.group(1)) / 10.0
+        weather["pressure"] = int(match.group(1)) / 10.0
 
     # Luminosity: LLLL (watts per square meter)
     # L = 0-999 W/m², l = 1000-1999 W/m² (subtract 1000)
-    match = re.search(r'L(\d{3})', data)
+    match = re.search(r"L(\d{3})", data)
     if match:
-        weather['luminosity'] = int(match.group(1))
+        weather["luminosity"] = int(match.group(1))
     else:
-        match = re.search(r'l(\d{3})', data)
+        match = re.search(r"l(\d{3})", data)
         if match:
-            weather['luminosity'] = int(match.group(1)) + 1000
+            weather["luminosity"] = int(match.group(1)) + 1000
 
     # Snow (last 24h): #SSS (inches)
-    match = re.search(r'#(\d{3})', data)
+    match = re.search(r"#(\d{3})", data)
     if match:
-        weather['snow_24h'] = int(match.group(1))
+        weather["snow_24h"] = int(match.group(1))
 
     # Raw rain counter: !RRR (for Peet Bros stations)
-    match = re.search(r'!(\d{3})', data)
+    match = re.search(r"!(\d{3})", data)
     if match:
-        weather['rain_raw'] = int(match.group(1))
+        weather["rain_raw"] = int(match.group(1))
 
     # Radiation: X### (nanosieverts/hour) - some weather stations
-    match = re.search(r'X(\d{3})', data)
+    match = re.search(r"X(\d{3})", data)
     if match:
-        weather['radiation'] = int(match.group(1))
+        weather["radiation"] = int(match.group(1))
 
     # Flooding/water level: F### (feet above/below flood stage)
-    match = re.search(r'F(-?\d{3})', data)
+    match = re.search(r"F(-?\d{3})", data)
     if match:
-        weather['flood_level'] = int(match.group(1))
+        weather["flood_level"] = int(match.group(1))
 
     # Voltage: V### (volts, for battery monitoring)
-    match = re.search(r'V(\d{3})', data)
+    match = re.search(r"V(\d{3})", data)
     if match:
-        weather['voltage'] = int(match.group(1)) / 10.0
+        weather["voltage"] = int(match.group(1)) / 10.0
 
     # Software type often at end (e.g., "Davis" or "Arduino")
     # Extract as weather station type
-    wx_type_match = re.search(r'([A-Za-z]{4,})$', data)
+    wx_type_match = re.search(r"([A-Za-z]{4,})$", data)
     if wx_type_match:
-        weather['wx_station_type'] = wx_type_match.group(1)
+        weather["wx_station_type"] = wx_type_match.group(1)
 
     return weather
 
 
 # Mic-E encoding tables
 MIC_E_DEST_TABLE = {
-    '0': (0, 'S', 0), '1': (1, 'S', 0), '2': (2, 'S', 0), '3': (3, 'S', 0),
-    '4': (4, 'S', 0), '5': (5, 'S', 0), '6': (6, 'S', 0), '7': (7, 'S', 0),
-    '8': (8, 'S', 0), '9': (9, 'S', 0),
-    'A': (0, 'S', 1), 'B': (1, 'S', 1), 'C': (2, 'S', 1), 'D': (3, 'S', 1),
-    'E': (4, 'S', 1), 'F': (5, 'S', 1), 'G': (6, 'S', 1), 'H': (7, 'S', 1),
-    'I': (8, 'S', 1), 'J': (9, 'S', 1),
-    'K': (0, 'S', 1), 'L': (0, 'S', 0),
-    'P': (0, 'N', 1), 'Q': (1, 'N', 1), 'R': (2, 'N', 1), 'S': (3, 'N', 1),
-    'T': (4, 'N', 1), 'U': (5, 'N', 1), 'V': (6, 'N', 1), 'W': (7, 'N', 1),
-    'X': (8, 'N', 1), 'Y': (9, 'N', 1),
-    'Z': (0, 'N', 1),
+    "0": (0, "S", 0),
+    "1": (1, "S", 0),
+    "2": (2, "S", 0),
+    "3": (3, "S", 0),
+    "4": (4, "S", 0),
+    "5": (5, "S", 0),
+    "6": (6, "S", 0),
+    "7": (7, "S", 0),
+    "8": (8, "S", 0),
+    "9": (9, "S", 0),
+    "A": (0, "S", 1),
+    "B": (1, "S", 1),
+    "C": (2, "S", 1),
+    "D": (3, "S", 1),
+    "E": (4, "S", 1),
+    "F": (5, "S", 1),
+    "G": (6, "S", 1),
+    "H": (7, "S", 1),
+    "I": (8, "S", 1),
+    "J": (9, "S", 1),
+    "K": (0, "S", 1),
+    "L": (0, "S", 0),
+    "P": (0, "N", 1),
+    "Q": (1, "N", 1),
+    "R": (2, "N", 1),
+    "S": (3, "N", 1),
+    "T": (4, "N", 1),
+    "U": (5, "N", 1),
+    "V": (6, "N", 1),
+    "W": (7, "N", 1),
+    "X": (8, "N", 1),
+    "Y": (9, "N", 1),
+    "Z": (0, "N", 1),
 }
 
 # Mic-E message types encoded in destination
 MIC_E_MESSAGE_TYPES = {
-    (1, 1, 1): ('off_duty', 'Off Duty'),
-    (1, 1, 0): ('en_route', 'En Route'),
-    (1, 0, 1): ('in_service', 'In Service'),
-    (1, 0, 0): ('returning', 'Returning'),
-    (0, 1, 1): ('committed', 'Committed'),
-    (0, 1, 0): ('special', 'Special'),
-    (0, 0, 1): ('priority', 'Priority'),
-    (0, 0, 0): ('emergency', 'Emergency'),
+    (1, 1, 1): ("off_duty", "Off Duty"),
+    (1, 1, 0): ("en_route", "En Route"),
+    (1, 0, 1): ("in_service", "In Service"),
+    (1, 0, 0): ("returning", "Returning"),
+    (0, 1, 1): ("committed", "Committed"),
+    (0, 1, 0): ("special", "Special"),
+    (0, 0, 1): ("priority", "Priority"),
+    (0, 0, 0): ("emergency", "Emergency"),
 }
 
 
@@ -855,11 +866,11 @@ def parse_mic_e(dest: str, data: str) -> dict | None:
             return None
 
         # First char indicates Mic-E type: ` = current, ' = old
-        mic_e_type = 'current' if data[0] == '`' else 'old'
+        mic_e_type = "current" if data[0] == "`" else "old"
 
         # Parse latitude from destination (first 6 chars)
         lat_digits = []
-        lat_dir = 'N'
+        lat_dir = "N"
         lon_offset = 0
         msg_bits = []
 
@@ -881,16 +892,16 @@ def parse_mic_e(dest: str, data: str) -> dict | None:
                 lat_dir = ns
             # Char 5 determines longitude offset (100 degrees)
             if i == 4:
-                lon_offset = 100 if ns == 'N' else 0
+                lon_offset = 100 if ns == "N" else 0
             # Char 6 determines longitude W/E
             if i == 5:
-                lon_dir = 'W' if ns == 'N' else 'E'
+                lon_dir = "W" if ns == "N" else "E"
 
         # Calculate latitude
         lat_deg = lat_digits[0] * 10 + lat_digits[1]
         lat_min = lat_digits[2] * 10 + lat_digits[3] + (lat_digits[4] * 10 + lat_digits[5]) / 100.0
         lat = lat_deg + lat_min / 60.0
-        if lat_dir == 'S':
+        if lat_dir == "S":
             lat = -lat
 
         # Parse longitude from data (bytes 1-3 after type char)
@@ -914,7 +925,7 @@ def parse_mic_e(dest: str, data: str) -> dict | None:
         lon_hun = ord(d[2]) - 28
 
         lon = lon_deg + (lon_min + lon_hun / 100.0) / 60.0
-        if lon_dir == 'W':
+        if lon_dir == "W":
             lon = -lon
 
         # Parse speed and course (bytes 4-6)
@@ -935,37 +946,40 @@ def parse_mic_e(dest: str, data: str) -> dict | None:
         symbol_table = d[7]
 
         result = {
-            'lat': round(lat, 6),
-            'lon': round(lon, 6),
-            'symbol': symbol_table + symbol_code,
-            'speed': speed,  # knots
-            'course': course,
-            'mic_e_type': mic_e_type,
+            "lat": round(lat, 6),
+            "lon": round(lon, 6),
+            "symbol": symbol_table + symbol_code,
+            "speed": speed,  # knots
+            "course": course,
+            "mic_e_type": mic_e_type,
         }
 
         # Decode message type from first 3 destination chars
         msg_tuple = tuple(msg_bits)
         if msg_tuple in MIC_E_MESSAGE_TYPES:
-            result['mic_e_status'] = MIC_E_MESSAGE_TYPES[msg_tuple][0]
-            result['mic_e_status_text'] = MIC_E_MESSAGE_TYPES[msg_tuple][1]
+            result["mic_e_status"] = MIC_E_MESSAGE_TYPES[msg_tuple][0]
+            result["mic_e_status_text"] = MIC_E_MESSAGE_TYPES[msg_tuple][1]
 
         # Parse optional fields after symbol (byte 9 onwards)
         if len(d) > 8:
             extra = d[8:]
 
             # Altitude: `XXX} where XXX is base-91 encoded
-            alt_match = re.search(r'([\x21-\x7b]{3})\}', extra)
+            alt_match = re.search(r"([\x21-\x7b]{3})\}", extra)
             if alt_match:
                 alt_chars = alt_match.group(1)
-                alt = ((ord(alt_chars[0]) - 33) * 91 * 91 +
-                       (ord(alt_chars[1]) - 33) * 91 +
-                       (ord(alt_chars[2]) - 33) - 10000)
-                result['altitude'] = alt  # meters
+                alt = (
+                    (ord(alt_chars[0]) - 33) * 91 * 91
+                    + (ord(alt_chars[1]) - 33) * 91
+                    + (ord(alt_chars[2]) - 33)
+                    - 10000
+                )
+                result["altitude"] = alt  # meters
 
             # Status text (after altitude or at end)
-            status_text = re.sub(r'[\x21-\x7b]{3}\}', '', extra).strip()
+            status_text = re.sub(r"[\x21-\x7b]{3}\}", "", extra).strip()
             if status_text:
-                result['status'] = status_text
+                result["status"] = status_text
 
         return result
 
@@ -1010,10 +1024,10 @@ def parse_compressed_position(data: str) -> dict | None:
         symbol_code = data[9]
 
         result = {
-            'lat': round(lat, 6),
-            'lon': round(lon, 6),
-            'symbol': symbol_table + symbol_code,
-            'compressed': True,
+            "lat": round(lat, 6),
+            "lon": round(lon, 6),
+            "symbol": symbol_table + symbol_code,
+            "compressed": True,
         }
 
         # Course/speed or altitude (chars 10-11) and type byte (char 12)
@@ -1033,23 +1047,23 @@ def parse_compressed_position(data: str) -> dict | None:
             if comp_type == 0:
                 # c/s are course/speed
                 if c != 0 or s != 0:
-                    result['course'] = c * 4
-                    result['speed'] = round(1.08 ** s - 1, 1)  # knots
+                    result["course"] = c * 4
+                    result["speed"] = round(1.08**s - 1, 1)  # knots
             elif comp_type == 1:
                 # c/s are altitude
                 if c != 0 or s != 0:
                     alt = 1.002 ** (c * 91 + s)
-                    result['altitude'] = round(alt)  # feet
+                    result["altitude"] = round(alt)  # feet
             elif comp_type == 2:
                 # Radio range
                 if s != 0:
-                    result['range'] = round(2 * 1.08 ** s, 1)  # miles
+                    result["range"] = round(2 * 1.08**s, 1)  # miles
 
             # GPS fix quality from type byte
             if t & 0x20:
-                result['gps_fix'] = 'current'
+                result["gps_fix"] = "current"
             else:
-                result['gps_fix'] = 'old'
+                result["gps_fix"] = "old"
 
         return result
 
@@ -1067,39 +1081,33 @@ def parse_telemetry(data: str) -> dict | None:
     - bbbbbbbb = 8 digital bits
     """
     try:
-        if not data.startswith('T'):
+        if not data.startswith("T"):
             return None
 
-        result = {'packet_type': 'telemetry'}
+        result = {"packet_type": "telemetry"}
 
         # Match telemetry format
-        match = re.match(
-            r'^T#(\d{3}|MIC),(\d{1,3}),(\d{1,3}),(\d{1,3}),(\d{1,3}),(\d{1,3}),([01]{8})',
-            data
-        )
+        match = re.match(r"^T#(\d{3}|MIC),(\d{1,3}),(\d{1,3}),(\d{1,3}),(\d{1,3}),(\d{1,3}),([01]{8})", data)
 
         if match:
-            result['sequence'] = match.group(1)
-            result['analog'] = [
+            result["sequence"] = match.group(1)
+            result["analog"] = [
                 int(match.group(2)),
                 int(match.group(3)),
                 int(match.group(4)),
                 int(match.group(5)),
                 int(match.group(6)),
             ]
-            result['digital'] = match.group(7)
-            result['digital_bits'] = [int(b) for b in match.group(7)]
+            result["digital"] = match.group(7)
+            result["digital_bits"] = [int(b) for b in match.group(7)]
             return result
 
         # Try simpler format without digital bits
-        match = re.match(
-            r'^T#(\d{3}|MIC),(\d{1,3}),(\d{1,3}),(\d{1,3}),(\d{1,3}),(\d{1,3})',
-            data
-        )
+        match = re.match(r"^T#(\d{3}|MIC),(\d{1,3}),(\d{1,3}),(\d{1,3}),(\d{1,3}),(\d{1,3})", data)
 
         if match:
-            result['sequence'] = match.group(1)
-            result['analog'] = [
+            result["sequence"] = match.group(1)
+            result["analog"] = [
                 int(match.group(2)),
                 int(match.group(3)),
                 int(match.group(4)),
@@ -1109,11 +1117,11 @@ def parse_telemetry(data: str) -> dict | None:
             return result
 
         # Even simpler - just sequence and some analog
-        match = re.match(r'^T#(\d{3}|MIC),(.+)$', data)
+        match = re.match(r"^T#(\d{3}|MIC),(.+)$", data)
         if match:
-            result['sequence'] = match.group(1)
-            values = match.group(2).split(',')
-            result['analog'] = [int(v) for v in values if v.isdigit()]
+            result["sequence"] = match.group(1)
+            values = match.group(2).split(",")
+            result["analog"] = [int(v) for v in values if v.isdigit()]
             return result
 
         return None
@@ -1131,42 +1139,44 @@ def parse_telemetry_definition(callsign: str, msg_type: str, content: str) -> di
     """
     try:
         result = {
-            'telemetry_definition': True,
-            'definition_type': msg_type,
-            'for_station': callsign.strip(),
+            "telemetry_definition": True,
+            "definition_type": msg_type,
+            "for_station": callsign.strip(),
         }
 
-        values = [v.strip() for v in content.split(',')]
+        values = [v.strip() for v in content.split(",")]
 
-        if msg_type == 'PARM':
+        if msg_type == "PARM":
             # Parameter names
-            result['param_names'] = values[:5]  # Analog names
-            result['bit_names'] = values[5:13]  # Digital bit names
+            result["param_names"] = values[:5]  # Analog names
+            result["bit_names"] = values[5:13]  # Digital bit names
 
-        elif msg_type == 'UNIT':
+        elif msg_type == "UNIT":
             # Units for parameters
-            result['param_units'] = values[:5]
-            result['bit_labels'] = values[5:13]
+            result["param_units"] = values[:5]
+            result["bit_labels"] = values[5:13]
 
-        elif msg_type == 'EQNS':
+        elif msg_type == "EQNS":
             # Equations: a*x^2 + b*x + c for each analog channel
             # Format: a1,b1,c1,a2,b2,c2,a3,b3,c3,a4,b4,c4,a5,b5,c5
-            result['equations'] = []
+            result["equations"] = []
             for i in range(0, min(15, len(values)), 3):
                 if i + 2 < len(values):
-                    result['equations'].append({
-                        'a': float(values[i]) if values[i] else 0,
-                        'b': float(values[i + 1]) if values[i + 1] else 1,
-                        'c': float(values[i + 2]) if values[i + 2] else 0,
-                    })
+                    result["equations"].append(
+                        {
+                            "a": float(values[i]) if values[i] else 0,
+                            "b": float(values[i + 1]) if values[i + 1] else 1,
+                            "c": float(values[i + 2]) if values[i + 2] else 0,
+                        }
+                    )
 
-        elif msg_type == 'BITS':
+        elif msg_type == "BITS":
             # Bit sense and project name
             # Format: bbbbbbbb,Project Name
             if values:
-                result['bit_sense'] = values[0][:8]
+                result["bit_sense"] = values[0][:8]
                 if len(values) > 1:
-                    result['project_name'] = ','.join(values[1:])
+                    result["project_name"] = ",".join(values[1:])
 
         return result
 
@@ -1185,7 +1195,7 @@ def parse_phg(data: str) -> dict | None:
     - d = directivity code (0-9)
     """
     try:
-        match = re.search(r'PHG(\d)(\d)(\d)(\d)', data)
+        match = re.search(r"PHG(\d)(\d)(\d)(\d)", data)
         if not match:
             return None
 
@@ -1195,22 +1205,22 @@ def parse_phg(data: str) -> dict | None:
         power_watts = p * p
 
         # Height in feet: 10 * 2^h
-        height_feet = 10 * (2 ** h)
+        height_feet = 10 * (2**h)
 
         # Gain in dB
         gain_db = g
 
         # Directivity (0=omni, 1-8 = 45° sectors starting from N)
-        directions = ['omni', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'N']
-        directivity = directions[d] if d < len(directions) else 'omni'
+        directions = ["omni", "NE", "E", "SE", "S", "SW", "W", "NW", "N"]
+        directivity = directions[d] if d < len(directions) else "omni"
 
         return {
-            'phg': True,
-            'power_watts': power_watts,
-            'height_feet': height_feet,
-            'gain_db': gain_db,
-            'directivity': directivity,
-            'directivity_code': d,
+            "phg": True,
+            "power_watts": power_watts,
+            "height_feet": height_feet,
+            "gain_db": gain_db,
+            "directivity": directivity,
+            "directivity_code": d,
         }
 
     except Exception as e:
@@ -1224,9 +1234,9 @@ def parse_rng(data: str) -> dict | None:
     Format: RNGrrrr where rrrr is range in miles.
     """
     try:
-        match = re.search(r'RNG(\d{4})', data)
+        match = re.search(r"RNG(\d{4})", data)
         if match:
-            return {'range_miles': int(match.group(1))}
+            return {"range_miles": int(match.group(1))}
         return None
     except Exception:
         return None
@@ -1243,17 +1253,17 @@ def parse_df_report(data: str) -> dict | None:
         result = {}
 
         # DF bearing format: /BRG (3 digits)
-        brg_match = re.search(r'/(\d{3})/', data)
+        brg_match = re.search(r"/(\d{3})/", data)
         if brg_match:
-            result['df_bearing'] = int(brg_match.group(1))
+            result["df_bearing"] = int(brg_match.group(1))
 
         # NRQ format
-        nrq_match = re.search(r'/(\d)(\d)(\d)$', data)
+        nrq_match = re.search(r"/(\d)(\d)(\d)$", data)
         if nrq_match:
             n, r, q = [int(x) for x in nrq_match.groups()]
-            result['df_hits'] = n  # Number of signal hits
-            result['df_range'] = r  # Range: 0=useless, 8=exact
-            result['df_quality'] = q  # Quality: 0=useless, 8=excellent
+            result["df_hits"] = n  # Number of signal hits
+            result["df_range"] = r  # Range: 0=useless, 8=exact
+            result["df_quality"] = q  # Quality: 0=useless, 8=excellent
 
         return result if result else None
 
@@ -1273,30 +1283,30 @@ def parse_timestamp(data: str) -> dict | None:
         result = {}
 
         # Zulu time: DDHHMMz
-        match = re.match(r'^(\d{2})(\d{2})(\d{2})z', data)
+        match = re.match(r"^(\d{2})(\d{2})(\d{2})z", data)
         if match:
-            result['time_day'] = int(match.group(1))
-            result['time_hour'] = int(match.group(2))
-            result['time_minute'] = int(match.group(3))
-            result['time_format'] = 'zulu'
+            result["time_day"] = int(match.group(1))
+            result["time_hour"] = int(match.group(2))
+            result["time_minute"] = int(match.group(3))
+            result["time_format"] = "zulu"
             return result
 
         # Local time: HHMMSSh
-        match = re.match(r'^(\d{2})(\d{2})(\d{2})h', data)
+        match = re.match(r"^(\d{2})(\d{2})(\d{2})h", data)
         if match:
-            result['time_hour'] = int(match.group(1))
-            result['time_minute'] = int(match.group(2))
-            result['time_second'] = int(match.group(3))
-            result['time_format'] = 'local'
+            result["time_hour"] = int(match.group(1))
+            result["time_minute"] = int(match.group(2))
+            result["time_second"] = int(match.group(3))
+            result["time_format"] = "local"
             return result
 
         # Local with day: DDHHMMl (less common)
-        match = re.match(r'^(\d{2})(\d{2})(\d{2})/', data)
+        match = re.match(r"^(\d{2})(\d{2})(\d{2})/", data)
         if match:
-            result['time_day'] = int(match.group(1))
-            result['time_hour'] = int(match.group(2))
-            result['time_minute'] = int(match.group(3))
-            result['time_format'] = 'local_day'
+            result["time_day"] = int(match.group(1))
+            result["time_hour"] = int(match.group(2))
+            result["time_minute"] = int(match.group(3))
+            result["time_format"] = "local_day"
             return result
 
         return None
@@ -1311,7 +1321,7 @@ def parse_third_party(data: str) -> dict | None:
     Format: }CALL>PATH:DATA (the } indicates third-party)
     """
     try:
-        if not data.startswith('}'):
+        if not data.startswith("}"):
             return None
 
         # The rest is a standard APRS packet
@@ -1321,11 +1331,11 @@ def parse_third_party(data: str) -> dict | None:
         inner = parse_aprs_packet(inner_packet)
         if inner:
             return {
-                'third_party': True,
-                'inner_packet': inner,
+                "third_party": True,
+                "inner_packet": inner,
             }
 
-        return {'third_party': True, 'inner_raw': inner_packet}
+        return {"third_party": True, "inner_raw": inner_packet}
 
     except Exception:
         return None
@@ -1340,13 +1350,13 @@ def parse_user_defined(data: str) -> dict | None:
     - XXXX = user-defined data
     """
     try:
-        if not data.startswith('{') or len(data) < 3:
+        if not data.startswith("{") or len(data) < 3:
             return None
 
         return {
-            'user_defined': True,
-            'user_id': data[1:3],
-            'user_data': data[3:],
+            "user_defined": True,
+            "user_id": data[1:3],
+            "user_data": data[3:],
         }
 
     except Exception:
@@ -1360,20 +1370,20 @@ def parse_capabilities(data: str) -> dict | None:
     or query format: ?APRS? or ?WX? etc.
     """
     try:
-        if data.startswith('<'):
+        if data.startswith("<"):
             # Capabilities response
-            caps = data[1:].split(',')
+            caps = data[1:].split(",")
             return {
-                'capabilities': [c.strip() for c in caps if c.strip()],
+                "capabilities": [c.strip() for c in caps if c.strip()],
             }
 
-        elif data.startswith('?'):
+        elif data.startswith("?"):
             # Query
-            query_match = re.match(r'\?([A-Z]+)\?', data)
+            query_match = re.match(r"\?([A-Z]+)\?", data)
             if query_match:
                 return {
-                    'query': True,
-                    'query_type': query_match.group(1),
+                    "query": True,
+                    "query_type": query_match.group(1),
                 }
 
         return None
@@ -1388,21 +1398,21 @@ def parse_nmea(data: str) -> dict | None:
     APRS can include raw NMEA data starting with $.
     """
     try:
-        if not data.startswith('$'):
+        if not data.startswith("$"):
             return None
 
         result = {
-            'nmea': True,
-            'nmea_sentence': data,
+            "nmea": True,
+            "nmea_sentence": data,
         }
 
         # Try to identify sentence type
-        if data.startswith('$GPGGA') or data.startswith('$GNGGA'):
-            result['nmea_type'] = 'GGA'
-        elif data.startswith('$GPRMC') or data.startswith('$GNRMC'):
-            result['nmea_type'] = 'RMC'
-        elif data.startswith('$GPGLL') or data.startswith('$GNGLL'):
-            result['nmea_type'] = 'GLL'
+        if data.startswith("$GPGGA") or data.startswith("$GNGGA"):
+            result["nmea_type"] = "GGA"
+        elif data.startswith("$GPRMC") or data.startswith("$GNRMC"):
+            result["nmea_type"] = "RMC"
+        elif data.startswith("$GPGLL") or data.startswith("$GNGLL"):
+            result["nmea_type"] = "GLL"
 
         return result
 
@@ -1421,7 +1431,7 @@ def parse_audio_level(line: str) -> int | None:
     We normalize it to 0-100 scale (direwolf typically outputs 0-100+).
     """
     # Match "Audio level = NN" pattern
-    match = re.search(r'Audio level\s*=\s*(\d+)', line, re.IGNORECASE)
+    match = re.search(r"Audio level\s*=\s*(\d+)", line, re.IGNORECASE)
     if match:
         raw_level = int(match.group(1))
         # Normalize: direwolf levels are typically 0-100, but can go higher
@@ -1474,7 +1484,7 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
     _last_meter_level = -1
 
     try:
-        app_module.aprs_queue.put({'type': 'status', 'status': 'started'})
+        app_module.aprs_queue.put({"type": "status", "status": "started"})
 
         # Read from PTY using select() for non-blocking reads.
         # PTY forces the decoder to line-buffer, so output arrives immediately
@@ -1491,12 +1501,12 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
                     data = os.read(master_fd, 1024)
                     if not data:
                         break
-                    buffer += data.decode('utf-8', errors='replace')
+                    buffer += data.decode("utf-8", errors="replace")
                 except OSError:
                     break
 
-                while '\n' in buffer:
-                    line, buffer = buffer.split('\n', 1)
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
                     line = line.strip()
                     if not line:
                         continue
@@ -1506,9 +1516,9 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
                     if audio_level is not None:
                         if should_send_meter_update(audio_level):
                             meter_msg = {
-                                'type': 'meter',
-                                'level': audio_level,
-                                'ts': datetime.utcnow().isoformat() + 'Z'
+                                "type": "meter",
+                                "level": audio_level,
+                                "ts": datetime.utcnow().isoformat() + "Z",
                             }
                             app_module.aprs_queue.put(meter_msg)
                         continue  # Audio level lines are not packets
@@ -1517,7 +1527,7 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
                     line = normalize_aprs_output_line(line)
 
                     # Skip non-packet lines (APRS format: CALL>PATH:DATA)
-                    if '>' not in line or ':' not in line:
+                    if ">" not in line or ":" not in line:
                         continue
 
                     packet = parse_aprs_packet(line)
@@ -1526,7 +1536,7 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
                         aprs_last_packet_time = time.time()
 
                         # Track unique stations
-                        callsign = packet.get('callsign')
+                        callsign = packet.get("callsign")
                         if callsign and callsign not in aprs_stations:
                             aprs_station_count += 1
 
@@ -1534,15 +1544,15 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
                         # packets do not contain position fields.
                         if callsign:
                             existing = aprs_stations.get(callsign, {})
-                            packet_lat = packet.get('lat')
-                            packet_lon = packet.get('lon')
+                            packet_lat = packet.get("lat")
+                            packet_lon = packet.get("lon")
                             aprs_stations[callsign] = {
-                                'callsign': callsign,
-                                'lat': packet_lat if packet_lat is not None else existing.get('lat'),
-                                'lon': packet_lon if packet_lon is not None else existing.get('lon'),
-                                'symbol': packet.get('symbol') or existing.get('symbol'),
-                                'last_seen': packet.get('timestamp'),
-                                'packet_type': packet.get('packet_type'),
+                                "callsign": callsign,
+                                "lat": packet_lat if packet_lat is not None else existing.get("lat"),
+                                "lon": packet_lon if packet_lon is not None else existing.get("lon"),
+                                "symbol": packet.get("symbol") or existing.get("symbol"),
+                                "last_seen": packet.get("timestamp"),
+                                "packet_type": packet.get("packet_type"),
                             }
                             # Geofence check
                             _aprs_lat = packet_lat
@@ -1550,18 +1560,18 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
                             if _aprs_lat is not None and _aprs_lon is not None:
                                 try:
                                     from utils.geofence import get_geofence_manager
+
                                     for _gf_evt in get_geofence_manager().check_position(
-                                        callsign, 'aprs_station', _aprs_lat, _aprs_lon,
-                                        {'callsign': callsign}
+                                        callsign, "aprs_station", _aprs_lat, _aprs_lon, {"callsign": callsign}
                                     ):
-                                        process_event('aprs', _gf_evt, 'geofence')
+                                        process_event("aprs", _gf_evt, "geofence")
                                 except Exception:
                                     pass
                             # Evict oldest stations when limit is exceeded
                             if len(aprs_stations) > APRS_MAX_STATIONS:
                                 oldest = min(
                                     aprs_stations,
-                                    key=lambda k: aprs_stations[k].get('last_seen', ''),
+                                    key=lambda k: aprs_stations[k].get("last_seen", ""),
                                 )
                                 del aprs_stations[oldest]
 
@@ -1570,19 +1580,19 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
                         # Log if enabled
                         if app_module.logging_enabled:
                             try:
-                                with open(app_module.log_file_path, 'a') as f:
-                                    ts = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                with open(app_module.log_file_path, "a") as f:
+                                    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                                     f.write(f"{ts} | APRS | {json.dumps(packet)}\n")
                             except Exception:
                                 pass
 
     except Exception as e:
         logger.error(f"APRS stream error: {e}")
-        app_module.aprs_queue.put({'type': 'error', 'message': str(e)})
+        app_module.aprs_queue.put({"type": "error", "message": str(e)})
     finally:
         with contextlib.suppress(OSError):
             os.close(master_fd)
-        app_module.aprs_queue.put({'type': 'status', 'status': 'stopped'})
+        app_module.aprs_queue.put({"type": "status", "status": "stopped"})
         # Cleanup processes
         for proc in [rtl_process, decoder_process]:
             try:
@@ -1593,12 +1603,12 @@ def stream_aprs_output(master_fd: int, rtl_process: subprocess.Popen, decoder_pr
                     proc.kill()
         # Release SDR device — only if it's still ours (not reclaimed by a new start)
         if my_device is not None and aprs_active_device == my_device:
-            app_module.release_sdr_device(my_device, aprs_active_sdr_type or 'rtlsdr')
+            app_module.release_sdr_device(my_device, aprs_active_sdr_type or "rtlsdr")
             aprs_active_device = None
             aprs_active_sdr_type = None
 
 
-@aprs_bp.route('/tools')
+@aprs_bp.route("/tools")
 def check_aprs_tools() -> Response:
     """Check for APRS decoding tools."""
     has_rtl_fm = find_rtl_fm() is not None
@@ -1607,59 +1617,62 @@ def check_aprs_tools() -> Response:
     has_multimon = find_multimon_ng() is not None
     has_fm_demod = has_rtl_fm or has_rx_fm
 
-    return jsonify({
-        'rtl_fm': has_rtl_fm,
-        'rx_fm': has_rx_fm,
-        'direwolf': has_direwolf,
-        'multimon_ng': has_multimon,
-        'ready': has_fm_demod and (has_direwolf or has_multimon),
-        'decoder': 'direwolf' if has_direwolf else ('multimon-ng' if has_multimon else None)
-    })
+    return jsonify(
+        {
+            "rtl_fm": has_rtl_fm,
+            "rx_fm": has_rx_fm,
+            "direwolf": has_direwolf,
+            "multimon_ng": has_multimon,
+            "ready": has_fm_demod and (has_direwolf or has_multimon),
+            "decoder": "direwolf" if has_direwolf else ("multimon-ng" if has_multimon else None),
+        }
+    )
 
 
-@aprs_bp.route('/status')
+@aprs_bp.route("/status")
 def aprs_status() -> Response:
     """Get APRS decoder status."""
     running = False
     if app_module.aprs_process:
         running = app_module.aprs_process.poll() is None
 
-    return jsonify({
-        'running': running,
-        'packet_count': aprs_packet_count,
-        'station_count': aprs_station_count,
-        'last_packet_time': aprs_last_packet_time,
-        'queue_size': app_module.aprs_queue.qsize()
-    })
+    return jsonify(
+        {
+            "running": running,
+            "packet_count": aprs_packet_count,
+            "station_count": aprs_station_count,
+            "last_packet_time": aprs_last_packet_time,
+            "queue_size": app_module.aprs_queue.qsize(),
+        }
+    )
 
 
-@aprs_bp.route('/stations')
+@aprs_bp.route("/stations")
 def get_stations() -> Response:
     """Get all tracked APRS stations."""
-    return jsonify({
-        'stations': list(aprs_stations.values()),
-        'count': len(aprs_stations)
-    })
+    return jsonify({"stations": list(aprs_stations.values()), "count": len(aprs_stations)})
 
 
-@aprs_bp.route('/data')
+@aprs_bp.route("/data")
 def aprs_data() -> Response:
     """Get APRS data snapshot for remote controller polling compatibility."""
     running = False
     if app_module.aprs_process:
         running = app_module.aprs_process.poll() is None
 
-    return api_success(data={
-        'running': running,
-        'stations': list(aprs_stations.values()),
-        'count': len(aprs_stations),
-        'packet_count': aprs_packet_count,
-        'station_count': aprs_station_count,
-        'last_packet_time': aprs_last_packet_time,
-    })
+    return api_success(
+        data={
+            "running": running,
+            "stations": list(aprs_stations.values()),
+            "count": len(aprs_stations),
+            "packet_count": aprs_packet_count,
+            "station_count": aprs_station_count,
+            "last_packet_time": aprs_last_packet_time,
+        }
+    )
 
 
-@aprs_bp.route('/start', methods=['POST'])
+@aprs_bp.route("/start", methods=["POST"])
 def start_aprs() -> Response:
     """Start APRS decoder."""
     global aprs_packet_count, aprs_station_count, aprs_last_packet_time, aprs_stations
@@ -1667,30 +1680,30 @@ def start_aprs() -> Response:
 
     with app_module.aprs_lock:
         if app_module.aprs_process and app_module.aprs_process.poll() is None:
-            return api_error('APRS decoder already running', 409)
+            return api_error("APRS decoder already running", 409)
 
     # Check for decoder (prefer direwolf, fallback to multimon-ng)
     direwolf_path = find_direwolf()
     multimon_path = find_multimon_ng()
 
     if not direwolf_path and not multimon_path:
-        return api_error('No APRS decoder found. Install direwolf or multimon-ng', 400)
+        return api_error("No APRS decoder found. Install direwolf or multimon-ng", 400)
 
     data = request.json or {}
 
     # Validate inputs
     try:
-        device = validate_device_index(data.get('device', '0'))
-        gain = validate_gain(data.get('gain', '40'))
-        ppm = validate_ppm(data.get('ppm', '0'))
+        device = validate_device_index(data.get("device", "0"))
+        gain = validate_gain(data.get("gain", "40"))
+        ppm = validate_ppm(data.get("ppm", "0"))
     except ValueError as e:
         return api_error(str(e), 400)
 
     # Check for rtl_tcp (remote SDR) connection
-    rtl_tcp_host = data.get('rtl_tcp_host')
-    rtl_tcp_port = data.get('rtl_tcp_port', 1234)
+    rtl_tcp_host = data.get("rtl_tcp_host")
+    rtl_tcp_port = data.get("rtl_tcp_port", 1234)
 
-    sdr_type_str = str(data.get('sdr_type', 'rtlsdr')).lower()
+    sdr_type_str = str(data.get("sdr_type", "rtlsdr")).lower()
     try:
         sdr_type = SDRType(sdr_type_str)
     except ValueError:
@@ -1698,26 +1711,26 @@ def start_aprs() -> Response:
 
     if sdr_type == SDRType.RTL_SDR:
         if find_rtl_fm() is None:
-            return api_error('rtl_fm not found. Install with: sudo apt install rtl-sdr', 400)
+            return api_error("rtl_fm not found. Install with: sudo apt install rtl-sdr", 400)
     else:
         if find_rx_fm() is None:
-            return api_error(f'rx_fm not found. Install SoapySDR tools for {sdr_type.value}.', 400)
+            return api_error(f"rx_fm not found. Install SoapySDR tools for {sdr_type.value}.", 400)
 
     # Reserve SDR device to prevent conflicts (skip for remote rtl_tcp)
     if not rtl_tcp_host:
-        error = app_module.claim_sdr_device(device, 'aprs', sdr_type_str)
+        error = app_module.claim_sdr_device(device, "aprs", sdr_type_str)
         if error:
-            return api_error(error, 409, error_type='DEVICE_BUSY')
+            return api_error(error, 409, error_type="DEVICE_BUSY")
         aprs_active_device = device
         aprs_active_sdr_type = sdr_type_str
 
     # Get frequency for region
-    region = data.get('region', 'north_america')
-    frequency = APRS_FREQUENCIES.get(region, '144.390')
+    region = data.get("region", "north_america")
+    frequency = APRS_FREQUENCIES.get(region, "144.390")
 
     # Allow custom frequency override
-    if data.get('frequency'):
-        frequency = data.get('frequency')
+    if data.get("frequency"):
+        frequency = data.get("frequency")
 
     # Clear queue and reset stats
     while not app_module.aprs_queue.empty():
@@ -1748,22 +1761,22 @@ def start_aprs() -> Response:
             device=sdr_device,
             frequency_mhz=float(frequency),
             sample_rate=22050,
-            gain=float(gain) if gain and str(gain) != '0' else None,
-            ppm=int(ppm) if ppm and str(ppm) != '0' else None,
-            modulation='nfm' if sdr_type == SDRType.RTL_SDR else 'fm',
+            gain=float(gain) if gain and str(gain) != "0" else None,
+            ppm=int(ppm) if ppm and str(ppm) != "0" else None,
+            modulation="nfm" if sdr_type == SDRType.RTL_SDR else "fm",
             squelch=None,
-            bias_t=bool(data.get('bias_t', False)),
+            bias_t=bool(data.get("bias_t", False)),
         )
 
-        if sdr_type == SDRType.RTL_SDR and rtl_cmd and rtl_cmd[-1] == '-':
+        if sdr_type == SDRType.RTL_SDR and rtl_cmd and rtl_cmd[-1] == "-":
             # APRS benefits from DC blocking + fast AGC on rtl_fm.
-            rtl_cmd = rtl_cmd[:-1] + ['-E', 'dc', '-A', 'fast', '-']
+            rtl_cmd = rtl_cmd[:-1] + ["-E", "dc", "-A", "fast", "-"]
     except Exception as e:
         if aprs_active_device is not None:
-            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
+            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or "rtlsdr")
             aprs_active_device = None
             aprs_active_sdr_type = None
-        return api_error(f'Failed to build SDR command: {e}', 500)
+        return api_error(f"Failed to build SDR command: {e}", 500)
 
     # Build decoder command
     if direwolf_path:
@@ -1778,20 +1791,12 @@ def start_aprs() -> Response:
         # -t 0 = disable text colors (for cleaner parsing)
         # NOTE: We do NOT use -q h here so we get audio level lines for the signal meter
         # - = read audio from stdin (must be last argument)
-        decoder_cmd = [
-            direwolf_path,
-            '-c', config_path,
-            '-n', '1',
-            '-r', '22050',
-            '-b', '16',
-            '-t', '0',
-            '-'
-        ]
-        decoder_name = 'direwolf'
+        decoder_cmd = [direwolf_path, "-c", config_path, "-n", "1", "-r", "22050", "-b", "16", "-t", "0", "-"]
+        decoder_name = "direwolf"
     else:
         # Fallback to multimon-ng
-        decoder_cmd = [multimon_path, '-t', 'raw', '-a', 'AFSK1200', '-']
-        decoder_name = 'multimon-ng'
+        decoder_cmd = [multimon_path, "-t", "raw", "-a", "AFSK1200", "-"]
+        decoder_name = "multimon-ng"
 
     logger.info(f"Starting APRS decoder: {' '.join(rtl_cmd)} | {' '.join(decoder_cmd)}")
 
@@ -1799,17 +1804,12 @@ def start_aprs() -> Response:
         # Start rtl_fm with stdout piped to decoder.
         # stderr is captured via PIPE so errors are reported to the user.
         # NOTE: RTL-SDR Blog V4 may show offset-tuned frequency in logs - this is normal.
-        rtl_process = subprocess.Popen(
-            rtl_cmd,
-            stdout=PIPE,
-            stderr=PIPE,
-            start_new_session=True
-        )
+        rtl_process = subprocess.Popen(rtl_cmd, stdout=PIPE, stderr=PIPE, start_new_session=True)
 
         # Start a thread to monitor rtl_fm stderr for errors
         def monitor_rtl_stderr():
             for line in rtl_process.stderr:
-                err_text = line.decode('utf-8', errors='replace').strip()
+                err_text = line.decode("utf-8", errors="replace").strip()
                 if err_text:
                     logger.debug(f"[RTL_FM] {err_text}")
 
@@ -1829,7 +1829,7 @@ def start_aprs() -> Response:
             stdout=slave_fd,
             stderr=slave_fd,
             close_fds=True,
-            start_new_session=True
+            start_new_session=True,
         )
 
         # Close slave fd in parent — decoder owns it now.
@@ -1844,49 +1844,49 @@ def start_aprs() -> Response:
 
         if rtl_process.poll() is not None:
             # rtl_fm exited early - capture stderr for diagnostics
-            stderr_output = ''
+            stderr_output = ""
             try:
                 remaining = rtl_process.stderr.read()
                 if remaining:
-                    stderr_output = remaining.decode('utf-8', errors='replace').strip()
+                    stderr_output = remaining.decode("utf-8", errors="replace").strip()
             except Exception:
                 pass
             if stderr_output:
                 logger.error(f"rtl_fm stderr:\n{stderr_output}")
-            error_msg = f'rtl_fm failed to start (exit code {rtl_process.returncode})'
+            error_msg = f"rtl_fm failed to start (exit code {rtl_process.returncode})"
             if stderr_output:
-                error_msg += f': {stderr_output[:500]}'
+                error_msg += f": {stderr_output[:500]}"
             logger.error(error_msg)
             with contextlib.suppress(OSError):
                 os.close(master_fd)
             with contextlib.suppress(Exception):
                 decoder_process.kill()
             if aprs_active_device is not None:
-                app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
+                app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or "rtlsdr")
                 aprs_active_device = None
                 aprs_active_sdr_type = None
             return api_error(error_msg, 500)
 
         if decoder_process.poll() is not None:
             # Decoder exited early - capture any output from PTY
-            error_output = ''
+            error_output = ""
             try:
                 ready, _, _ = select.select([master_fd], [], [], 0.5)
                 if ready:
                     raw = os.read(master_fd, 500)
-                    error_output = raw.decode('utf-8', errors='replace')
+                    error_output = raw.decode("utf-8", errors="replace")
             except Exception:
                 pass
-            error_msg = f'{decoder_name} failed to start'
+            error_msg = f"{decoder_name} failed to start"
             if error_output:
-                error_msg += f': {error_output}'
+                error_msg += f": {error_output}"
             logger.error(error_msg)
             with contextlib.suppress(OSError):
                 os.close(master_fd)
             with contextlib.suppress(Exception):
                 rtl_process.kill()
             if aprs_active_device is not None:
-                app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
+                app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or "rtlsdr")
                 aprs_active_device = None
                 aprs_active_sdr_type = None
             return api_error(error_msg, 500)
@@ -1898,31 +1898,31 @@ def start_aprs() -> Response:
 
         # Start background thread to read decoder output and push to queue
         thread = threading.Thread(
-            target=stream_aprs_output,
-            args=(master_fd, rtl_process, decoder_process),
-            daemon=True
+            target=stream_aprs_output, args=(master_fd, rtl_process, decoder_process), daemon=True
         )
         thread.start()
 
-        return jsonify({
-            'status': 'started',
-            'frequency': frequency,
-            'region': region,
-            'device': device,
-            'sdr_type': sdr_type.value,
-            'decoder': decoder_name
-        })
+        return jsonify(
+            {
+                "status": "started",
+                "frequency": frequency,
+                "region": region,
+                "device": device,
+                "sdr_type": sdr_type.value,
+                "decoder": decoder_name,
+            }
+        )
 
     except Exception as e:
         logger.error(f"Failed to start APRS decoder: {e}")
         if aprs_active_device is not None:
-            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
+            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or "rtlsdr")
             aprs_active_device = None
             aprs_active_sdr_type = None
         return api_error(str(e), 500)
 
 
-@aprs_bp.route('/stop', methods=['POST'])
+@aprs_bp.route("/stop", methods=["POST"])
 def stop_aprs() -> Response:
     """Stop APRS decoder.
 
@@ -1936,26 +1936,26 @@ def stop_aprs() -> Response:
     with app_module.aprs_lock:
         processes_to_stop = []
 
-        if hasattr(app_module, 'aprs_rtl_process') and app_module.aprs_rtl_process:
+        if hasattr(app_module, "aprs_rtl_process") and app_module.aprs_rtl_process:
             processes_to_stop.append(app_module.aprs_rtl_process)
 
         if app_module.aprs_process:
             processes_to_stop.append(app_module.aprs_process)
 
         if not processes_to_stop:
-            return api_error('APRS decoder not running', 400)
+            return api_error("APRS decoder not running", 400)
 
         # Release SDR device immediately so status panel reflects the
         # change without waiting for process termination.
         if aprs_active_device is not None:
-            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or 'rtlsdr')
+            app_module.release_sdr_device(aprs_active_device, aprs_active_sdr_type or "rtlsdr")
             aprs_active_device = None
             aprs_active_sdr_type = None
 
         # Capture refs to clear before releasing the lock
-        master_fd = getattr(app_module, 'aprs_master_fd', None)
+        master_fd = getattr(app_module, "aprs_master_fd", None)
         app_module.aprs_process = None
-        if hasattr(app_module, 'aprs_rtl_process'):
+        if hasattr(app_module, "aprs_rtl_process"):
             app_module.aprs_rtl_process = None
         app_module.aprs_master_fd = None
 
@@ -1978,37 +1978,38 @@ def stop_aprs() -> Response:
 
     threading.Thread(target=_cleanup, daemon=True).start()
 
-    return jsonify({'status': 'stopped'})
+    return jsonify({"status": "stopped"})
 
 
-@aprs_bp.route('/stream')
+@aprs_bp.route("/stream")
 def stream_aprs() -> Response:
     """SSE stream for APRS packets."""
+
     def _on_msg(msg: dict[str, Any]) -> None:
-        process_event('aprs', msg, msg.get('type'))
+        process_event("aprs", msg, msg.get("type"))
 
     response = Response(
         sse_stream_fanout(
             source_queue=app_module.aprs_queue,
-            channel_key='aprs',
+            channel_key="aprs",
             timeout=SSE_QUEUE_TIMEOUT,
             keepalive_interval=SSE_KEEPALIVE_INTERVAL,
             on_message=_on_msg,
         ),
-        mimetype='text/event-stream',
+        mimetype="text/event-stream",
     )
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
     return response
 
 
-@aprs_bp.route('/frequencies')
+@aprs_bp.route("/frequencies")
 def get_frequencies() -> Response:
     """Get APRS frequencies by region."""
     return jsonify(APRS_FREQUENCIES)
 
 
-@aprs_bp.route('/spectrum', methods=['GET', 'POST'])
+@aprs_bp.route("/spectrum", methods=["GET", "POST"])
 def scan_aprs_spectrum() -> Response:
     """Scan spectrum around APRS frequency for signal visibility debugging.
 
@@ -2027,7 +2028,7 @@ def scan_aprs_spectrum() -> Response:
     """
     rtl_power_path = find_rtl_power()
     if not rtl_power_path:
-        return api_error('rtl_power not found. Install with: sudo apt install rtl-sdr', 400)
+        return api_error("rtl_power not found. Install with: sudo apt install rtl-sdr", 400)
 
     # Get parameters from JSON body or query args
     if request.is_json:
@@ -2035,11 +2036,11 @@ def scan_aprs_spectrum() -> Response:
     else:
         data = {}
 
-    device = data.get('device', request.args.get('device', '0'))
-    gain = data.get('gain', request.args.get('gain', '0'))
-    region = data.get('region', request.args.get('region', 'europe'))
-    frequency = data.get('frequency', request.args.get('frequency'))
-    duration = data.get('duration', request.args.get('duration', '10'))
+    device = data.get("device", request.args.get("device", "0"))
+    gain = data.get("gain", request.args.get("gain", "0"))
+    region = data.get("region", request.args.get("region", "europe"))
+    frequency = data.get("frequency", request.args.get("frequency"))
+    duration = data.get("duration", request.args.get("duration", "10"))
 
     # Validate inputs
     try:
@@ -2053,7 +2054,7 @@ def scan_aprs_spectrum() -> Response:
     if frequency:
         center_freq_mhz = float(frequency)
     else:
-        center_freq_mhz = float(APRS_FREQUENCIES.get(region, '144.800'))
+        center_freq_mhz = float(APRS_FREQUENCIES.get(region, "144.800"))
 
     # Scan 20 kHz around center frequency (±10 kHz)
     start_freq_mhz = center_freq_mhz - 0.010
@@ -2061,22 +2062,26 @@ def scan_aprs_spectrum() -> Response:
     bin_size_hz = 200  # 200 Hz bins for good resolution
 
     # Create temp file for rtl_power output
-    tmp_file = os.path.join(tempfile.gettempdir(), f'intercept_rtl_power_{os.getpid()}.csv')
+    tmp_file = os.path.join(tempfile.gettempdir(), f"intercept_rtl_power_{os.getpid()}.csv")
 
     try:
         # Build rtl_power command
         # Format: rtl_power -f start:end:bin_size -d device -g gain -i interval -e duration output_file
         rtl_power_cmd = [
             rtl_power_path,
-            '-f', f'{start_freq_mhz}M:{end_freq_mhz}M:{bin_size_hz}',
-            '-d', str(device),
-            '-i', '1',  # 1 second integration
-            '-e', f'{duration}s',
+            "-f",
+            f"{start_freq_mhz}M:{end_freq_mhz}M:{bin_size_hz}",
+            "-d",
+            str(device),
+            "-i",
+            "1",  # 1 second integration
+            "-e",
+            f"{duration}s",
         ]
 
         # Gain: 0 means auto
-        if gain and str(gain) != '0':
-            rtl_power_cmd.extend(['-g', str(gain)])
+        if gain and str(gain) != "0":
+            rtl_power_cmd.extend(["-g", str(gain)])
 
         rtl_power_cmd.append(tmp_file)
 
@@ -2087,17 +2092,17 @@ def scan_aprs_spectrum() -> Response:
             rtl_power_cmd,
             capture_output=True,
             text=True,
-            timeout=duration + 15  # Allow extra time for startup/shutdown
+            timeout=duration + 15,  # Allow extra time for startup/shutdown
         )
 
         if result.returncode != 0:
-            error_msg = result.stderr[:200] if result.stderr else f'Exit code {result.returncode}'
-            return api_error(f'rtl_power failed: {error_msg}', 500)
+            error_msg = result.stderr[:200] if result.stderr else f"Exit code {result.returncode}"
+            return api_error(f"rtl_power failed: {error_msg}", 500)
 
         # Parse rtl_power CSV output
         # Format: date, time, start_hz, end_hz, step_hz, samples, db1, db2, db3, ...
         if not os.path.exists(tmp_file):
-            return api_error('rtl_power did not produce output file', 500)
+            return api_error("rtl_power did not produce output file", 500)
 
         bins = []
         with open(tmp_file) as f:
@@ -2112,29 +2117,29 @@ def scan_aprs_spectrum() -> Response:
                     for i, db_str in enumerate(row[6:]):
                         db_val = float(db_str.strip())
                         freq_hz = row_start_hz + (i * row_step_hz)
-                        bins.append({'freq_hz': freq_hz, 'db': db_val})
+                        bins.append({"freq_hz": freq_hz, "db": db_val})
                 except (ValueError, IndexError):
                     continue
 
         if not bins:
-            return api_error('No spectrum data collected. Check SDR connection and antenna.', 500)
+            return api_error("No spectrum data collected. Check SDR connection and antenna.", 500)
 
         # Calculate statistics
-        db_values = [b['db'] for b in bins]
+        db_values = [b["db"] for b in bins]
         avg_db = sum(db_values) / len(db_values)
-        max_bin = max(bins, key=lambda x: x['db'])
+        max_bin = max(bins, key=lambda x: x["db"])
         min_db = min(db_values)
 
         # Find peak near center frequency (within 5 kHz)
         center_hz = center_freq_mhz * 1e6
-        near_center_bins = [b for b in bins if abs(b['freq_hz'] - center_hz) < 5000]
+        near_center_bins = [b for b in bins if abs(b["freq_hz"] - center_hz) < 5000]
         if near_center_bins:
-            peak_near_center = max(near_center_bins, key=lambda x: x['db'])
+            peak_near_center = max(near_center_bins, key=lambda x: x["db"])
         else:
             peak_near_center = max_bin
 
         # Signal analysis
-        peak_above_noise = peak_near_center['db'] - avg_db
+        peak_above_noise = peak_near_center["db"] - avg_db
         signal_detected = peak_above_noise > 3  # 3 dB above noise floor
 
         # Generate advice
@@ -2147,33 +2152,35 @@ def scan_aprs_spectrum() -> Response:
         else:
             advice = "Good signal detected. Decoding should work well."
 
-        return api_success(data={
-            'scan_params': {
-                'center_freq_mhz': center_freq_mhz,
-                'start_freq_mhz': start_freq_mhz,
-                'end_freq_mhz': end_freq_mhz,
-                'bin_size_hz': bin_size_hz,
-                'duration_seconds': duration,
-                'device': device,
-                'gain': gain,
-                'region': region,
-            },
-            'results': {
-                'total_bins': len(bins),
-                'noise_floor_db': round(avg_db, 1),
-                'min_db': round(min_db, 1),
-                'peak_freq_mhz': round(max_bin['freq_hz'] / 1e6, 6),
-                'peak_db': round(max_bin['db'], 1),
-                'peak_near_aprs_freq_mhz': round(peak_near_center['freq_hz'] / 1e6, 6),
-                'peak_near_aprs_db': round(peak_near_center['db'], 1),
-                'signal_above_noise_db': round(peak_above_noise, 1),
-                'signal_detected': signal_detected,
-            },
-            'advice': advice,
-        })
+        return api_success(
+            data={
+                "scan_params": {
+                    "center_freq_mhz": center_freq_mhz,
+                    "start_freq_mhz": start_freq_mhz,
+                    "end_freq_mhz": end_freq_mhz,
+                    "bin_size_hz": bin_size_hz,
+                    "duration_seconds": duration,
+                    "device": device,
+                    "gain": gain,
+                    "region": region,
+                },
+                "results": {
+                    "total_bins": len(bins),
+                    "noise_floor_db": round(avg_db, 1),
+                    "min_db": round(min_db, 1),
+                    "peak_freq_mhz": round(max_bin["freq_hz"] / 1e6, 6),
+                    "peak_db": round(max_bin["db"], 1),
+                    "peak_near_aprs_freq_mhz": round(peak_near_center["freq_hz"] / 1e6, 6),
+                    "peak_near_aprs_db": round(peak_near_center["db"], 1),
+                    "signal_above_noise_db": round(peak_above_noise, 1),
+                    "signal_detected": signal_detected,
+                },
+                "advice": advice,
+            }
+        )
 
     except subprocess.TimeoutExpired:
-        return api_error(f'Spectrum scan timed out after {duration + 15} seconds', 500)
+        return api_error(f"Spectrum scan timed out after {duration + 15} seconds", 500)
     except Exception as e:
         logger.error(f"Spectrum scan error: {e}")
         return api_error(str(e), 500)
@@ -2184,4 +2191,3 @@ def scan_aprs_spectrum() -> Response:
                 os.remove(tmp_file)
         except Exception:
             pass
-

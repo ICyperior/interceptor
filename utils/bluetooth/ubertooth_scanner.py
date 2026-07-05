@@ -58,7 +58,7 @@ class UbertoothScanner:
     @staticmethod
     def is_available() -> bool:
         """Check if ubertooth-btle is available on the system."""
-        return shutil.which('ubertooth-btle') is not None
+        return shutil.which("ubertooth-btle") is not None
 
     def start(self) -> bool:
         """
@@ -81,9 +81,9 @@ class UbertoothScanner:
             # Build command: ubertooth-btle -n -U <device_index>
             # -n = advertisements only (no follow mode)
             # -U = device index for multiple Ubertooths
-            cmd = ['ubertooth-btle', '-n']
+            cmd = ["ubertooth-btle", "-n"]
             if self._device_index > 0:
-                cmd.extend(['-U', str(self._device_index)])
+                cmd.extend(["-U", str(self._device_index)])
 
             self._process = subprocess.Popen(
                 cmd,
@@ -94,11 +94,7 @@ class UbertoothScanner:
             )
 
             self._stop_event.clear()
-            self._reader_thread = threading.Thread(
-                target=self._read_output,
-                daemon=True,
-                name='ubertooth-reader'
-            )
+            self._reader_thread = threading.Thread(target=self._read_output, daemon=True, name="ubertooth-reader")
             self._reader_thread.start()
             self._is_scanning = True
             logger.info(f"Ubertooth scanner started (device index: {self._device_index})")
@@ -162,7 +158,7 @@ class UbertoothScanner:
                     continue
 
                 # Skip non-packet lines (errors, status messages)
-                if not line.startswith('systime='):
+                if not line.startswith("systime="):
                     # Log errors from stderr would go here if needed
                     continue
 
@@ -198,17 +194,14 @@ class UbertoothScanner:
         """
         # Parse the structured prefix
         # Example: systime=1349412883 freq=2402 addr=8e89bed6 delta_t=38.441 ms 00 17 ab cd ef ...
-        match = re.match(
-            r'systime=(\d+)\s+freq=(\d+)\s+addr=([0-9a-fA-F]+)\s+delta_t=[\d.]+\s+ms\s+(.+)',
-            line
-        )
+        match = re.match(r"systime=(\d+)\s+freq=(\d+)\s+addr=([0-9a-fA-F]+)\s+delta_t=[\d.]+\s+ms\s+(.+)", line)
         if not match:
             return None
 
         # Parse hex bytes
         hex_data = match.group(4).strip()
         try:
-            raw_bytes = bytes.fromhex(hex_data.replace(' ', ''))
+            raw_bytes = bytes.fromhex(hex_data.replace(" ", ""))
         except ValueError:
             return None
 
@@ -228,14 +221,14 @@ class UbertoothScanner:
         # Extract advertiser address (bytes 2-7, reversed)
         # BLE addresses are transmitted LSB first
         addr_bytes = raw_bytes[2:8]
-        address = ':'.join(f'{b:02X}' for b in reversed(addr_bytes))
+        address = ":".join(f"{b:02X}" for b in reversed(addr_bytes))
 
         # Determine address type from PDU type and TxAdd flag
         tx_add = (raw_bytes[0] >> 6) & 0x01
         address_type = ADDRESS_TYPE_RANDOM if tx_add else ADDRESS_TYPE_PUBLIC
 
         # Parse advertising data payload (after MAC address)
-        adv_data = raw_bytes[8:2 + length] if length > 6 else b''
+        adv_data = raw_bytes[8 : 2 + length] if length > 6 else b""
 
         # Parse advertising data structures
         name = None
@@ -255,34 +248,36 @@ class UbertoothScanner:
                 break
 
             ad_type = adv_data[i + 1]
-            ad_payload = adv_data[i + 2:i + 1 + ad_len]
+            ad_payload = adv_data[i + 2 : i + 1 + ad_len]
 
             # 0x01 = Flags
             # 0x02/0x03 = Incomplete/Complete list of 16-bit UUIDs
             if ad_type in (0x02, 0x03) and len(ad_payload) >= 2:
                 for j in range(0, len(ad_payload), 2):
                     if j + 2 <= len(ad_payload):
-                        uuid16 = int.from_bytes(ad_payload[j:j + 2], 'little')
-                        service_uuids.append(f'{uuid16:04X}')
+                        uuid16 = int.from_bytes(ad_payload[j : j + 2], "little")
+                        service_uuids.append(f"{uuid16:04X}")
 
             # 0x06/0x07 = Incomplete/Complete list of 128-bit UUIDs
             elif ad_type in (0x06, 0x07) and len(ad_payload) >= 16:
                 for j in range(0, len(ad_payload), 16):
                     if j + 16 <= len(ad_payload):
-                        uuid_bytes = ad_payload[j:j + 16]
-                        uuid128 = '-'.join([
-                            uuid_bytes[15:11:-1].hex(),
-                            uuid_bytes[11:9:-1].hex(),
-                            uuid_bytes[9:7:-1].hex(),
-                            uuid_bytes[7:5:-1].hex(),
-                            uuid_bytes[5::-1].hex(),
-                        ])
+                        uuid_bytes = ad_payload[j : j + 16]
+                        uuid128 = "-".join(
+                            [
+                                uuid_bytes[15:11:-1].hex(),
+                                uuid_bytes[11:9:-1].hex(),
+                                uuid_bytes[9:7:-1].hex(),
+                                uuid_bytes[7:5:-1].hex(),
+                                uuid_bytes[5::-1].hex(),
+                            ]
+                        )
                         service_uuids.append(uuid128.upper())
 
             # 0x08/0x09 = Shortened/Complete Local Name
             elif ad_type in (0x08, 0x09):
                 with contextlib.suppress(Exception):
-                    name = ad_payload.decode('utf-8', errors='replace')
+                    name = ad_payload.decode("utf-8", errors="replace")
 
             # 0x0A = TX Power Level
             elif ad_type == 0x0A and len(ad_payload) >= 1:
@@ -291,29 +286,31 @@ class UbertoothScanner:
 
             # 0xFF = Manufacturer Specific Data
             elif ad_type == 0xFF and len(ad_payload) >= 2:
-                manufacturer_id = int.from_bytes(ad_payload[0:2], 'little')
+                manufacturer_id = int.from_bytes(ad_payload[0:2], "little")
                 manufacturer_data = bytes(ad_payload[2:])
 
             # 0x16 = Service Data (16-bit UUID)
             elif ad_type == 0x16 and len(ad_payload) >= 2:
-                svc_uuid = f'{int.from_bytes(ad_payload[0:2], "little"):04X}'
+                svc_uuid = f"{int.from_bytes(ad_payload[0:2], 'little'):04X}"
                 service_data[svc_uuid] = bytes(ad_payload[2:])
 
             # 0x20 = Service Data (32-bit UUID)
             elif ad_type == 0x20 and len(ad_payload) >= 4:
-                svc_uuid = f'{int.from_bytes(ad_payload[0:4], "little"):08X}'
+                svc_uuid = f"{int.from_bytes(ad_payload[0:4], 'little'):08X}"
                 service_data[svc_uuid] = bytes(ad_payload[4:])
 
             # 0x21 = Service Data (128-bit UUID)
             elif ad_type == 0x21 and len(ad_payload) >= 16:
                 uuid_bytes = ad_payload[0:16]
-                svc_uuid = '-'.join([
-                    uuid_bytes[15:11:-1].hex(),
-                    uuid_bytes[11:9:-1].hex(),
-                    uuid_bytes[9:7:-1].hex(),
-                    uuid_bytes[7:5:-1].hex(),
-                    uuid_bytes[5::-1].hex(),
-                ]).upper()
+                svc_uuid = "-".join(
+                    [
+                        uuid_bytes[15:11:-1].hex(),
+                        uuid_bytes[11:9:-1].hex(),
+                        uuid_bytes[9:7:-1].hex(),
+                        uuid_bytes[7:5:-1].hex(),
+                        uuid_bytes[5::-1].hex(),
+                    ]
+                ).upper()
                 service_data[svc_uuid] = bytes(ad_payload[16:])
 
             i += 1 + ad_len

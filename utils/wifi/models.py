@@ -45,7 +45,7 @@ class WiFiObservation:
     @property
     def is_hidden(self) -> bool:
         """Check if this is a hidden network."""
-        return not self.essid or self.essid.strip() == ''
+        return not self.essid or self.essid.strip() == ""
 
     @property
     def band(self) -> str:
@@ -62,21 +62,21 @@ class WiFiObservation:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'timestamp': self.timestamp.isoformat(),
-            'bssid': self.bssid,
-            'essid': self.essid,
-            'is_hidden': self.is_hidden,
-            'channel': self.channel,
-            'frequency_mhz': self.frequency_mhz,
-            'band': self.band,
-            'rssi': self.rssi,
-            'security': self.security,
-            'cipher': self.cipher,
-            'auth': self.auth,
-            'width': self.width,
-            'beacon_count': self.beacon_count,
-            'data_count': self.data_count,
-            'vendor': self.vendor,
+            "timestamp": self.timestamp.isoformat(),
+            "bssid": self.bssid,
+            "essid": self.essid,
+            "is_hidden": self.is_hidden,
+            "channel": self.channel,
+            "frequency_mhz": self.frequency_mhz,
+            "band": self.band,
+            "rssi": self.rssi,
+            "security": self.security,
+            "cipher": self.cipher,
+            "auth": self.auth,
+            "width": self.width,
+            "beacon_count": self.beacon_count,
+            "data_count": self.data_count,
+            "vendor": self.vendor,
         }
 
 
@@ -164,111 +164,99 @@ class WiFiAccessPoint:
         if not self.rssi_samples:
             return []
         samples = self.rssi_samples[-max_points:]
-        return [
-            {'timestamp': ts.isoformat(), 'rssi': rssi}
-            for ts, rssi in samples
-        ]
+        return [{"timestamp": ts.isoformat(), "rssi": rssi} for ts, rssi in samples]
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
             # Identity
-            'bssid': self.bssid,
-            'essid': self.essid,
-            'display_name': self.display_name,
-            'is_hidden': self.is_hidden,
-            'revealed_essid': self.revealed_essid,
-
+            "bssid": self.bssid,
+            "essid": self.essid,
+            "display_name": self.display_name,
+            "is_hidden": self.is_hidden,
+            "revealed_essid": self.revealed_essid,
             # Radio
-            'channel': self.channel,
-            'frequency_mhz': self.frequency_mhz,
-            'band': self.band,
-            'width': self.width,
-
+            "channel": self.channel,
+            "frequency_mhz": self.frequency_mhz,
+            "band": self.band,
+            "width": self.width,
             # Signal
-            'rssi_current': self.rssi_current,
-            'rssi_median': round(self.rssi_median, 1) if self.rssi_median else None,
-            'rssi_min': self.rssi_min,
-            'rssi_max': self.rssi_max,
-            'rssi_variance': round(self.rssi_variance, 2) if self.rssi_variance else None,
-            'rssi_ema': round(self.rssi_ema, 1) if self.rssi_ema else None,
-            'rssi_history': self.get_rssi_history(),
-
+            "rssi_current": self.rssi_current,
+            "rssi_median": round(self.rssi_median, 1) if self.rssi_median else None,
+            "rssi_min": self.rssi_min,
+            "rssi_max": self.rssi_max,
+            "rssi_variance": round(self.rssi_variance, 2) if self.rssi_variance else None,
+            "rssi_ema": round(self.rssi_ema, 1) if self.rssi_ema else None,
+            "rssi_history": self.get_rssi_history(),
             # Proximity
-            'signal_band': self.signal_band,
-            'proximity_band': self.proximity_band,
-            'estimated_distance_m': round(self.estimated_distance_m, 2) if self.estimated_distance_m else None,
-            'distance_confidence': round(self.distance_confidence, 2),
-
+            "signal_band": self.signal_band,
+            "proximity_band": self.proximity_band,
+            "estimated_distance_m": round(self.estimated_distance_m, 2) if self.estimated_distance_m else None,
+            "distance_confidence": round(self.distance_confidence, 2),
             # Security
-            'security': self.security,
-            'cipher': self.cipher,
-            'auth': self.auth,
-
+            "security": self.security,
+            "cipher": self.cipher,
+            "auth": self.auth,
             # Timestamps
-            'first_seen': self.first_seen.isoformat(),
-            'last_seen': self.last_seen.isoformat(),
-            'age_seconds': round(self.age_seconds, 1),
-            'duration_seconds': round(self.duration_seconds, 1),
-            'seen_count': self.seen_count,
-            'seen_rate': round(self.seen_rate, 2),
-
+            "first_seen": self.first_seen.isoformat(),
+            "last_seen": self.last_seen.isoformat(),
+            "age_seconds": round(self.age_seconds, 1),
+            "duration_seconds": round(self.duration_seconds, 1),
+            "seen_count": self.seen_count,
+            "seen_rate": round(self.seen_rate, 2),
             # Traffic
-            'beacon_count': self.beacon_count,
-            'data_count': self.data_count,
-            'client_count': self.client_count,
-
+            "beacon_count": self.beacon_count,
+            "data_count": self.data_count,
+            "client_count": self.client_count,
             # Metadata
-            'vendor': self.vendor,
-
+            "vendor": self.vendor,
             # Heuristics
-            'heuristic_flags': self.heuristic_flags,
-            'heuristics': {
-                'is_new': self.is_new,
-                'is_persistent': self.is_persistent,
-                'is_strong_stable': self.is_strong_stable,
+            "heuristic_flags": self.heuristic_flags,
+            "heuristics": {
+                "is_new": self.is_new,
+                "is_persistent": self.is_persistent,
+                "is_strong_stable": self.is_strong_stable,
             },
-
             # Baseline
-            'in_baseline': self.in_baseline,
-            'baseline_id': self.baseline_id,
+            "in_baseline": self.in_baseline,
+            "baseline_id": self.baseline_id,
         }
 
     def to_summary_dict(self) -> dict:
         """Compact dictionary for list views."""
         return {
-            'bssid': self.bssid,
-            'essid': self.essid,
-            'display_name': self.display_name,
-            'is_hidden': self.is_hidden,
-            'channel': self.channel,
-            'band': self.band,
-            'rssi_current': self.rssi_current,
-            'rssi_median': round(self.rssi_median, 1) if self.rssi_median else None,
-            'signal_band': self.signal_band,
-            'proximity_band': self.proximity_band,
-            'security': self.security,
-            'vendor': self.vendor,
-            'client_count': self.client_count,
-            'last_seen': self.last_seen.isoformat(),
-            'age_seconds': round(self.age_seconds, 1),
-            'heuristic_flags': self.heuristic_flags,
-            'in_baseline': self.in_baseline,
+            "bssid": self.bssid,
+            "essid": self.essid,
+            "display_name": self.display_name,
+            "is_hidden": self.is_hidden,
+            "channel": self.channel,
+            "band": self.band,
+            "rssi_current": self.rssi_current,
+            "rssi_median": round(self.rssi_median, 1) if self.rssi_median else None,
+            "signal_band": self.signal_band,
+            "proximity_band": self.proximity_band,
+            "security": self.security,
+            "vendor": self.vendor,
+            "client_count": self.client_count,
+            "last_seen": self.last_seen.isoformat(),
+            "age_seconds": round(self.age_seconds, 1),
+            "heuristic_flags": self.heuristic_flags,
+            "in_baseline": self.in_baseline,
         }
 
     def to_legacy_dict(self) -> dict:
         """Convert to legacy format for TSCM compatibility."""
         return {
-            'bssid': self.bssid,
-            'essid': self.essid or '',
-            'vendor': self.vendor,
-            'power': str(self.rssi_current) if self.rssi_current else '-100',
-            'channel': str(self.channel) if self.channel else '',
-            'privacy': self.security,
-            'first_seen': self.first_seen.isoformat() if self.first_seen else '',
-            'last_seen': self.last_seen.isoformat() if self.last_seen else '',
-            'beacon_count': str(self.beacon_count),
-            'lan_ip': '',  # Not tracked in new system
+            "bssid": self.bssid,
+            "essid": self.essid or "",
+            "vendor": self.vendor,
+            "power": str(self.rssi_current) if self.rssi_current else "-100",
+            "channel": str(self.channel) if self.channel else "",
+            "privacy": self.security,
+            "first_seen": self.first_seen.isoformat() if self.first_seen else "",
+            "last_seen": self.last_seen.isoformat() if self.last_seen else "",
+            "beacon_count": str(self.beacon_count),
+            "lan_ip": "",  # Not tracked in new system
         }
 
 
@@ -323,50 +311,40 @@ class WiFiClient:
         if not self.rssi_samples:
             return []
         samples = self.rssi_samples[-max_points:]
-        return [
-            {'timestamp': ts.isoformat(), 'rssi': rssi}
-            for ts, rssi in samples
-        ]
+        return [{"timestamp": ts.isoformat(), "rssi": rssi} for ts, rssi in samples]
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'mac': self.mac,
-            'vendor': self.vendor,
-
+            "mac": self.mac,
+            "vendor": self.vendor,
             # Signal
-            'rssi_current': self.rssi_current,
-            'rssi_median': round(self.rssi_median, 1) if self.rssi_median else None,
-            'rssi_min': self.rssi_min,
-            'rssi_max': self.rssi_max,
-            'rssi_ema': round(self.rssi_ema, 1) if self.rssi_ema else None,
-            'rssi_history': self.get_rssi_history(),
-
+            "rssi_current": self.rssi_current,
+            "rssi_median": round(self.rssi_median, 1) if self.rssi_median else None,
+            "rssi_min": self.rssi_min,
+            "rssi_max": self.rssi_max,
+            "rssi_ema": round(self.rssi_ema, 1) if self.rssi_ema else None,
+            "rssi_history": self.get_rssi_history(),
             # Proximity
-            'signal_band': self.signal_band,
-            'proximity_band': self.proximity_band,
-            'estimated_distance_m': round(self.estimated_distance_m, 2) if self.estimated_distance_m else None,
-
+            "signal_band": self.signal_band,
+            "proximity_band": self.proximity_band,
+            "estimated_distance_m": round(self.estimated_distance_m, 2) if self.estimated_distance_m else None,
             # Association
-            'associated_bssid': self.associated_bssid,
-            'is_associated': self.is_associated,
-
+            "associated_bssid": self.associated_bssid,
+            "is_associated": self.is_associated,
             # Probes
-            'probed_ssids': self.probed_ssids,
-            'probe_count': len(self.probed_ssids),
-
+            "probed_ssids": self.probed_ssids,
+            "probe_count": len(self.probed_ssids),
             # Timestamps
-            'first_seen': self.first_seen.isoformat(),
-            'last_seen': self.last_seen.isoformat(),
-            'age_seconds': round(self.age_seconds, 1),
-            'seen_count': self.seen_count,
-
+            "first_seen": self.first_seen.isoformat(),
+            "last_seen": self.last_seen.isoformat(),
+            "age_seconds": round(self.age_seconds, 1),
+            "seen_count": self.seen_count,
             # Traffic
-            'packets_sent': self.packets_sent,
-            'packets_received': self.packets_received,
-
+            "packets_sent": self.packets_sent,
+            "packets_received": self.packets_received,
             # Heuristics
-            'heuristic_flags': self.heuristic_flags,
+            "heuristic_flags": self.heuristic_flags,
         }
 
 
@@ -383,11 +361,11 @@ class WiFiProbeRequest:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'timestamp': self.timestamp.isoformat(),
-            'client_mac': self.client_mac,
-            'probed_ssid': self.probed_ssid,
-            'rssi': self.rssi,
-            'client_vendor': self.client_vendor,
+            "timestamp": self.timestamp.isoformat(),
+            "client_mac": self.client_mac,
+            "probed_ssid": self.probed_ssid,
+            "rssi": self.rssi,
+            "client_vendor": self.client_vendor,
         }
 
 
@@ -417,16 +395,16 @@ class ChannelStats:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'channel': self.channel,
-            'band': self.band,
-            'frequency_mhz': self.frequency_mhz,
-            'ap_count': self.ap_count,
-            'client_count': self.client_count,
-            'rssi_avg': round(self.rssi_avg, 1) if self.rssi_avg else None,
-            'rssi_min': self.rssi_min,
-            'rssi_max': self.rssi_max,
-            'utilization_score': round(self.utilization_score, 3),
-            'recommendation_rank': self.recommendation_rank,
+            "channel": self.channel,
+            "band": self.band,
+            "frequency_mhz": self.frequency_mhz,
+            "ap_count": self.ap_count,
+            "client_count": self.client_count,
+            "rssi_avg": round(self.rssi_avg, 1) if self.rssi_avg else None,
+            "rssi_min": self.rssi_min,
+            "rssi_max": self.rssi_max,
+            "utilization_score": round(self.utilization_score, 3),
+            "recommendation_rank": self.recommendation_rank,
         }
 
 
@@ -444,12 +422,12 @@ class ChannelRecommendation:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'channel': self.channel,
-            'band': self.band,
-            'score': round(self.score, 3),
-            'reason': self.reason,
-            'is_dfs': self.is_dfs,
-            'rank': self.recommendation_rank,
+            "channel": self.channel,
+            "band": self.band,
+            "score": round(self.score, 3),
+            "reason": self.reason,
+            "is_dfs": self.is_dfs,
+            "rank": self.recommendation_rank,
         }
 
 
@@ -497,42 +475,38 @@ class WiFiScanResult:
         """Convert to dictionary for JSON serialization."""
         return {
             # Entities
-            'access_points': [ap.to_dict() for ap in self.access_points],
-            'clients': [c.to_dict() for c in self.clients],
-            'probe_requests': [p.to_dict() for p in self.probe_requests],
-
+            "access_points": [ap.to_dict() for ap in self.access_points],
+            "clients": [c.to_dict() for c in self.clients],
+            "probe_requests": [p.to_dict() for p in self.probe_requests],
             # Channel analysis
-            'channel_stats': [cs.to_dict() for cs in self.channel_stats],
-            'recommendations': [r.to_dict() for r in self.recommendations],
-
+            "channel_stats": [cs.to_dict() for cs in self.channel_stats],
+            "recommendations": [r.to_dict() for r in self.recommendations],
             # Metadata
-            'scan_mode': self.scan_mode,
-            'interface': self.interface,
-            'started_at': self.started_at.isoformat() if self.started_at else None,
-            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
-            'duration_seconds': round(self.duration_seconds, 2) if self.duration_seconds else None,
-
+            "scan_mode": self.scan_mode,
+            "interface": self.interface,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "duration_seconds": round(self.duration_seconds, 2) if self.duration_seconds else None,
             # Stats
-            'network_count': self.network_count,
-            'client_count': self.client_count,
-            'hidden_count': self.hidden_count,
-
+            "network_count": self.network_count,
+            "client_count": self.client_count,
+            "hidden_count": self.hidden_count,
             # Status
-            'is_complete': self.is_complete,
-            'error': self.error,
-            'warnings': self.warnings,
+            "is_complete": self.is_complete,
+            "error": self.error,
+            "warnings": self.warnings,
         }
 
     def to_summary_dict(self) -> dict:
         """Compact summary for status endpoints."""
         return {
-            'scan_mode': self.scan_mode,
-            'interface': self.interface,
-            'network_count': self.network_count,
-            'client_count': self.client_count,
-            'hidden_count': self.hidden_count,
-            'is_complete': self.is_complete,
-            'error': self.error,
+            "scan_mode": self.scan_mode,
+            "interface": self.interface,
+            "network_count": self.network_count,
+            "client_count": self.client_count,
+            "hidden_count": self.hidden_count,
+            "is_complete": self.is_complete,
+            "error": self.error,
         }
 
 
@@ -558,14 +532,14 @@ class WiFiScanStatus:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'is_scanning': self.is_scanning,
-            'scan_mode': self.scan_mode,
-            'interface': self.interface,
-            'started_at': self.started_at.isoformat() if self.started_at else None,
-            'elapsed_seconds': round(self.elapsed_seconds, 1) if self.elapsed_seconds else None,
-            'networks_found': self.networks_found,
-            'clients_found': self.clients_found,
-            'error': self.error,
+            "is_scanning": self.is_scanning,
+            "scan_mode": self.scan_mode,
+            "interface": self.interface,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "elapsed_seconds": round(self.elapsed_seconds, 1) if self.elapsed_seconds else None,
+            "networks_found": self.networks_found,
+            "clients_found": self.clients_found,
+            "error": self.error,
         }
 
 
@@ -574,7 +548,7 @@ class WiFiCapabilities:
     """WiFi system capabilities check result."""
 
     # Platform
-    platform: str = 'unknown'  # 'linux', 'darwin', 'windows'
+    platform: str = "unknown"  # 'linux', 'darwin', 'windows'
     is_root: bool = False
 
     # Interfaces
@@ -600,54 +574,39 @@ class WiFiCapabilities:
     @property
     def can_quick_scan(self) -> bool:
         """Whether quick scanning is available."""
-        return (
-            self.has_nmcli or
-            self.has_iw or
-            self.has_iwlist or
-            self.has_airport
-        ) and len(self.interfaces) > 0
+        return (self.has_nmcli or self.has_iw or self.has_iwlist or self.has_airport) and len(self.interfaces) > 0
 
     @property
     def can_deep_scan(self) -> bool:
         """Whether deep scanning is available."""
-        return (
-            self.has_airmon_ng and
-            self.has_airodump_ng and
-            self.has_monitor_capable_interface and
-            self.is_root
-        )
+        return self.has_airmon_ng and self.has_airodump_ng and self.has_monitor_capable_interface and self.is_root
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
             # Status
-            'available': self.can_quick_scan,
-            'can_quick_scan': self.can_quick_scan,
-            'can_deep_scan': self.can_deep_scan,
-
+            "available": self.can_quick_scan,
+            "can_quick_scan": self.can_quick_scan,
+            "can_deep_scan": self.can_deep_scan,
             # Platform
-            'platform': self.platform,
-            'is_root': self.is_root,
-
+            "platform": self.platform,
+            "is_root": self.is_root,
             # Interfaces
-            'interfaces': self.interfaces,
-            'default_interface': self.default_interface,
-
+            "interfaces": self.interfaces,
+            "default_interface": self.default_interface,
             # Quick scan tools
-            'tools': {
-                'nmcli': self.has_nmcli,
-                'iw': self.has_iw,
-                'iwlist': self.has_iwlist,
-                'airport': self.has_airport,
-                'airmon_ng': self.has_airmon_ng,
-                'airodump_ng': self.has_airodump_ng,
+            "tools": {
+                "nmcli": self.has_nmcli,
+                "iw": self.has_iw,
+                "iwlist": self.has_iwlist,
+                "airport": self.has_airport,
+                "airmon_ng": self.has_airmon_ng,
+                "airodump_ng": self.has_airodump_ng,
             },
-            'preferred_quick_tool': self.preferred_quick_tool,
-
+            "preferred_quick_tool": self.preferred_quick_tool,
             # Deep scan
-            'has_monitor_capable_interface': self.has_monitor_capable_interface,
-            'monitor_interface': self.monitor_interface,
-
+            "has_monitor_capable_interface": self.has_monitor_capable_interface,
+            "monitor_interface": self.monitor_interface,
             # Issues
-            'issues': self.issues,
+            "issues": self.issues,
         }

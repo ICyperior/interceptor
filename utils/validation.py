@@ -9,17 +9,17 @@ from typing import Any
 def escape_html(text: str | None) -> str:
     """Escape HTML special characters to prevent XSS attacks."""
     if text is None:
-        return ''
+        return ""
     if not isinstance(text, str):
         text = str(text)
     html_escape_table = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
     }
-    return ''.join(html_escape_table.get(c, c) for c in text)
+    return "".join(html_escape_table.get(c, c) for c in text)
 
 
 def validate_latitude(lat: Any) -> float:
@@ -74,7 +74,7 @@ def validate_rtl_tcp_host(host: Any) -> str:
     if not host:
         raise ValueError("rtl_tcp host cannot be empty")
     # Allow alphanumeric, dots, hyphens (valid for hostnames and IPs)
-    if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9.\-]*$', host):
+    if not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9.\-]*$", host):
         raise ValueError(f"Invalid rtl_tcp host: {host}")
     if len(host) > 253:
         raise ValueError("rtl_tcp host too long")
@@ -160,12 +160,12 @@ def validate_mac_address(mac: Any) -> str:
     if not mac or not isinstance(mac, str):
         raise ValueError("MAC address is required")
     mac = mac.upper().strip()
-    if not re.match(r'^([0-9A-F]{2}:){5}[0-9A-F]{2}$', mac):
+    if not re.match(r"^([0-9A-F]{2}:){5}[0-9A-F]{2}$", mac):
         raise ValueError(f"Invalid MAC address format: {mac}")
     return mac
 
 
-def validate_positive_int(value: Any, name: str = 'value', max_val: int | None = None) -> int:
+def validate_positive_int(value: Any, name: str = "value", max_val: int | None = None) -> int:
     """Validate and return a positive integer."""
     try:
         val_int = int(value)
@@ -181,15 +181,15 @@ def validate_positive_int(value: Any, name: str = 'value', max_val: int | None =
 def sanitize_callsign(callsign: str | None) -> str:
     """Sanitize aircraft callsign for display."""
     if not callsign:
-        return ''
+        return ""
     # Only allow alphanumeric, dash, and space
-    return re.sub(r'[^A-Za-z0-9\- ]', '', str(callsign))[:10]
+    return re.sub(r"[^A-Za-z0-9\- ]", "", str(callsign))[:10]
 
 
 def sanitize_ssid(ssid: str | None) -> str:
     """Sanitize WiFi SSID for display."""
     if not ssid:
-        return ''
+        return ""
     # Escape HTML and limit length
     return escape_html(str(ssid)[:64])
 
@@ -197,7 +197,7 @@ def sanitize_ssid(ssid: str | None) -> str:
 def sanitize_device_name(name: str | None) -> str:
     """Sanitize Bluetooth device name for display."""
     if not name:
-        return ''
+        return ""
     # Escape HTML and limit length
     return escape_html(str(name)[:64])
 
@@ -232,7 +232,7 @@ def validate_network_interface(name: Any) -> str:
         raise ValueError(f"Interface name too long (max 15 chars): {name}")
 
     # Must start with letter, contain only alphanumeric/underscore/hyphen
-    if not re.match(r'^[a-zA-Z][a-zA-Z0-9_-]*$', name):
+    if not re.match(r"^[a-zA-Z][a-zA-Z0-9_-]*$", name):
         raise ValueError(f"Invalid interface name: {name}")
 
     return name
@@ -257,7 +257,7 @@ def validate_bluetooth_interface(name: Any) -> str:
     name = name.strip()
 
     # Must be hciX format where X is a number 0-255
-    if not re.match(r'^hci([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$', name):
+    if not re.match(r"^hci([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$", name):
         raise ValueError(f"Invalid Bluetooth interface name (expected hciX): {name}")
 
     return name

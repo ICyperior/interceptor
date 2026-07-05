@@ -21,7 +21,7 @@ from utils.logging import get_logger
 from utils.process import register_process, safe_terminate, unregister_process
 from utils.waterfall_fft import cu8_to_complex
 
-logger = get_logger('intercept.ground_station.fm_demod')
+logger = get_logger("intercept.ground_station.fm_demod")
 
 AUDIO_RATE = 48_000  # Hz — standard rate for direwolf / multimon-ng
 
@@ -33,7 +33,7 @@ class FMDemodConsumer:
         self,
         decoder_cmd: list[str],
         *,
-        modulation: str = 'fm',
+        modulation: str = "fm",
         on_decoded: Callable[[str], None] | None = None,
     ):
         """
@@ -104,10 +104,9 @@ class FMDemodConsumer:
 
     def _start_proc(self) -> None:
         import shutil
+
         if not shutil.which(self._decoder_cmd[0]):
-            logger.warning(
-                f"FMDemodConsumer: decoder '{self._decoder_cmd[0]}' not found — disabled"
-            )
+            logger.warning(f"FMDemodConsumer: decoder '{self._decoder_cmd[0]}' not found — disabled")
             return
         try:
             self._proc = subprocess.Popen(
@@ -117,9 +116,7 @@ class FMDemodConsumer:
                 stderr=subprocess.DEVNULL,
             )
             register_process(self._proc)
-            self._stdout_thread = threading.Thread(
-                target=self._read_stdout, daemon=True, name='fm-demod-stdout'
-            )
+            self._stdout_thread = threading.Thread(target=self._read_stdout, daemon=True, name="fm-demod-stdout")
             self._stdout_thread.start()
         except Exception as e:
             logger.error(f"FMDemodConsumer: failed to start decoder: {e}")
@@ -130,7 +127,7 @@ class FMDemodConsumer:
         assert self._proc.stdout is not None
         try:
             for line in self._proc.stdout:
-                decoded = line.decode('utf-8', errors='replace').rstrip()
+                decoded = line.decode("utf-8", errors="replace").rstrip()
                 if decoded and self._on_decoded:
                     try:
                         self._on_decoded(decoded)
@@ -186,14 +183,14 @@ def _demodulate(
     if shifted.size < 16:
         return None, next_phase
 
-    if mod == 'fm':
+    if mod == "fm":
         audio = np.angle(shifted[1:] * np.conj(shifted[:-1])).astype(np.float32)
-    elif mod == 'am':
+    elif mod == "am":
         envelope = np.abs(shifted).astype(np.float32)
         audio = envelope - float(np.mean(envelope))
-    elif mod == 'usb':
+    elif mod == "usb":
         audio = np.real(shifted).astype(np.float32)
-    elif mod == 'lsb':
+    elif mod == "lsb":
         audio = -np.real(shifted).astype(np.float32)
     else:
         audio = np.real(shifted).astype(np.float32)

@@ -8,4 +8,4 @@ for counter-surveillance operations.
 
 from __future__ import annotations
 
-__all__ = ['detector', 'baseline', 'correlation', 'ble_scanner', 'device_identity']
+__all__ = ["detector", "baseline", "correlation", "ble_scanner", "device_identity"]

@@ -36,6 +36,7 @@ _correlator_lock = threading.Lock()
 @dataclass
 class ProbeRecord:
     """Record of a probe request."""
+
     timestamp: datetime
     client_mac: str
     probed_ssid: str
@@ -44,6 +45,7 @@ class ProbeRecord:
 @dataclass
 class AssociationRecord:
     """Record of a client association."""
+
     timestamp: datetime
     client_mac: str
     bssid: str
@@ -52,6 +54,7 @@ class AssociationRecord:
 @dataclass
 class CorrelationResult:
     """Result of an SSID correlation."""
+
     bssid: str
     revealed_ssid: str
     client_mac: str
@@ -110,11 +113,13 @@ class HiddenSSIDCorrelator:
         client_mac = client_mac.upper()
 
         with self._lock:
-            self._probe_records.append(ProbeRecord(
-                timestamp=timestamp,
-                client_mac=client_mac,
-                probed_ssid=probed_ssid,
-            ))
+            self._probe_records.append(
+                ProbeRecord(
+                    timestamp=timestamp,
+                    client_mac=client_mac,
+                    probed_ssid=probed_ssid,
+                )
+            )
 
             # Prune old records
             self._prune_records()
@@ -139,11 +144,13 @@ class HiddenSSIDCorrelator:
         bssid = bssid.upper()
 
         with self._lock:
-            self._association_records.append(AssociationRecord(
-                timestamp=timestamp,
-                client_mac=client_mac,
-                bssid=bssid,
-            ))
+            self._association_records.append(
+                AssociationRecord(
+                    timestamp=timestamp,
+                    client_mac=client_mac,
+                    bssid=bssid,
+                )
+            )
 
             # Prune old records
             self._prune_records()
@@ -206,10 +213,7 @@ class HiddenSSIDCorrelator:
             Dict of BSSID -> revealed SSID.
         """
         with self._lock:
-            return {
-                bssid: result.revealed_ssid
-                for bssid, result in self._revealed.items()
-            }
+            return {bssid: result.revealed_ssid for bssid, result in self._revealed.items()}
 
     def set_callback(self, callback: Callable[[CorrelationResult], None]):
         """Set callback for when an SSID is revealed."""
@@ -219,15 +223,9 @@ class HiddenSSIDCorrelator:
         """Remove records older than the correlation window."""
         cutoff = datetime.now() - timedelta(seconds=self.correlation_window * 2)
 
-        self._probe_records = [
-            r for r in self._probe_records
-            if r.timestamp > cutoff
-        ]
+        self._probe_records = [r for r in self._probe_records if r.timestamp > cutoff]
 
-        self._association_records = [
-            r for r in self._association_records
-            if r.timestamp > cutoff
-        ]
+        self._association_records = [r for r in self._association_records if r.timestamp > cutoff]
 
     def _check_correlations(self):
         """Check for new SSID correlations."""
@@ -241,8 +239,7 @@ class HiddenSSIDCorrelator:
 
             # Find associations with this hidden AP
             relevant_associations = [
-                a for a in self._association_records
-                if a.bssid == bssid and (now - a.timestamp) <= window
+                a for a in self._association_records if a.bssid == bssid and (now - a.timestamp) <= window
             ]
 
             if not relevant_associations:
@@ -251,7 +248,8 @@ class HiddenSSIDCorrelator:
             # For each associated client, look for recent probes
             for assoc in relevant_associations:
                 client_probes = [
-                    p for p in self._probe_records
+                    p
+                    for p in self._probe_records
                     if p.client_mac == assoc.client_mac
                     and abs((p.timestamp - assoc.timestamp).total_seconds()) <= self.correlation_window
                 ]
@@ -274,14 +272,13 @@ class HiddenSSIDCorrelator:
                         client_mac=assoc.client_mac,
                         confidence=confidence,
                         correlation_time=now,
-                        method='probe_association',
+                        method="probe_association",
                     )
 
                     self._revealed[bssid] = result
 
                     logger.info(
-                        f"Hidden SSID revealed: {bssid} -> '{latest_probe.probed_ssid}' "
-                        f"(confidence: {confidence:.2f})"
+                        f"Hidden SSID revealed: {bssid} -> '{latest_probe.probed_ssid}' (confidence: {confidence:.2f})"
                     )
 
                     # Callback

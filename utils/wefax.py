@@ -33,7 +33,7 @@ from utils.dependencies import get_tool_path
 from utils.logging import get_logger
 from utils.sdr import SDRFactory, SDRType
 
-logger = get_logger('intercept.wefax')
+logger = get_logger("intercept.wefax")
 
 try:
     from PIL import Image as PILImage
@@ -43,16 +43,16 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # WeFax protocol constants
 # ---------------------------------------------------------------------------
-CARRIER_FREQ = 1900.0        # Hz - center/carrier
-BLACK_FREQ = 1500.0          # Hz - black level
-WHITE_FREQ = 2300.0          # Hz - white level
-START_TONE_FREQ = 300.0      # Hz - start tone
-STOP_TONE_FREQ = 450.0       # Hz - stop tone
-PHASING_FREQ = WHITE_FREQ    # White pulse during phasing
+CARRIER_FREQ = 1900.0  # Hz - center/carrier
+BLACK_FREQ = 1500.0  # Hz - black level
+WHITE_FREQ = 2300.0  # Hz - white level
+START_TONE_FREQ = 300.0  # Hz - start tone
+STOP_TONE_FREQ = 450.0  # Hz - stop tone
+PHASING_FREQ = WHITE_FREQ  # White pulse during phasing
 
-START_TONE_DURATION = 3.0    # Minimum seconds of start tone to detect
-STOP_TONE_DURATION = 3.0     # Minimum seconds of stop tone to detect
-PHASING_MIN_LINES = 5        # Minimum phasing lines before image
+START_TONE_DURATION = 3.0  # Minimum seconds of start tone to detect
+STOP_TONE_DURATION = 3.0  # Minimum seconds of stop tone to detect
+PHASING_MIN_LINES = 5  # Minimum phasing lines before image
 
 DEFAULT_SAMPLE_RATE = 22050
 DEFAULT_IOC = 576
@@ -61,20 +61,23 @@ DEFAULT_LPM = 120
 
 class DecoderState(Enum):
     """WeFax decoder state machine states."""
-    SCANNING = 'scanning'
-    START_DETECTED = 'start_detected'
-    PHASING = 'phasing'
-    RECEIVING = 'receiving'
-    COMPLETE = 'complete'
+
+    SCANNING = "scanning"
+    START_DETECTED = "start_detected"
+    PHASING = "phasing"
+    RECEIVING = "receiving"
+    COMPLETE = "complete"
 
 
 # ---------------------------------------------------------------------------
 # Dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class WeFaxImage:
     """Decoded WeFax image metadata."""
+
     filename: str
     path: Path
     station: str
@@ -86,24 +89,25 @@ class WeFaxImage:
 
     def to_dict(self) -> dict:
         return {
-            'filename': self.filename,
-            'path': str(self.path),
-            'station': self.station,
-            'frequency_khz': self.frequency_khz,
-            'timestamp': self.timestamp.isoformat(),
-            'ioc': self.ioc,
-            'lpm': self.lpm,
-            'size_bytes': self.size_bytes,
-            'url': f'/wefax/images/{self.filename}',
+            "filename": self.filename,
+            "path": str(self.path),
+            "station": self.station,
+            "frequency_khz": self.frequency_khz,
+            "timestamp": self.timestamp.isoformat(),
+            "ioc": self.ioc,
+            "lpm": self.lpm,
+            "size_bytes": self.size_bytes,
+            "url": f"/wefax/images/{self.filename}",
         }
 
 
 @dataclass
 class WeFaxProgress:
     """WeFax decode progress update for SSE streaming."""
+
     status: str  # 'scanning', 'phasing', 'receiving', 'complete', 'error', 'stopped'
-    station: str = ''
-    message: str = ''
+    station: str = ""
+    message: str = ""
     progress_percent: int = 0
     line_count: int = 0
     image: WeFaxImage | None = None
@@ -111,20 +115,20 @@ class WeFaxProgress:
 
     def to_dict(self) -> dict:
         result: dict = {
-            'type': 'wefax_progress',
-            'status': self.status,
-            'progress': self.progress_percent,
+            "type": "wefax_progress",
+            "status": self.status,
+            "progress": self.progress_percent,
         }
         if self.station:
-            result['station'] = self.station
+            result["station"] = self.station
         if self.message:
-            result['message'] = self.message
+            result["message"] = self.message
         if self.line_count:
-            result['line_count'] = self.line_count
+            result["line_count"] = self.line_count
         if self.image:
-            result['image'] = self.image.to_dict()
+            result["image"] = self.image.to_dict()
         if self.partial_image:
-            result['partial_image'] = self.partial_image
+            result["partial_image"] = self.partial_image
         return result
 
 
@@ -132,8 +136,8 @@ class WeFaxProgress:
 # DSP helpers (reuse Goertzel from SSTV where sensible)
 # ---------------------------------------------------------------------------
 
-def _goertzel_mag(samples: np.ndarray, target_freq: float,
-                  sample_rate: int) -> float:
+
+def _goertzel_mag(samples: np.ndarray, target_freq: float, sample_rate: int) -> float:
     """Compute Goertzel magnitude at a single frequency."""
     n = len(samples)
     if n == 0:
@@ -159,9 +163,9 @@ def _freq_to_pixel(frequency: float) -> int:
     return max(0, min(255, int(normalized * 255 + 0.5)))
 
 
-def _estimate_frequency(samples: np.ndarray, sample_rate: int,
-                         freq_low: float = 1200.0,
-                         freq_high: float = 2500.0) -> float:
+def _estimate_frequency(
+    samples: np.ndarray, sample_rate: int, freq_low: float = 1200.0, freq_high: float = 2500.0
+) -> float:
     """Estimate dominant frequency using coarse+fine Goertzel sweep."""
     if len(samples) == 0:
         return 0.0
@@ -192,8 +196,7 @@ def _estimate_frequency(samples: np.ndarray, sample_rate: int,
     return best_freq
 
 
-def _detect_tone(samples: np.ndarray, target_freq: float,
-                 sample_rate: int, threshold: float = 3.0) -> bool:
+def _detect_tone(samples: np.ndarray, target_freq: float, sample_rate: int, threshold: float = 3.0) -> bool:
     """Detect if a specific tone dominates the signal."""
     target_mag = _goertzel_mag(samples, target_freq, sample_rate)
     # Check against a few reference frequencies
@@ -211,6 +214,7 @@ def _detect_tone(samples: np.ndarray, target_freq: float,
 # WeFaxDecoder
 # ---------------------------------------------------------------------------
 
+
 class WeFaxDecoder:
     """WeFax decoder singleton.
 
@@ -225,12 +229,12 @@ class WeFaxDecoder:
         self._lock = threading.Lock()
         self._callback: Callable[[dict], None] | None = None
         self._last_scope_time: float = 0.0
-        self._output_dir = Path('instance/wefax_images')
+        self._output_dir = Path("instance/wefax_images")
         self._images: list[WeFaxImage] = []
         self._decode_thread: threading.Thread | None = None
 
         # Current session parameters
-        self._station = ''
+        self._station = ""
         self._frequency_khz = 0.0
         self._ioc = DEFAULT_IOC
         self._lpm = DEFAULT_LPM
@@ -240,8 +244,8 @@ class WeFaxDecoder:
         self._direct_sampling = True
 
         self._output_dir.mkdir(parents=True, exist_ok=True)
-        self._sdr_tool_name: str = 'rtl_fm'
-        self._last_error: str = ''
+        self._sdr_tool_name: str = "rtl_fm"
+        self._last_error: str = ""
 
     @property
     def is_running(self) -> bool:
@@ -259,13 +263,13 @@ class WeFaxDecoder:
     def start(
         self,
         frequency_khz: float,
-        station: str = '',
+        station: str = "",
         device_index: int = 0,
         gain: float = 40.0,
         ioc: int = DEFAULT_IOC,
         lpm: int = DEFAULT_LPM,
         direct_sampling: bool = True,
-        sdr_type: str = 'rtlsdr',
+        sdr_type: str = "rtlsdr",
     ) -> bool:
         """Start WeFax decoder.
 
@@ -298,35 +302,36 @@ class WeFaxDecoder:
 
             try:
                 self._running = True
-                self._last_error = ''
+                self._last_error = ""
                 self._start_pipeline_spawn()
             except Exception as e:
                 self._running = False
                 self._last_error = str(e)
                 logger.error(f"Failed to start WeFax decoder: {e}")
-                self._emit_progress(WeFaxProgress(
-                    status='error',
-                    message=str(e),
-                ))
+                self._emit_progress(
+                    WeFaxProgress(
+                        status="error",
+                        message=str(e),
+                    )
+                )
                 return False
 
         # Health check sleep outside lock
         try:
             self._start_pipeline_health_check()
-            logger.info(
-                f"WeFax decoder started: {frequency_khz} kHz, "
-                f"station={station}, IOC={ioc}, LPM={lpm}"
-            )
+            logger.info(f"WeFax decoder started: {frequency_khz} kHz, station={station}, IOC={ioc}, LPM={lpm}")
             return True
         except Exception as e:
             with self._lock:
                 self._running = False
                 self._last_error = str(e)
             logger.error(f"Failed to start WeFax decoder: {e}")
-            self._emit_progress(WeFaxProgress(
-                status='error',
-                message=str(e),
-            ))
+            self._emit_progress(
+                WeFaxProgress(
+                    status="error",
+                    message=str(e),
+                )
+            )
             return False
 
     def _start_pipeline(self) -> None:
@@ -343,33 +348,32 @@ class WeFaxDecoder:
 
         # Validate that the required tool is available
         if sdr_type_enum == SDRType.RTL_SDR:
-            if not get_tool_path('rtl_fm'):
-                raise RuntimeError('rtl_fm not found')
+            if not get_tool_path("rtl_fm"):
+                raise RuntimeError("rtl_fm not found")
         else:
-            if not get_tool_path('rx_fm'):
-                raise RuntimeError('rx_fm not found (required for non-RTL-SDR devices)')
+            if not get_tool_path("rx_fm"):
+                raise RuntimeError("rx_fm not found (required for non-RTL-SDR devices)")
 
-        sdr_device = SDRFactory.create_default_device(
-            sdr_type_enum, index=self._device_index)
+        sdr_device = SDRFactory.create_default_device(sdr_type_enum, index=self._device_index)
         builder = SDRFactory.get_builder(sdr_type_enum)
         rtl_cmd = builder.build_fm_demod_command(
             device=sdr_device,
             frequency_mhz=self._frequency_khz / 1000.0,
             sample_rate=self._sample_rate,
             gain=self._gain,
-            modulation='usb',
+            modulation="usb",
         )
 
         # RTL-SDR: append direct sampling flag for HF reception
         if sdr_type_enum == SDRType.RTL_SDR and self._direct_sampling:
             # Insert before trailing '-' stdout marker
-            if rtl_cmd and rtl_cmd[-1] == '-':
-                rtl_cmd.insert(-1, '-E')
-                rtl_cmd.insert(-1, 'direct2')
+            if rtl_cmd and rtl_cmd[-1] == "-":
+                rtl_cmd.insert(-1, "-E")
+                rtl_cmd.insert(-1, "direct2")
             else:
-                rtl_cmd.extend(['-E', 'direct2', '-'])
+                rtl_cmd.extend(["-E", "direct2", "-"])
 
-        self._sdr_tool_name = rtl_cmd[0] if rtl_cmd else 'sdr'
+        self._sdr_tool_name = rtl_cmd[0] if rtl_cmd else "sdr"
         logger.info(f"Starting {self._sdr_tool_name}: {' '.join(rtl_cmd)}")
 
         self._sdr_process = subprocess.Popen(
@@ -384,17 +388,15 @@ class WeFaxDecoder:
 
         with self._lock:
             if self._sdr_process and self._sdr_process.poll() is not None:
-                stderr_detail = ''
+                stderr_detail = ""
                 if self._sdr_process.stderr:
-                    stderr_detail = self._sdr_process.stderr.read().decode(
-                        errors='replace').strip()
+                    stderr_detail = self._sdr_process.stderr.read().decode(errors="replace").strip()
                 rc = self._sdr_process.returncode
                 self._sdr_process = None
-                detail = stderr_detail.split('\n')[-1] if stderr_detail else f'exit code {rc}'
-                raise RuntimeError(f'{self._sdr_tool_name} failed: {detail}')
+                detail = stderr_detail.split("\n")[-1] if stderr_detail else f"exit code {rc}"
+                raise RuntimeError(f"{self._sdr_tool_name} failed: {detail}")
 
-            self._decode_thread = threading.Thread(
-                target=self._decode_audio_stream, daemon=True)
+            self._decode_thread = threading.Thread(target=self._decode_audio_stream, daemon=True)
             self._decode_thread.start()
 
     def _decode_audio_stream(self) -> None:
@@ -422,7 +424,7 @@ class WeFaxDecoder:
         line_buffer = np.zeros(0, dtype=np.float64)
         max_lines = 2000  # Safety limit
 
-        sdr_error = ''
+        sdr_error = ""
         last_partial_line = -1
 
         logger.info(
@@ -434,11 +436,13 @@ class WeFaxDecoder:
         # Emit initial scanning progress here (not in start()) so the
         # frontend SSE connection is established before this event fires.
         time.sleep(0.1)
-        self._emit_progress(WeFaxProgress(
-            status='scanning',
-            station=self._station,
-            message=f'Scanning {self._frequency_khz} kHz for WeFax start tone...',
-        ))
+        self._emit_progress(
+            WeFaxProgress(
+                status="scanning",
+                station=self._station,
+                message=f"Scanning {self._frequency_khz} kHz for WeFax start tone...",
+            )
+        )
 
         while self._running and self._sdr_process:
             try:
@@ -456,11 +460,10 @@ class WeFaxDecoder:
                 raw_data = os.read(fd, chunk_bytes)
                 if not raw_data:
                     if self._running:
-                        stderr_msg = ''
+                        stderr_msg = ""
                         if self._sdr_process and self._sdr_process.stderr:
                             with contextlib.suppress(Exception):
-                                stderr_msg = self._sdr_process.stderr.read().decode(
-                                    errors='replace').strip()
+                                stderr_msg = self._sdr_process.stderr.read().decode(errors="replace").strip()
                         rc = self._sdr_process.poll() if self._sdr_process else None
                         logger.warning(f"{self._sdr_tool_name} stream ended (exit code: {rc})")
                         if stderr_msg:
@@ -472,7 +475,7 @@ class WeFaxDecoder:
                 if n_samples == 0:
                     continue
 
-                raw_int16 = np.frombuffer(raw_data[:n_samples * 2], dtype=np.int16)
+                raw_int16 = np.frombuffer(raw_data[: n_samples * 2], dtype=np.int16)
                 samples = raw_int16.astype(np.float64) / 32768.0
 
                 # Emit scope waveform for frontend visualisation
@@ -488,11 +491,13 @@ class WeFaxDecoder:
                             state = DecoderState.PHASING
                             phasing_line_count = 0
                             logger.info("WeFax start tone detected, entering phasing")
-                            self._emit_progress(WeFaxProgress(
-                                status='phasing',
-                                station=self._station,
-                                message='Start tone detected, synchronising...',
-                            ))
+                            self._emit_progress(
+                                WeFaxProgress(
+                                    status="phasing",
+                                    station=self._station,
+                                    message="Start tone detected, synchronising...",
+                                )
+                            )
                     else:
                         start_tone_count = max(0, start_tone_count - 1)
 
@@ -506,11 +511,13 @@ class WeFaxDecoder:
                         line_buffer = np.zeros(0, dtype=np.float64)
                         last_partial_line = -1
                         logger.info("Phasing complete, receiving image")
-                        self._emit_progress(WeFaxProgress(
-                            status='receiving',
-                            station=self._station,
-                            message='Receiving image...',
-                        ))
+                        self._emit_progress(
+                            WeFaxProgress(
+                                status="receiving",
+                                station=self._station,
+                                message="Receiving image...",
+                            )
+                        )
 
                 elif state == DecoderState.RECEIVING:
                     # Check for stop tone
@@ -520,15 +527,11 @@ class WeFaxDecoder:
                         if stop_tone_count >= needed_stop:
                             # Process any remaining line buffer
                             if len(line_buffer) >= samples_per_line * 0.5:
-                                line_pixels = self._decode_line(
-                                    line_buffer, pixels_per_line, sr)
+                                line_pixels = self._decode_line(line_buffer, pixels_per_line, sr)
                                 image_lines.append(line_pixels)
 
                             state = DecoderState.COMPLETE
-                            logger.info(
-                                f"Stop tone detected, image complete: "
-                                f"{len(image_lines)} lines"
-                            )
+                            logger.info(f"Stop tone detected, image complete: {len(image_lines)} lines")
                             break
                     else:
                         stop_tone_count = max(0, stop_tone_count - 1)
@@ -541,8 +544,7 @@ class WeFaxDecoder:
                         line_samples = line_buffer[:samples_per_line]
                         line_buffer = line_buffer[samples_per_line:]
 
-                        line_pixels = self._decode_line(
-                            line_samples, pixels_per_line, sr)
+                        line_pixels = self._decode_line(line_samples, pixels_per_line, sr)
                         image_lines.append(line_pixels)
 
                     # Safety limit
@@ -557,16 +559,17 @@ class WeFaxDecoder:
                         last_partial_line = current_lines
                         # Rough progress estimate (typical chart ~800 lines)
                         pct = min(95, int(current_lines / 8))
-                        partial_url = self._encode_partial(
-                            image_lines, pixels_per_line)
-                        self._emit_progress(WeFaxProgress(
-                            status='receiving',
-                            station=self._station,
-                            message=f'Receiving: {current_lines} lines',
-                            progress_percent=pct,
-                            line_count=current_lines,
-                            partial_image=partial_url,
-                        ))
+                        partial_url = self._encode_partial(image_lines, pixels_per_line)
+                        self._emit_progress(
+                            WeFaxProgress(
+                                status="receiving",
+                                station=self._station,
+                                message=f"Receiving: {current_lines} lines",
+                                progress_percent=pct,
+                                line_count=current_lines,
+                                partial_image=partial_url,
+                            )
+                        )
 
             except Exception as e:
                 logger.error(f"Error in WeFax decode thread: {e}")
@@ -593,19 +596,16 @@ class WeFaxDecoder:
                 self._sdr_process = None
 
         if was_running:
-            err_detail = sdr_error.split('\n')[-1] if sdr_error else ''
+            err_detail = sdr_error.split("\n")[-1] if sdr_error else ""
             if state != DecoderState.COMPLETE:
-                msg = f'{self._sdr_tool_name} failed: {err_detail}' if err_detail else 'Decode stopped unexpectedly'
-                self._emit_progress(WeFaxProgress(
-                    status='error', message=msg))
+                msg = f"{self._sdr_tool_name} failed: {err_detail}" if err_detail else "Decode stopped unexpectedly"
+                self._emit_progress(WeFaxProgress(status="error", message=msg))
         else:
-            self._emit_progress(WeFaxProgress(
-                status='stopped', message='Decoder stopped'))
+            self._emit_progress(WeFaxProgress(status="stopped", message="Decoder stopped"))
 
         logger.info("WeFax decode thread ended")
 
-    def _decode_line(self, line_samples: np.ndarray,
-                     pixels_per_line: int, sample_rate: int) -> np.ndarray:
+    def _decode_line(self, line_samples: np.ndarray, pixels_per_line: int, sample_rate: int) -> np.ndarray:
         """Decode one scan line from audio samples to pixel values.
 
         Uses instantaneous frequency estimation via the analytic signal
@@ -621,8 +621,7 @@ class WeFaxDecoder:
 
         # Use Hilbert transform for instantaneous frequency
         try:
-            analytic = np.fft.ifft(
-                np.fft.fft(line_samples) * 2 * (np.arange(n) < n // 2))
+            analytic = np.fft.ifft(np.fft.fft(line_samples) * 2 * (np.arange(n) < n // 2))
             inst_phase = np.unwrap(np.angle(analytic))
             inst_freq = np.diff(inst_phase) / (2.0 * math.pi) * sample_rate
             inst_freq = np.clip(inst_freq, BLACK_FREQ - 200, WHITE_FREQ + 200)
@@ -645,14 +644,12 @@ class WeFaxDecoder:
                 if start_idx >= len(line_samples) or start_idx >= end_idx:
                     break
                 window = line_samples[start_idx:end_idx]
-                freq = _estimate_frequency(window, sample_rate,
-                                           BLACK_FREQ - 200, WHITE_FREQ + 200)
+                freq = _estimate_frequency(window, sample_rate, BLACK_FREQ - 200, WHITE_FREQ + 200)
                 pixels[px] = _freq_to_pixel(freq)
 
         return pixels
 
-    def _encode_partial(self, image_lines: list[np.ndarray],
-                        width: int) -> str | None:
+    def _encode_partial(self, image_lines: list[np.ndarray], width: int) -> str | None:
         """Encode current image lines as a JPEG data URL for live preview."""
         if PILImage is None or not image_lines:
             return None
@@ -660,38 +657,39 @@ class WeFaxDecoder:
             height = len(image_lines)
             img_array = np.zeros((height, width), dtype=np.uint8)
             for i, line in enumerate(image_lines):
-                img_array[i, :len(line)] = line[:width]
-            img = PILImage.fromarray(img_array, mode='L')
+                img_array[i, : len(line)] = line[:width]
+            img = PILImage.fromarray(img_array, mode="L")
             buf = io.BytesIO()
-            img.save(buf, format='JPEG', quality=40)
-            b64 = base64.b64encode(buf.getvalue()).decode('ascii')
-            return f'data:image/jpeg;base64,{b64}'
+            img.save(buf, format="JPEG", quality=40)
+            b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+            return f"data:image/jpeg;base64,{b64}"
         except Exception:
             return None
 
-    def _save_image(self, image_lines: list[np.ndarray],
-                    width: int) -> None:
+    def _save_image(self, image_lines: list[np.ndarray], width: int) -> None:
         """Save completed image to disk."""
         if PILImage is None:
             logger.error("Cannot save image: Pillow not installed")
-            self._emit_progress(WeFaxProgress(
-                status='error',
-                message='Cannot save image - Pillow not installed',
-            ))
+            self._emit_progress(
+                WeFaxProgress(
+                    status="error",
+                    message="Cannot save image - Pillow not installed",
+                )
+            )
             return
 
         try:
             height = len(image_lines)
             img_array = np.zeros((height, width), dtype=np.uint8)
             for i, line in enumerate(image_lines):
-                img_array[i, :len(line)] = line[:width]
+                img_array[i, : len(line)] = line[:width]
 
-            img = PILImage.fromarray(img_array, mode='L')
+            img = PILImage.fromarray(img_array, mode="L")
             timestamp = datetime.now(timezone.utc)
-            station_tag = self._station or 'unknown'
+            station_tag = self._station or "unknown"
             filename = f"wefax_{timestamp.strftime('%Y%m%d_%H%M%S')}_{station_tag}.png"
             filepath = self._output_dir / filename
-            img.save(filepath, 'PNG')
+            img.save(filepath, "PNG")
 
             wefax_image = WeFaxImage(
                 filename=filename,
@@ -706,21 +704,25 @@ class WeFaxDecoder:
             self._images.append(wefax_image)
 
             logger.info(f"WeFax image saved: {filename} ({wefax_image.size_bytes} bytes)")
-            self._emit_progress(WeFaxProgress(
-                status='complete',
-                station=self._station,
-                message=f'Image decoded: {height} lines',
-                progress_percent=100,
-                line_count=height,
-                image=wefax_image,
-            ))
+            self._emit_progress(
+                WeFaxProgress(
+                    status="complete",
+                    station=self._station,
+                    message=f"Image decoded: {height} lines",
+                    progress_percent=100,
+                    line_count=height,
+                    image=wefax_image,
+                )
+            )
 
         except Exception as e:
             logger.error(f"Error saving WeFax image: {e}")
-            self._emit_progress(WeFaxProgress(
-                status='error',
-                message=f'Error saving image: {e}',
-            ))
+            self._emit_progress(
+                WeFaxProgress(
+                    status="error",
+                    message=f"Error saving image: {e}",
+                )
+            )
 
     def stop(self) -> None:
         """Stop WeFax decoder.
@@ -765,7 +767,7 @@ class WeFaxDecoder:
     def delete_all_images(self) -> int:
         """Delete all decoded images. Returns count deleted."""
         count = 0
-        for filepath in self._output_dir.glob('*.png'):
+        for filepath in self._output_dir.glob("*.png"):
             filepath.unlink()
             count += 1
         self._images.clear()
@@ -775,14 +777,14 @@ class WeFaxDecoder:
     def _scan_images(self) -> None:
         """Scan output directory for images not yet tracked."""
         known = {img.filename for img in self._images}
-        for filepath in self._output_dir.glob('*.png'):
+        for filepath in self._output_dir.glob("*.png"):
             if filepath.name not in known:
                 try:
                     stat = filepath.stat()
                     image = WeFaxImage(
                         filename=filepath.name,
                         path=filepath,
-                        station='',
+                        station="",
                         frequency_khz=0,
                         timestamp=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
                         ioc=self._ioc,
@@ -819,12 +821,14 @@ class WeFaxDecoder:
             window = raw_int16[-256:] if len(raw_int16) > 256 else raw_int16
             waveform = np.clip(window // 256, -127, 127).astype(np.int8).tolist()
 
-            self._callback({
-                'type': 'scope',
-                'rms': rms,
-                'peak': peak,
-                'waveform': waveform,
-            })
+            self._callback(
+                {
+                    "type": "scope",
+                    "rms": rms,
+                    "peak": peak,
+                    "waveform": waveform,
+                }
+            )
         except Exception:
             pass
 

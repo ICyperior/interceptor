@@ -17,12 +17,12 @@ from typing import Any
 
 from utils.logging import get_logger
 
-logger = get_logger('intercept.sigmf')
+logger = get_logger("intercept.sigmf")
 
 # Abort recording if less than this many bytes are free on the disk
 DEFAULT_MIN_FREE_BYTES = 500 * 1024 * 1024  # 500 MB
 
-OUTPUT_DIR = Path('instance/ground_station/recordings')
+OUTPUT_DIR = Path("instance/ground_station/recordings")
 
 
 @dataclass
@@ -36,48 +36,48 @@ class SigMFMetadata:
 
     sample_rate: int
     center_frequency_hz: float
-    datatype: str = 'cu8'           # unsigned 8-bit I/Q (rtlsdr native)
-    description: str = ''
-    author: str = 'INTERCEPT ground station'
-    recorder: str = 'INTERCEPT'
-    hw: str = ''
+    datatype: str = "cu8"  # unsigned 8-bit I/Q (rtlsdr native)
+    description: str = ""
+    author: str = "INTERCEPT ground station"
+    recorder: str = "INTERCEPT"
+    hw: str = ""
     norad_id: int = 0
-    satellite_name: str = ''
+    satellite_name: str = ""
     latitude: float = 0.0
     longitude: float = 0.0
     annotations: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         global_block: dict[str, Any] = {
-            'core:datatype': self.datatype,
-            'core:sample_rate': self.sample_rate,
-            'core:version': '1.0.0',
-            'core:recorder': self.recorder,
+            "core:datatype": self.datatype,
+            "core:sample_rate": self.sample_rate,
+            "core:version": "1.0.0",
+            "core:recorder": self.recorder,
         }
         if self.description:
-            global_block['core:description'] = self.description
+            global_block["core:description"] = self.description
         if self.author:
-            global_block['core:author'] = self.author
+            global_block["core:author"] = self.author
         if self.hw:
-            global_block['core:hw'] = self.hw
+            global_block["core:hw"] = self.hw
         if self.latitude or self.longitude:
-            global_block['core:geolocation'] = {
-                'type': 'Point',
-                'coordinates': [self.longitude, self.latitude],
+            global_block["core:geolocation"] = {
+                "type": "Point",
+                "coordinates": [self.longitude, self.latitude],
             }
 
         captures = [
             {
-                'core:sample_start': 0,
-                'core:frequency': self.center_frequency_hz,
-                'core:datetime': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "core:sample_start": 0,
+                "core:frequency": self.center_frequency_hz,
+                "core:datetime": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             }
         ]
 
         return {
-            'global': global_block,
-            'captures': captures,
-            'annotations': self.annotations,
+            "global": global_block,
+            "captures": captures,
+            "annotations": self.annotations,
         }
 
 
@@ -109,9 +109,9 @@ class SigMFWriter:
     def open(self) -> None:
         """Create output directory and open the data file for writing."""
         self._output_dir.mkdir(parents=True, exist_ok=True)
-        self._data_path = self._output_dir / f'{self._stem}.sigmf-data'
-        self._meta_path = self._output_dir / f'{self._stem}.sigmf-meta'
-        self._data_file = open(self._data_path, 'wb')
+        self._data_path = self._output_dir / f"{self._stem}.sigmf-data"
+        self._meta_path = self._output_dir / f"{self._stem}.sigmf-meta"
+        self._data_file = open(self._data_path, "wb")
         self._bytes_written = 0
         self._aborted = False
         logger.info(f"SigMFWriter opened: {self._data_path}")
@@ -168,15 +168,11 @@ class SigMFWriter:
 
         try:
             meta_dict = self._metadata.to_dict()
-            self._meta_path.write_text(
-                json.dumps(meta_dict, indent=2), encoding='utf-8'
-            )
+            self._meta_path.write_text(json.dumps(meta_dict, indent=2), encoding="utf-8")
         except Exception as e:
             logger.error(f"Failed to write SigMF metadata: {e}")
 
-        logger.info(
-            f"SigMFWriter closed: {self._bytes_written} bytes → {self._data_path}"
-        )
+        logger.info(f"SigMFWriter closed: {self._bytes_written} bytes → {self._data_path}")
         return self._meta_path, self._data_path
 
     @property
@@ -202,7 +198,7 @@ class SigMFWriter:
 
 
 def _default_stem(meta: SigMFMetadata) -> str:
-    ts = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-    sat = (meta.satellite_name or 'unknown').replace(' ', '_').replace('/', '-')
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    sat = (meta.satellite_name or "unknown").replace(" ", "_").replace("/", "-")
     freq_khz = int(meta.center_frequency_hz / 1000)
-    return f'{ts}_{sat}_{freq_khz}kHz'
+    return f"{ts}_{sat}_{freq_khz}kHz"

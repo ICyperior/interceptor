@@ -18,8 +18,9 @@ import sys
 # Check Python version early, before imports that use 3.9+ syntax
 
 # Handle --version early before other imports
-if '--version' in sys.argv or '-V' in sys.argv:
+if "--version" in sys.argv or "-V" in sys.argv:
     from config import VERSION
+
     print(f"INTERCEPT v{VERSION}")
     sys.exit(0)
 
@@ -33,5 +34,5 @@ if not site.ENABLE_USER_SITE:
 
 from app import main
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

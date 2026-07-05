@@ -67,8 +67,8 @@ def parse_iw_scan(output: str) -> list[WiFiObservation]:
     observations = []
     current_block = []
 
-    for line in output.split('\n'):
-        if line.startswith('BSS '):
+    for line in output.split("\n"):
+        if line.startswith("BSS "):
             # Start of new BSS entry
             if current_block:
                 obs = _parse_iw_block(current_block)
@@ -92,7 +92,7 @@ def _parse_iw_block(lines: list[str]) -> WiFiObservation | None:
     try:
         # First line: BSS 00:11:22:33:44:55(on wlan0) -- associated
         first_line = lines[0]
-        bssid_match = re.match(r'BSS ([0-9a-fA-F:]{17})', first_line)
+        bssid_match = re.match(r"BSS ([0-9a-fA-F:]{17})", first_line)
         if not bssid_match:
             return None
 
@@ -114,35 +114,35 @@ def _parse_iw_block(lines: list[str]) -> WiFiObservation | None:
         while i < len(lines):
             line = lines[i].strip()
 
-            if line.startswith('freq:'):
-                freq_match = re.search(r'freq:\s*(\d+)', line)
+            if line.startswith("freq:"):
+                freq_match = re.search(r"freq:\s*(\d+)", line)
                 if freq_match:
                     frequency_mhz = int(freq_match.group(1))
                     channel = get_channel_from_frequency(frequency_mhz)
 
-            elif line.startswith('signal:'):
-                signal_match = re.search(r'signal:\s*(-?\d+\.?\d*)', line)
+            elif line.startswith("signal:"):
+                signal_match = re.search(r"signal:\s*(-?\d+\.?\d*)", line)
                 if signal_match:
                     rssi = int(float(signal_match.group(1)))
 
-            elif line.startswith('SSID:'):
-                ssid_match = re.match(r'SSID:\s*(.*)', line)
+            elif line.startswith("SSID:"):
+                ssid_match = re.match(r"SSID:\s*(.*)", line)
                 if ssid_match:
                     ssid = ssid_match.group(1).strip()
-                    if not ssid or ssid == '\\x00' * len(ssid):
+                    if not ssid or ssid == "\\x00" * len(ssid):
                         ssid = None
 
-            elif line.startswith('DS Parameter set:'):
-                chan_match = re.search(r'channel\s*(\d+)', line)
+            elif line.startswith("DS Parameter set:"):
+                chan_match = re.search(r"channel\s*(\d+)", line)
                 if chan_match:
                     channel = int(chan_match.group(1))
 
-            elif line.startswith('capability:'):
-                if 'Privacy' in line:
+            elif line.startswith("capability:"):
+                if "Privacy" in line:
                     has_privacy = True
 
-            elif line.startswith('RSN:') or line.startswith('WPA:'):
-                is_rsn = line.startswith('RSN:')
+            elif line.startswith("RSN:") or line.startswith("WPA:"):
+                is_rsn = line.startswith("RSN:")
                 if is_rsn:
                     has_rsn = True
                 else:
@@ -150,41 +150,41 @@ def _parse_iw_block(lines: list[str]) -> WiFiObservation | None:
 
                 # Parse the RSN/WPA block
                 i += 1
-                while i < len(lines) and lines[i].startswith('\t\t'):
+                while i < len(lines) and lines[i].startswith("\t\t"):
                     subline = lines[i].strip()
 
-                    if 'Group cipher:' in subline or 'Pairwise ciphers:' in subline:
-                        if 'CCMP' in subline:
+                    if "Group cipher:" in subline or "Pairwise ciphers:" in subline:
+                        if "CCMP" in subline:
                             cipher = CIPHER_CCMP
-                        elif 'TKIP' in subline:
+                        elif "TKIP" in subline:
                             cipher = CIPHER_TKIP
-                        elif 'GCMP' in subline:
+                        elif "GCMP" in subline:
                             cipher = CIPHER_GCMP
 
-                    elif 'Authentication suites:' in subline:
-                        if 'SAE' in subline:
+                    elif "Authentication suites:" in subline:
+                        if "SAE" in subline:
                             auth = AUTH_SAE
-                        elif 'PSK' in subline:
+                        elif "PSK" in subline:
                             auth = AUTH_PSK
-                        elif 'IEEE 802.1X' in subline or 'EAP' in subline:
+                        elif "IEEE 802.1X" in subline or "EAP" in subline:
                             auth = AUTH_EAP
-                        elif 'OWE' in subline:
+                        elif "OWE" in subline:
                             auth = AUTH_OWE
 
                     i += 1
                 continue
 
-            elif 'HT operation:' in line or 'VHT operation:' in line or 'HE operation:' in line:
+            elif "HT operation:" in line or "VHT operation:" in line or "HE operation:" in line:
                 # Parse width from subsequent lines
                 i += 1
-                while i < len(lines) and lines[i].startswith('\t\t'):
+                while i < len(lines) and lines[i].startswith("\t\t"):
                     subline = lines[i].strip()
-                    if 'channel width:' in subline.lower():
-                        if '160' in subline:
+                    if "channel width:" in subline.lower():
+                        if "160" in subline:
                             width = WIDTH_160_MHZ
-                        elif '80' in subline:
+                        elif "80" in subline:
                             width = WIDTH_80_MHZ
-                        elif '40' in subline:
+                        elif "40" in subline:
                             width = WIDTH_40_MHZ
                     i += 1
                 continue

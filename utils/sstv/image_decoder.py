@@ -54,8 +54,7 @@ class SSTVImageDecoder:
             image = decoder.get_image()
     """
 
-    def __init__(self, mode: SSTVMode, sample_rate: int = SAMPLE_RATE,
-                 progress_cb: ProgressCallback | None = None):
+    def __init__(self, mode: SSTVMode, sample_rate: int = SAMPLE_RATE, progress_cb: ProgressCallback | None = None):
         self._mode = mode
         self._sample_rate = sample_rate
         self._progress_cb = progress_cb
@@ -65,21 +64,16 @@ class SSTVImageDecoder:
         self._complete = False
 
         # Pre-calculate sample counts
-        self._sync_samples = samples_for_duration(
-            mode.sync_duration_ms / 1000.0, sample_rate)
-        self._porch_samples = samples_for_duration(
-            mode.sync_porch_ms / 1000.0, sample_rate)
-        self._line_samples = samples_for_duration(
-            mode.line_duration_ms / 1000.0, sample_rate)
+        self._sync_samples = samples_for_duration(mode.sync_duration_ms / 1000.0, sample_rate)
+        self._porch_samples = samples_for_duration(mode.sync_porch_ms / 1000.0, sample_rate)
+        self._line_samples = samples_for_duration(mode.line_duration_ms / 1000.0, sample_rate)
         self._separator_samples = (
             samples_for_duration(mode.channel_separator_ms / 1000.0, sample_rate)
-            if mode.channel_separator_ms > 0 else 0
+            if mode.channel_separator_ms > 0
+            else 0
         )
 
-        self._channel_samples = [
-            samples_for_duration(ch.duration_ms / 1000.0, sample_rate)
-            for ch in mode.channels
-        ]
+        self._channel_samples = [samples_for_duration(ch.duration_ms / 1000.0, sample_rate) for ch in mode.channels]
 
         # For PD modes, each "line" of audio produces 2 image lines
         if mode.color_model == ColorModel.YCRCB_DUAL:
@@ -92,11 +86,9 @@ class SSTVImageDecoder:
         for _i, _ch_spec in enumerate(mode.channels):
             if mode.color_model == ColorModel.YCRCB_DUAL:
                 # Y1, Cr, Cb, Y2 - all are width-wide
-                self._channel_data.append(
-                    np.zeros((self._total_audio_lines, mode.width), dtype=np.uint8))
+                self._channel_data.append(np.zeros((self._total_audio_lines, mode.width), dtype=np.uint8))
             else:
-                self._channel_data.append(
-                    np.zeros((mode.height, mode.width), dtype=np.uint8))
+                self._channel_data.append(np.zeros((mode.height, mode.width), dtype=np.uint8))
 
         # Track sync position for re-synchronization
         self._expected_line_start = 0  # Sample offset within buffer
@@ -179,7 +171,7 @@ class SSTVImageDecoder:
 
         step = window_size // 2
         for pos in range(0, len(search_region) - window_size, step):
-            chunk = search_region[pos:pos + window_size]
+            chunk = search_region[pos : pos + window_size]
             sync_energy = goertzel(chunk, FREQ_SYNC, self._sample_rate)
             # Check it's actually sync, not data at 1200 Hz area
             black_energy = goertzel(chunk, FREQ_BLACK, self._sample_rate)
@@ -229,7 +221,7 @@ class SSTVImageDecoder:
                 # Not enough data yet - put the data back and wait
                 return
 
-            channel_audio = self._buffer[pos:pos + ch_samples]
+            channel_audio = self._buffer[pos : pos + ch_samples]
             pixels = self._decode_channel_pixels(channel_audio)
             self._channel_data[ch_idx][self._current_line, :] = pixels
             pos += ch_samples
@@ -251,15 +243,11 @@ class SSTVImageDecoder:
                         # a 2-sample/line drift; 800 samples covers ±200 ppm.
                         bwd = min(800, pos)
                         remaining = len(self._buffer) - pos
-                        fwd = min(800, max(
-                            0,
-                            remaining - self._sync_samples
-                            - self._porch_samples - r_samples))
+                        fwd = min(800, max(0, remaining - self._sync_samples - self._porch_samples - r_samples))
                         deviation: float | None = None
                         if bwd + fwd > 0:
                             region_start = pos - bwd
-                            sync_region = self._buffer[
-                                region_start: pos + self._sync_samples + fwd]
+                            sync_region = self._buffer[region_start : pos + self._sync_samples + fwd]
                             # Full-sync-length window gives best freq resolution
                             # (~111 Hz at 48 kHz) to cleanly separate 1200 Hz
                             # sync from 1500 Hz pixel data.
@@ -269,29 +257,21 @@ class SSTVImageDecoder:
                                 # Step 5 samples (~0.1 ms) — enough resolution
                                 # for pixel-level drift, keeps batch size small.
                                 step = 5
-                                all_windows = (
-                                    np.lib.stride_tricks.sliding_window_view(
-                                        sync_region, win))
+                                all_windows = np.lib.stride_tricks.sliding_window_view(sync_region, win)
                                 windows = all_windows[::step]
-                                energies = goertzel_batch(
-                                    windows,
-                                    np.array([FREQ_SYNC, FREQ_BLACK]),
-                                    self._sample_rate)
+                                energies = goertzel_batch(windows, np.array([FREQ_SYNC, FREQ_BLACK]), self._sample_rate)
                                 sync_e = energies[:, 0]
                                 black_e = energies[:, 1]
                                 valid_mask = sync_e > black_e * 2
                                 if valid_mask.any():
-                                    fine_idx = int(
-                                        np.argmax(
-                                            np.where(valid_mask, sync_e, 0.0)))
+                                    fine_idx = int(np.argmax(np.where(valid_mask, sync_e, 0.0)))
                                     deviation = float(fine_idx * step - bwd)
                         self._sync_deviations.append(deviation)
                         pos += self._sync_samples + self._porch_samples
                 elif self._separator_samples > 0:
                     # Robot: separator + porch between channels
                     pos += self._separator_samples
-                elif (self._mode.sync_position == SyncPosition.FRONT
-                      and self._mode.color_model == ColorModel.RGB):
+                elif self._mode.sync_position == SyncPosition.FRONT and self._mode.color_model == ColorModel.RGB:
                     # Martin: porch between channels
                     pos += self._porch_samples
 
@@ -339,10 +319,10 @@ class SSTVImageDecoder:
         h = np.zeros(n)
         if n % 2 == 0:
             h[0] = h[n // 2] = 1
-            h[1:n // 2] = 2
+            h[1 : n // 2] = 2
         else:
             h[0] = 1
-            h[1:(n + 1) // 2] = 2
+            h[1 : (n + 1) // 2] = 2
 
         analytic = np.fft.ifft(spectrum * h)
 
@@ -365,8 +345,7 @@ class SSTVImageDecoder:
             avg_freqs = sums / segment_lengths
 
         # Map to pixel values (1500 Hz → 0, 2300 Hz → 255)
-        normalized = (avg_freqs - FREQ_PIXEL_LOW) / (
-            FREQ_PIXEL_HIGH - FREQ_PIXEL_LOW)
+        normalized = (avg_freqs - FREQ_PIXEL_LOW) / (FREQ_PIXEL_HIGH - FREQ_PIXEL_LOW)
         return np.clip(normalized * 255 + 0.5, 0, 255).astype(np.uint8)
 
     def get_image(self) -> Image.Image | None:
@@ -401,8 +380,7 @@ class SSTVImageDecoder:
         measurements are averaged out; if fewer than 10 valid measurements
         exist the image is returned unchanged.
         """
-        valid = [(i, d) for i, d in enumerate(self._sync_deviations)
-                 if d is not None]
+        valid = [(i, d) for i, d in enumerate(self._sync_deviations) if d is not None]
         if len(valid) < 10:
             return img
 
@@ -437,7 +415,7 @@ class SSTVImageDecoder:
             shift = -int(round(row * pixels_per_line))
             corrected[row] = np.roll(arr[row], shift=shift, axis=0)
 
-        return Image.fromarray(corrected, 'RGB')
+        return Image.fromarray(corrected, "RGB")
 
     def _assemble_rgb(self) -> Image.Image:
         """Assemble RGB image from sequential R, G, B channel data.
@@ -452,7 +430,7 @@ class SSTVImageDecoder:
         r_data = self._channel_data[2][:height]
 
         rgb = np.stack([r_data, g_data, b_data], axis=-1)
-        return Image.fromarray(rgb, 'RGB')
+        return Image.fromarray(rgb, "RGB")
 
     def _assemble_ycrcb(self) -> Image.Image:
         """Assemble image from YCrCb data (Robot modes).
@@ -538,8 +516,7 @@ class SSTVImageDecoder:
         return self._ycrcb_to_rgb(y_full, cr_full, cb_full, height, width)
 
     @staticmethod
-    def _ycrcb_to_rgb(y: np.ndarray, cr: np.ndarray, cb: np.ndarray,
-                      height: int, width: int) -> Image.Image:
+    def _ycrcb_to_rgb(y: np.ndarray, cr: np.ndarray, cb: np.ndarray, height: int, width: int) -> Image.Image:
         """Convert YCrCb pixel data to an RGB PIL Image.
 
         Uses the SSTV convention where pixel values 0-255 map to the
@@ -562,4 +539,4 @@ class SSTVImageDecoder:
         b = np.clip(b, 0, 255).astype(np.uint8)
 
         rgb = np.stack([r, g, b], axis=-1)
-        return Image.fromarray(rgb, 'RGB')
+        return Image.fromarray(rgb, "RGB")

@@ -16,16 +16,20 @@ class FlightCorrelator:
         self._vdl2_messages: deque[dict] = deque(maxlen=max_messages)
 
     def add_acars_message(self, msg: dict) -> None:
-        self._acars_messages.append({
-            **msg,
-            '_corr_time': time.time(),
-        })
+        self._acars_messages.append(
+            {
+                **msg,
+                "_corr_time": time.time(),
+            }
+        )
 
     def add_vdl2_message(self, msg: dict) -> None:
-        self._vdl2_messages.append({
-            **msg,
-            '_corr_time': time.time(),
-        })
+        self._vdl2_messages.append(
+            {
+                **msg,
+                "_corr_time": time.time(),
+            }
+        )
 
     def get_messages_for_aircraft(
         self,
@@ -35,7 +39,7 @@ class FlightCorrelator:
     ) -> dict[str, list[dict]]:
         """Match ACARS/VDL2 messages by callsign, flight, or registration fields."""
         if not icao and not callsign:
-            return {'acars': [], 'vdl2': []}
+            return {"acars": [], "vdl2": []}
 
         search_terms: set[str] = set()
         if callsign:
@@ -58,12 +62,12 @@ class FlightCorrelator:
             if self._msg_matches(msg, search_terms):
                 vdl2.append(self._clean_msg(msg))
 
-        return {'acars': acars, 'vdl2': vdl2}
+        return {"acars": acars, "vdl2": vdl2}
 
     @staticmethod
     def _msg_matches(msg: dict, terms: set[str]) -> bool:
         """Check if any identifying field in msg matches the search terms."""
-        for field in ('flight', 'tail', 'reg', 'callsign', 'icao', 'addr'):
+        for field in ("flight", "tail", "reg", "callsign", "icao", "addr"):
             val = msg.get(field)
             if not val:
                 continue
@@ -79,11 +83,11 @@ class FlightCorrelator:
     @staticmethod
     def _clean_msg(msg: dict) -> dict:
         """Return message without internal correlation fields."""
-        return {k: v for k, v in msg.items() if not k.startswith('_corr_')}
+        return {k: v for k, v in msg.items() if not k.startswith("_corr_")}
 
-    def get_recent_messages(self, msg_type: str = 'acars', limit: int = 50) -> list[dict]:
+    def get_recent_messages(self, msg_type: str = "acars", limit: int = 50) -> list[dict]:
         """Return the most recent messages (newest first)."""
-        source = self._acars_messages if msg_type == 'acars' else self._vdl2_messages
+        source = self._acars_messages if msg_type == "acars" else self._vdl2_messages
         msgs = [self._clean_msg(m) for m in source]
         msgs.reverse()
         return msgs[:limit]

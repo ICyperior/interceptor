@@ -2,7 +2,7 @@
 
 from flask import Blueprint, jsonify, request
 
-spy_stations_bp = Blueprint('spy_stations', __name__, url_prefix='/spy-stations')
+spy_stations_bp = Blueprint("spy_stations", __name__, url_prefix="/spy-stations")
 
 # Active spy stations data from priyom.org
 STATIONS = [
@@ -23,7 +23,7 @@ STATIONS = [
         "description": "Russian intelligence number station operated by 'Russian 6'. Male voice reads 5-figure groups. Broadcasts from Moscow, Orenburg, Smolensk, and Chita.",
         "operator": "Russian 6",
         "schedule": "Weekdays, 2 transmissions 1 hour apart",
-        "source_url": "https://priyom.org/number-stations/english/e06"
+        "source_url": "https://priyom.org/number-stations/english/e06",
     },
     {
         "id": "s06",
@@ -41,7 +41,7 @@ STATIONS = [
         "description": "Russian language mode of the Russian 6 operator. Male voice reads 5-figure groups in Russian.",
         "operator": "Russian 6",
         "schedule": "Same schedule as E06, alternating languages",
-        "source_url": "https://priyom.org/number-stations/russian/s06"
+        "source_url": "https://priyom.org/number-stations/russian/s06",
     },
     {
         "id": "uvb76",
@@ -60,7 +60,7 @@ STATIONS = [
         "description": "Russian military command network. Continuous buzzing tone with occasional voice messages. Active since 1982. One of the most famous number stations.",
         "operator": "Russian Military",
         "schedule": "24/7 continuous operation",
-        "source_url": "https://priyom.org/number-stations/russia/uvb-76"
+        "source_url": "https://priyom.org/number-stations/russia/uvb-76",
     },
     {
         "id": "hm01",
@@ -91,7 +91,7 @@ STATIONS = [
         "description": "Cuban DGI intelligence station. Spanish female voice 'Atencion' followed by number groups. Also uses RDFT OFDM digital mode.",
         "operator": "DGI (Cuban Intelligence)",
         "schedule": "Multiple daily transmissions",
-        "source_url": "https://priyom.org/number-stations/cuba/hm01"
+        "source_url": "https://priyom.org/number-stations/cuba/hm01",
     },
     {
         "id": "e07",
@@ -110,7 +110,7 @@ STATIONS = [
         "description": "Russian intelligence station using distinctive 7-dash interval signal. Female voice reading 5-figure groups in English. Part of the 'Russian 7' operator network.",
         "operator": "Russian 7",
         "schedule": "Irregular, typically evenings UTC",
-        "source_url": "https://priyom.org/number-stations/english/e07"
+        "source_url": "https://priyom.org/number-stations/english/e07",
     },
     {
         "id": "e11",
@@ -128,7 +128,7 @@ STATIONS = [
         "description": "Polish intelligence number station. Female voice reads 5-figure groups in English. Named after distinctive melody interval signal.",
         "operator": "ABW (Polish Intelligence)",
         "schedule": "Weekly transmissions",
-        "source_url": "https://priyom.org/number-stations/english/e11"
+        "source_url": "https://priyom.org/number-stations/english/e11",
     },
     {
         "id": "e17z",
@@ -146,7 +146,7 @@ STATIONS = [
         "description": "Israeli intelligence number station. Female voice with distinctive Hebrew-accented English. Transmits 5-figure groups with phonetic alphabet.",
         "operator": "Mossad (suspected)",
         "schedule": "Irregular schedule",
-        "source_url": "https://priyom.org/number-stations/english/e17z"
+        "source_url": "https://priyom.org/number-stations/english/e17z",
     },
     {
         "id": "g06",
@@ -164,7 +164,7 @@ STATIONS = [
         "description": "German language mode of Russian 6 operator. Male synthesized voice reads 5-figure groups in German. Shares frequencies with E06/S06.",
         "operator": "Russian 6",
         "schedule": "Same schedule as E06",
-        "source_url": "https://priyom.org/number-stations/german/g06"
+        "source_url": "https://priyom.org/number-stations/german/g06",
     },
     {
         "id": "v02a",
@@ -182,7 +182,7 @@ STATIONS = [
         "description": "Cuban intelligence station using AM mode. Female Spanish voice reading 4-figure groups. Related to HM01 but separate schedule.",
         "operator": "DGI (Cuban Intelligence)",
         "schedule": "Evening transmissions, weekdays",
-        "source_url": "https://priyom.org/number-stations/spanish/v02a"
+        "source_url": "https://priyom.org/number-stations/spanish/v02a",
     },
     {
         "id": "v07",
@@ -199,7 +199,7 @@ STATIONS = [
         "description": "Russian voice number station. Female voice reads 5-figure groups in Russian. Part of Russian 7 operator network. Often shares 4625 kHz with UVB-76.",
         "operator": "Russian 7",
         "schedule": "Irregular transmissions",
-        "source_url": "https://priyom.org/number-stations/russian/v07"
+        "source_url": "https://priyom.org/number-stations/russian/v07",
     },
     {
         "id": "s11a",
@@ -216,7 +216,7 @@ STATIONS = [
         "description": "Russian phonetic alphabet number station. Male voice reads 5-letter groups using Russian phonetic alphabet (Anna, Boris, etc.).",
         "operator": "GRU (suspected)",
         "schedule": "Weekly scheduled transmissions",
-        "source_url": "https://priyom.org/number-stations/russian/s11a"
+        "source_url": "https://priyom.org/number-stations/russian/s11a",
     },
     {
         "id": "v13",
@@ -233,7 +233,7 @@ STATIONS = [
         "description": "Russian military channel marker known as 'The Pip'. Continuous short beep every 1 second with occasional voice messages. Sister station to UVB-76.",
         "operator": "Russian Military",
         "schedule": "24/7 continuous operation",
-        "source_url": "https://priyom.org/military-stations/russia/the-pip"
+        "source_url": "https://priyom.org/military-stations/russia/the-pip",
     },
     {
         "id": "v24",
@@ -249,7 +249,7 @@ STATIONS = [
         "description": "Russian channel marker known as 'Air Horn' due to distinctive foghorn-like sound. Continuous tone with occasional voice messages in Russian.",
         "operator": "Russian Military",
         "schedule": "24/7 continuous operation",
-        "source_url": "https://priyom.org/military-stations/russia/the-air-horn"
+        "source_url": "https://priyom.org/military-stations/russia/the-air-horn",
     },
     {
         "id": "vc01",
@@ -268,7 +268,7 @@ STATIONS = [
         "description": "Chinese intelligence number station. Robotic female voice reading 4-figure groups in Chinese. Distinctive electronic music interval signal.",
         "operator": "MSS (Chinese Intelligence)",
         "schedule": "Daily transmissions",
-        "source_url": "https://priyom.org/number-stations/chinese/vc01"
+        "source_url": "https://priyom.org/number-stations/chinese/vc01",
     },
     {
         "id": "v22",
@@ -285,7 +285,7 @@ STATIONS = [
         "description": "Chinese number station using female voice. Reads 4-figure groups in Mandarin Chinese. Often reported in Southeast Asian target areas.",
         "operator": "MSS (Chinese Intelligence)",
         "schedule": "Evening transmissions UTC",
-        "source_url": "https://priyom.org/number-stations/chinese/v22"
+        "source_url": "https://priyom.org/number-stations/chinese/v22",
     },
     # Diplomatic Stations
     {
@@ -309,7 +309,7 @@ STATIONS = [
         "description": "Bulgarian Ministry of Foreign Affairs diplomatic network. Sofia to 14 embassies worldwide. Uses RFSM-8000 modem with MIL-STD-188-110.",
         "operator": "Bulgarian MFA",
         "schedule": "Daily scheduled transmissions",
-        "source_url": "https://priyom.org/diplomatic/bulgaria"
+        "source_url": "https://priyom.org/diplomatic/bulgaria",
     },
     {
         "id": "czechia_mfa",
@@ -328,7 +328,7 @@ STATIONS = [
         "description": "Czech diplomatic network using PACTOR-III. Callsigns OLZ52-OLZ88. MoD station OL1A also active.",
         "operator": "Czech MFA / MoD",
         "schedule": "Regular scheduled traffic",
-        "source_url": "https://priyom.org/diplomatic/czechia"
+        "source_url": "https://priyom.org/diplomatic/czechia",
     },
     {
         "id": "egypt_mfa",
@@ -347,7 +347,7 @@ STATIONS = [
         "description": "Egyptian diplomatic network. 5-digit station IDs (66601=Washington, 11107=London). Uses SITOR and Codan 3012 modems.",
         "operator": "Egyptian MFA",
         "schedule": "Daily traffic windows",
-        "source_url": "https://priyom.org/diplomatic/egypt"
+        "source_url": "https://priyom.org/diplomatic/egypt",
     },
     {
         "id": "dprk_mfa",
@@ -370,7 +370,7 @@ STATIONS = [
         "description": "North Korean diplomatic network spanning 7-25 MHz. Uses proprietary DPRK-ARQ protocol. Daily encrypted traffic to embassies.",
         "operator": "DPRK MFA",
         "schedule": "Daily, multiple time slots",
-        "source_url": "https://priyom.org/diplomatic/north-korea"
+        "source_url": "https://priyom.org/diplomatic/north-korea",
     },
     {
         "id": "russia_mfa",
@@ -392,7 +392,7 @@ STATIONS = [
         "description": "Extensive Russian diplomatic network using multiple proprietary modes including Perelivt, Serdolik, and OFDM variants.",
         "operator": "Russian MFA",
         "schedule": "24/7 network operations",
-        "source_url": "https://priyom.org/diplomatic/russia"
+        "source_url": "https://priyom.org/diplomatic/russia",
     },
     {
         "id": "tunisia_mfa",
@@ -428,7 +428,7 @@ STATIONS = [
         "description": "Tunisian MFA network. Callsigns STAT151-155. Uses 2G ALE for linking and PACTOR-II for traffic. MAPI email format.",
         "operator": "Tunisian MFA",
         "schedule": "Regular diplomatic traffic",
-        "source_url": "https://priyom.org/diplomatic/tunisia"
+        "source_url": "https://priyom.org/diplomatic/tunisia",
     },
     {
         "id": "usa_state",
@@ -453,7 +453,7 @@ STATIONS = [
         "description": "US State Department diplomatic network. 140+ embassy callsigns (KWX57=Warsaw, KRH50=Tokyo, etc.). Uses 2G ALE linking.",
         "operator": "US State Department",
         "schedule": "24/7 global network",
-        "source_url": "https://priyom.org/diplomatic/united-states"
+        "source_url": "https://priyom.org/diplomatic/united-states",
     },
     {
         "id": "morocco_mfa",
@@ -471,7 +471,7 @@ STATIONS = [
         "description": "Moroccan Ministry of Foreign Affairs diplomatic network. Links Rabat with embassies in Europe and Africa. Uses PACTOR-II and 2G ALE.",
         "operator": "Moroccan MFA",
         "schedule": "Daily scheduled traffic",
-        "source_url": "https://priyom.org/diplomatic/morocco"
+        "source_url": "https://priyom.org/diplomatic/morocco",
     },
     {
         "id": "poland_mfa",
@@ -489,7 +489,7 @@ STATIONS = [
         "description": "Polish Ministry of Foreign Affairs HF network. Uses NATO STANAG-4285 modem with 2G ALE linking. Connects Warsaw with global embassies.",
         "operator": "Polish MFA",
         "schedule": "Regular diplomatic traffic",
-        "source_url": "https://priyom.org/diplomatic/poland"
+        "source_url": "https://priyom.org/diplomatic/poland",
     },
     {
         "id": "france_mfa",
@@ -508,7 +508,7 @@ STATIONS = [
         "description": "French Ministry of Foreign Affairs network. Extensive global coverage with Paris hub. Uses MIL-STD-188-110 with 2G/3G ALE linking protocols.",
         "operator": "French MFA",
         "schedule": "24/7 network operations",
-        "source_url": "https://priyom.org/diplomatic/france"
+        "source_url": "https://priyom.org/diplomatic/france",
     },
     {
         "id": "romania_mfa",
@@ -526,7 +526,7 @@ STATIONS = [
         "description": "Romanian diplomatic network linking Bucharest with embassies. Uses PACTOR-III for traffic and 2G ALE for channel establishment.",
         "operator": "Romanian MFA",
         "schedule": "Scheduled daily windows",
-        "source_url": "https://priyom.org/diplomatic/romania"
+        "source_url": "https://priyom.org/diplomatic/romania",
     },
     {
         "id": "algeria_mfa",
@@ -544,7 +544,7 @@ STATIONS = [
         "description": "Algerian Ministry of Foreign Affairs network. Links Algiers with African and European embassies. Uses SITOR-B and PACTOR modes.",
         "operator": "Algerian MFA",
         "schedule": "Daily scheduled transmissions",
-        "source_url": "https://priyom.org/diplomatic/algeria"
+        "source_url": "https://priyom.org/diplomatic/algeria",
     },
     {
         "id": "egypt_mfa_m14a",
@@ -561,65 +561,53 @@ STATIONS = [
         "description": "Extended Egyptian diplomatic network frequencies. Higher frequency allocations for long-distance embassy communications to Asia and Americas.",
         "operator": "Egyptian MFA",
         "schedule": "Daily traffic windows",
-        "source_url": "https://priyom.org/diplomatic/egypt"
+        "source_url": "https://priyom.org/diplomatic/egypt",
     },
 ]
 
 
-@spy_stations_bp.route('/stations')
+@spy_stations_bp.route("/stations")
 def get_stations():
     """Return all spy stations, optionally filtered."""
-    station_type = request.args.get('type')
-    country = request.args.get('country')
-    mode = request.args.get('mode')
+    station_type = request.args.get("type")
+    country = request.args.get("country")
+    mode = request.args.get("mode")
 
     filtered = STATIONS
 
     if station_type:
-        filtered = [s for s in filtered if s['type'] == station_type]
+        filtered = [s for s in filtered if s["type"] == station_type]
 
     if country:
-        filtered = [s for s in filtered if s['country_code'].upper() == country.upper()]
+        filtered = [s for s in filtered if s["country_code"].upper() == country.upper()]
 
     if mode:
         mode_lower = mode.lower()
-        filtered = [s for s in filtered if mode_lower in s['mode'].lower()]
+        filtered = [s for s in filtered if mode_lower in s["mode"].lower()]
 
-    return jsonify({
-        'status': 'success',
-        'count': len(filtered),
-        'stations': filtered
-    })
+    return jsonify({"status": "success", "count": len(filtered), "stations": filtered})
 
 
-@spy_stations_bp.route('/stations/<station_id>')
+@spy_stations_bp.route("/stations/<station_id>")
 def get_station(station_id):
     """Get a single station by ID."""
     for station in STATIONS:
-        if station['id'] == station_id:
-            return jsonify({
-                'status': 'success',
-                'station': station
-            })
+        if station["id"] == station_id:
+            return jsonify({"status": "success", "station": station})
 
-    return jsonify({
-        'status': 'error',
-        'message': 'Station not found'
-    }), 404
+    return jsonify({"status": "error", "message": "Station not found"}), 404
 
 
-@spy_stations_bp.route('/filters')
+@spy_stations_bp.route("/filters")
 def get_filters():
     """Return available filter options."""
-    types = list({s['type'] for s in STATIONS})
-    countries = sorted({(s['country'], s['country_code']) for s in STATIONS})
-    modes = sorted({s['mode'].split('/')[0] for s in STATIONS})
+    types = list({s["type"] for s in STATIONS})
+    countries = sorted({(s["country"], s["country_code"]) for s in STATIONS})
+    modes = sorted({s["mode"].split("/")[0] for s in STATIONS})
 
-    return jsonify({
-        'status': 'success',
-        'filters': {
-            'types': types,
-            'countries': [{'name': c[0], 'code': c[1]} for c in countries],
-            'modes': modes
+    return jsonify(
+        {
+            "status": "success",
+            "filters": {"types": types, "countries": [{"name": c[0], "code": c[1]} for c in countries], "modes": modes},
         }
-    })
+    )

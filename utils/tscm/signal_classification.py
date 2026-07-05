@@ -16,8 +16,10 @@ from enum import Enum
 # Signal Strength Classification
 # =============================================================================
 
+
 class SignalStrength(Enum):
     """Qualitative signal strength labels."""
+
     MINIMAL = "minimal"
     WEAK = "weak"
     MODERATE = "moderate"
@@ -27,43 +29,43 @@ class SignalStrength(Enum):
 
 # RSSI thresholds (dBm) - upper bounds for each category
 RSSI_THRESHOLDS = {
-    SignalStrength.MINIMAL: -85,      # -100 to -85
-    SignalStrength.WEAK: -70,         # -84 to -70
-    SignalStrength.MODERATE: -55,     # -69 to -55
-    SignalStrength.STRONG: -40,       # -54 to -40
-    SignalStrength.VERY_STRONG: 0,    # > -40
+    SignalStrength.MINIMAL: -85,  # -100 to -85
+    SignalStrength.WEAK: -70,  # -84 to -70
+    SignalStrength.MODERATE: -55,  # -69 to -55
+    SignalStrength.STRONG: -40,  # -54 to -40
+    SignalStrength.VERY_STRONG: 0,  # > -40
 }
 
 SIGNAL_STRENGTH_DESCRIPTIONS = {
     SignalStrength.MINIMAL: {
-        'label': 'Minimal',
-        'description': 'At detection threshold',
-        'interpretation': 'may be ambient noise or distant source',
-        'confidence': 'low',
+        "label": "Minimal",
+        "description": "At detection threshold",
+        "interpretation": "may be ambient noise or distant source",
+        "confidence": "low",
     },
     SignalStrength.WEAK: {
-        'label': 'Weak',
-        'description': 'Detectable signal',
-        'interpretation': 'potentially distant or obstructed',
-        'confidence': 'low',
+        "label": "Weak",
+        "description": "Detectable signal",
+        "interpretation": "potentially distant or obstructed",
+        "confidence": "low",
     },
     SignalStrength.MODERATE: {
-        'label': 'Moderate',
-        'description': 'Consistent presence',
-        'interpretation': 'likely in proximity',
-        'confidence': 'medium',
+        "label": "Moderate",
+        "description": "Consistent presence",
+        "interpretation": "likely in proximity",
+        "confidence": "medium",
     },
     SignalStrength.STRONG: {
-        'label': 'Strong',
-        'description': 'Clear signal',
-        'interpretation': 'probable close proximity',
-        'confidence': 'medium',
+        "label": "Strong",
+        "description": "Clear signal",
+        "interpretation": "probable close proximity",
+        "confidence": "medium",
     },
     SignalStrength.VERY_STRONG: {
-        'label': 'Very Strong',
-        'description': 'High signal level',
-        'interpretation': 'indicates likely nearby source',
-        'confidence': 'high',
+        "label": "Very Strong",
+        "description": "High signal level",
+        "interpretation": "indicates likely nearby source",
+        "confidence": "high",
     },
 }
 
@@ -106,8 +108,8 @@ def get_signal_strength_info(rssi: float | int | None) -> dict:
     """
     strength = classify_signal_strength(rssi)
     info = SIGNAL_STRENGTH_DESCRIPTIONS[strength].copy()
-    info['strength'] = strength.value
-    info['rssi'] = rssi
+    info["strength"] = strength.value
+    info["rssi"] = rssi
     return info
 
 
@@ -115,8 +117,10 @@ def get_signal_strength_info(rssi: float | int | None) -> dict:
 # Detection Duration / Confidence Modifiers
 # =============================================================================
 
+
 class DetectionDuration(Enum):
     """Qualitative duration labels."""
+
     TRANSIENT = "transient"
     SHORT = "short"
     SUSTAINED = "sustained"
@@ -125,32 +129,32 @@ class DetectionDuration(Enum):
 
 # Duration thresholds (seconds)
 DURATION_THRESHOLDS = {
-    DetectionDuration.TRANSIENT: 5,      # < 5 seconds
-    DetectionDuration.SHORT: 30,         # 5-30 seconds
-    DetectionDuration.SUSTAINED: 120,    # 30s - 2 min
-    DetectionDuration.PERSISTENT: float('inf'),  # > 2 min
+    DetectionDuration.TRANSIENT: 5,  # < 5 seconds
+    DetectionDuration.SHORT: 30,  # 5-30 seconds
+    DetectionDuration.SUSTAINED: 120,  # 30s - 2 min
+    DetectionDuration.PERSISTENT: float("inf"),  # > 2 min
 }
 
 DURATION_DESCRIPTIONS = {
     DetectionDuration.TRANSIENT: {
-        'label': 'Transient',
-        'modifier': 'briefly observed',
-        'confidence_impact': 'reduces confidence',
+        "label": "Transient",
+        "modifier": "briefly observed",
+        "confidence_impact": "reduces confidence",
     },
     DetectionDuration.SHORT: {
-        'label': 'Short-duration',
-        'modifier': 'observed for a short period',
-        'confidence_impact': 'limited confidence',
+        "label": "Short-duration",
+        "modifier": "observed for a short period",
+        "confidence_impact": "limited confidence",
     },
     DetectionDuration.SUSTAINED: {
-        'label': 'Sustained',
-        'modifier': 'observed over sustained period',
-        'confidence_impact': 'supports confidence',
+        "label": "Sustained",
+        "modifier": "observed over sustained period",
+        "confidence_impact": "supports confidence",
     },
     DetectionDuration.PERSISTENT: {
-        'label': 'Persistent',
-        'modifier': 'continuously observed',
-        'confidence_impact': 'increases confidence',
+        "label": "Persistent",
+        "modifier": "continuously observed",
+        "confidence_impact": "increases confidence",
     },
 }
 
@@ -187,8 +191,8 @@ def get_duration_info(seconds: float | int | None) -> dict:
     """Get full duration classification with metadata."""
     duration = classify_duration(seconds)
     info = DURATION_DESCRIPTIONS[duration].copy()
-    info['duration'] = duration.value
-    info['seconds'] = seconds
+    info["duration"] = duration.value
+    info["seconds"] = seconds
     return info
 
 
@@ -196,8 +200,10 @@ def get_duration_info(seconds: float | int | None) -> dict:
 # Combined Confidence Assessment
 # =============================================================================
 
+
 class ConfidenceLevel(Enum):
     """Overall detection confidence."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -206,6 +212,7 @@ class ConfidenceLevel(Enum):
 @dataclass
 class SignalAssessment:
     """Complete signal assessment with confidence-safe language."""
+
     rssi: float | None
     duration_seconds: float | None
     observation_count: int
@@ -244,9 +251,7 @@ def assess_signal(
     duration = classify_duration(duration_seconds)
 
     # Calculate confidence based on multiple factors
-    confidence = _calculate_confidence(
-        strength, duration, observation_count, has_corroborating_data
-    )
+    confidence = _calculate_confidence(strength, duration, observation_count, has_corroborating_data)
 
     strength_info = SIGNAL_STRENGTH_DESCRIPTIONS[strength]
     duration_info = DURATION_DESCRIPTIONS[duration]
@@ -263,8 +268,8 @@ def assess_signal(
         signal_strength=strength,
         detection_duration=duration,
         confidence=confidence,
-        strength_label=strength_info['label'],
-        duration_label=duration_info['label'],
+        strength_label=strength_info["label"],
+        duration_label=duration_info["label"],
         summary=summary,
         interpretation=interpretation,
         caveats=caveats,
@@ -326,10 +331,7 @@ def _build_summary(
             f"with characteristics that suggest device presence in proximity"
         )
     elif confidence == ConfidenceLevel.MEDIUM:
-        return (
-            f"{strength_info['label']}, {duration_info['label'].lower()} signal "
-            f"that may indicate device activity"
-        )
+        return f"{strength_info['label']}, {duration_info['label'].lower()} signal that may indicate device activity"
     else:
         return (
             f"{duration_info['modifier'].capitalize()} {strength_info['label'].lower()} signal "
@@ -345,7 +347,7 @@ def _build_interpretation(
     """Build interpretation text with appropriate hedging."""
     strength_info = SIGNAL_STRENGTH_DESCRIPTIONS[strength]
 
-    base = strength_info['interpretation']
+    base = strength_info["interpretation"]
 
     if confidence == ConfidenceLevel.HIGH:
         return f"Observed signal characteristics suggest {base}"
@@ -365,29 +367,22 @@ def _build_caveats(
 
     # Always include general caveat
     caveats.append(
-        "Signal strength is affected by environmental factors including walls, "
-        "interference, and device orientation"
+        "Signal strength is affected by environmental factors including walls, interference, and device orientation"
     )
 
     # Strength-specific caveats
     if strength in (SignalStrength.MINIMAL, SignalStrength.WEAK):
-        caveats.append(
-            "Weak signals may represent background noise, distant devices, "
-            "or heavily obstructed sources"
-        )
+        caveats.append("Weak signals may represent background noise, distant devices, or heavily obstructed sources")
 
     # Duration-specific caveats
     if duration == DetectionDuration.TRANSIENT:
         caveats.append(
-            "Brief detection may indicate passing device, intermittent transmission, "
-            "or momentary interference"
+            "Brief detection may indicate passing device, intermittent transmission, or momentary interference"
         )
 
     # Confidence-specific caveats
     if confidence == ConfidenceLevel.LOW:
-        caveats.append(
-            "Insufficient data for reliable assessment; additional observation recommended"
-        )
+        caveats.append("Insufficient data for reliable assessment; additional observation recommended")
 
     return caveats
 
@@ -395,6 +390,7 @@ def _build_caveats(
 # =============================================================================
 # Client-Facing Language Generators
 # =============================================================================
+
 
 def describe_signal_for_report(
     rssi: float | int | None,
@@ -418,24 +414,24 @@ def describe_signal_for_report(
     range_estimate = _estimate_range(rssi)
 
     return {
-        'headline': f"{assessment.strength_label} {protocol} signal, {assessment.duration_label.lower()}",
-        'description': assessment.summary,
-        'interpretation': assessment.interpretation,
-        'technical': {
-            'rssi_dbm': rssi,
-            'strength_category': assessment.signal_strength.value,
-            'duration_seconds': duration_seconds,
-            'duration_category': assessment.detection_duration.value,
-            'observations': observation_count,
+        "headline": f"{assessment.strength_label} {protocol} signal, {assessment.duration_label.lower()}",
+        "description": assessment.summary,
+        "interpretation": assessment.interpretation,
+        "technical": {
+            "rssi_dbm": rssi,
+            "strength_category": assessment.signal_strength.value,
+            "duration_seconds": duration_seconds,
+            "duration_category": assessment.detection_duration.value,
+            "observations": observation_count,
         },
-        'range_estimate': range_estimate,
-        'confidence': assessment.confidence.value,
-        'confidence_factors': {
-            'signal_strength': assessment.strength_label,
-            'detection_duration': assessment.duration_label,
-            'observation_count': observation_count,
+        "range_estimate": range_estimate,
+        "confidence": assessment.confidence.value,
+        "confidence_factors": {
+            "signal_strength": assessment.strength_label,
+            "detection_duration": assessment.duration_label,
+            "observation_count": observation_count,
         },
-        'caveats': assessment.caveats,
+        "caveats": assessment.caveats,
     }
 
 
@@ -447,16 +443,16 @@ def _estimate_range(rssi: float | int | None) -> dict:
     """
     if rssi is None:
         return {
-            'estimate': 'Unknown',
-            'disclaimer': 'Insufficient signal data for range estimation',
+            "estimate": "Unknown",
+            "disclaimer": "Insufficient signal data for range estimation",
         }
 
     try:
         rssi_val = float(rssi)
     except (ValueError, TypeError):
         return {
-            'estimate': 'Unknown',
-            'disclaimer': 'Invalid signal data',
+            "estimate": "Unknown",
+            "disclaimer": "Invalid signal data",
         }
 
     # Very rough estimates based on free-space path loss
@@ -478,10 +474,10 @@ def _estimate_range(rssi: float | int | None) -> dict:
         range_min, range_max = 30, None
 
     return {
-        'estimate': estimate,
-        'range_min_meters': range_min,
-        'range_max_meters': range_max,
-        'disclaimer': (
+        "estimate": estimate,
+        "range_min_meters": range_min,
+        "range_max_meters": range_max,
+        "disclaimer": (
             "Range estimates are approximate and significantly affected by "
             "walls, interference, antenna characteristics, and transmit power"
         ),
@@ -505,19 +501,19 @@ def format_signal_for_dashboard(
     duration = classify_duration(duration_seconds)
 
     colors = {
-        SignalStrength.MINIMAL: '#888888',      # Gray
-        SignalStrength.WEAK: '#6baed6',         # Light blue
-        SignalStrength.MODERATE: '#3182bd',     # Blue
-        SignalStrength.STRONG: '#fd8d3c',       # Orange
-        SignalStrength.VERY_STRONG: '#e6550d',  # Red-orange
+        SignalStrength.MINIMAL: "#888888",  # Gray
+        SignalStrength.WEAK: "#6baed6",  # Light blue
+        SignalStrength.MODERATE: "#3182bd",  # Blue
+        SignalStrength.STRONG: "#fd8d3c",  # Orange
+        SignalStrength.VERY_STRONG: "#e6550d",  # Red-orange
     }
 
     icons = {
-        SignalStrength.MINIMAL: 'signal-0',
-        SignalStrength.WEAK: 'signal-1',
-        SignalStrength.MODERATE: 'signal-2',
-        SignalStrength.STRONG: 'signal-3',
-        SignalStrength.VERY_STRONG: 'signal-4',
+        SignalStrength.MINIMAL: "signal-0",
+        SignalStrength.WEAK: "signal-1",
+        SignalStrength.MODERATE: "signal-2",
+        SignalStrength.STRONG: "signal-3",
+        SignalStrength.VERY_STRONG: "signal-4",
     }
 
     strength_info = SIGNAL_STRENGTH_DESCRIPTIONS[strength]
@@ -528,12 +524,12 @@ def format_signal_for_dashboard(
         tooltip += f", {duration_info['modifier']}"
 
     return {
-        'label': strength_info['label'],
-        'color': colors[strength],
-        'icon': icons[strength],
-        'tooltip': tooltip,
-        'strength': strength.value,
-        'duration': duration.value,
+        "label": strength_info["label"],
+        "color": colors[strength],
+        "icon": icons[strength],
+        "tooltip": tooltip,
+        "strength": strength.value,
+        "duration": duration.value,
     }
 
 
@@ -543,38 +539,38 @@ def format_signal_for_dashboard(
 
 # Vocabulary for generating hedged statements
 HEDGED_VERBS = {
-    'high_confidence': [
-        'suggests',
-        'indicates',
-        'is consistent with',
+    "high_confidence": [
+        "suggests",
+        "indicates",
+        "is consistent with",
     ],
-    'medium_confidence': [
-        'may indicate',
-        'could suggest',
-        'is potentially consistent with',
+    "medium_confidence": [
+        "may indicate",
+        "could suggest",
+        "is potentially consistent with",
     ],
-    'low_confidence': [
-        'might represent',
-        'could possibly indicate',
-        'may or may not suggest',
+    "low_confidence": [
+        "might represent",
+        "could possibly indicate",
+        "may or may not suggest",
     ],
 }
 
 HEDGED_CONCLUSIONS = {
-    'device_presence': {
-        'high': 'likely device presence in proximity',
-        'medium': 'possible device activity',
-        'low': 'potential device presence, though environmental factors cannot be ruled out',
+    "device_presence": {
+        "high": "likely device presence in proximity",
+        "medium": "possible device activity",
+        "low": "potential device presence, though environmental factors cannot be ruled out",
     },
-    'surveillance_indicator': {
-        'high': 'characteristics warranting further investigation',
-        'medium': 'pattern that may warrant review',
-        'low': 'inconclusive pattern requiring additional data',
+    "surveillance_indicator": {
+        "high": "characteristics warranting further investigation",
+        "medium": "pattern that may warrant review",
+        "low": "inconclusive pattern requiring additional data",
     },
-    'location': {
-        'high': 'probable location within estimated range',
-        'medium': 'possible location in general vicinity',
-        'low': 'uncertain location; signal could originate from various distances',
+    "location": {
+        "high": "probable location within estimated range",
+        "medium": "possible location in general vicinity",
+        "low": "uncertain location; signal could originate from various distances",
     },
 }
 
@@ -600,9 +596,9 @@ def generate_hedged_statement(
     else:
         conf_key = str(confidence).lower()
 
-    verbs = HEDGED_VERBS.get(f'{conf_key}_confidence', HEDGED_VERBS['low_confidence'])
+    verbs = HEDGED_VERBS.get(f"{conf_key}_confidence", HEDGED_VERBS["low_confidence"])
     conclusions = HEDGED_CONCLUSIONS.get(conclusion_type, {})
-    conclusion = conclusions.get(conf_key, conclusions.get('low', 'an inconclusive pattern'))
+    conclusion = conclusions.get(conf_key, conclusions.get("low", "an inconclusive pattern"))
 
     verb = verbs[0]  # Use first verb for consistency
 

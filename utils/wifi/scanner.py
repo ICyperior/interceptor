@@ -145,55 +145,55 @@ class UnifiedWiFiScanner:
         """
         caps = WiFiCapabilities()
         caps.platform = platform.system().lower()
-        caps.is_root = os.geteuid() == 0 if hasattr(os, 'geteuid') else False
+        caps.is_root = os.geteuid() == 0 if hasattr(os, "geteuid") else False
 
         # Detect tools
-        caps.has_nmcli = shutil.which('nmcli') is not None
-        caps.has_iw = shutil.which('iw') is not None
-        caps.has_iwlist = shutil.which('iwlist') is not None
-        caps.has_airmon_ng = shutil.which('airmon-ng') is not None
-        caps.has_airodump_ng = shutil.which('airodump-ng') is not None
+        caps.has_nmcli = shutil.which("nmcli") is not None
+        caps.has_iw = shutil.which("iw") is not None
+        caps.has_iwlist = shutil.which("iwlist") is not None
+        caps.has_airmon_ng = shutil.which("airmon-ng") is not None
+        caps.has_airodump_ng = shutil.which("airodump-ng") is not None
 
         # macOS airport tool
-        airport_path = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
+        airport_path = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
         caps.has_airport = os.path.exists(airport_path)
 
         # Determine preferred quick scan tool
-        if caps.platform == 'darwin':
+        if caps.platform == "darwin":
             if caps.has_airport:
-                caps.preferred_quick_tool = 'airport'
+                caps.preferred_quick_tool = "airport"
         else:  # Linux
             if caps.has_nmcli:
-                caps.preferred_quick_tool = 'nmcli'
+                caps.preferred_quick_tool = "nmcli"
             elif caps.has_iw:
-                caps.preferred_quick_tool = 'iw'
+                caps.preferred_quick_tool = "iw"
             elif caps.has_iwlist:
-                caps.preferred_quick_tool = 'iwlist'
+                caps.preferred_quick_tool = "iwlist"
 
         # Detect interfaces
         caps.interfaces = self._detect_interfaces()
         if caps.interfaces:
-            caps.default_interface = caps.interfaces[0].get('name')
+            caps.default_interface = caps.interfaces[0].get("name")
 
         # Check for monitor-capable interface
         for iface in caps.interfaces:
-            if iface.get('supports_monitor', False):
+            if iface.get("supports_monitor", False):
                 caps.has_monitor_capable_interface = True
-                caps.monitor_interface = iface.get('name')
+                caps.monitor_interface = iface.get("name")
                 break
 
         # Build issues list
         if not caps.interfaces:
-            caps.issues.append('No WiFi interfaces detected')
+            caps.issues.append("No WiFi interfaces detected")
         if not caps.can_quick_scan:
-            caps.issues.append('No quick scan tools available')
+            caps.issues.append("No quick scan tools available")
         if not caps.can_deep_scan:
             if not caps.has_airodump_ng:
-                caps.issues.append('airodump-ng not installed (install aircrack-ng)')
+                caps.issues.append("airodump-ng not installed (install aircrack-ng)")
             if not caps.is_root:
-                caps.issues.append('Root privileges required for deep scan')
+                caps.issues.append("Root privileges required for deep scan")
             if not caps.has_monitor_capable_interface:
-                caps.issues.append('No monitor mode capable interface')
+                caps.issues.append("No monitor mode capable interface")
 
         self._capabilities = caps
         return caps
@@ -202,45 +202,49 @@ class UnifiedWiFiScanner:
         """Detect available WiFi interfaces."""
         interfaces = []
 
-        if platform.system() == 'Darwin':
+        if platform.system() == "Darwin":
             # macOS: Use networksetup
             try:
                 result = subprocess.run(
-                    ['networksetup', '-listallhardwareports'],
+                    ["networksetup", "-listallhardwareports"],
                     capture_output=True,
                     text=True,
                     timeout=TOOL_TIMEOUT_DETECT,
                 )
                 current_port = None
                 for line in result.stdout.splitlines():
-                    if line.startswith('Hardware Port:'):
-                        current_port = line.split(':', 1)[1].strip()
-                    elif line.startswith('Device:') and current_port:
-                        device = line.split(':', 1)[1].strip()
-                        if 'Wi-Fi' in current_port or 'wi-fi' in current_port.lower():
-                            interfaces.append({
-                                'name': device,
-                                'description': current_port,
-                                'supports_monitor': False,  # macOS generally doesn't support monitor mode
-                            })
+                    if line.startswith("Hardware Port:"):
+                        current_port = line.split(":", 1)[1].strip()
+                    elif line.startswith("Device:") and current_port:
+                        device = line.split(":", 1)[1].strip()
+                        if "Wi-Fi" in current_port or "wi-fi" in current_port.lower():
+                            interfaces.append(
+                                {
+                                    "name": device,
+                                    "description": current_port,
+                                    "supports_monitor": False,  # macOS generally doesn't support monitor mode
+                                }
+                            )
                         current_port = None
             except Exception as e:
                 logger.debug(f"Error detecting macOS interfaces: {e}")
         else:
             # Linux: Use /sys/class/net or iw
             try:
-                net_path = Path('/sys/class/net')
+                net_path = Path("/sys/class/net")
                 if net_path.exists():
                     for iface_path in net_path.iterdir():
-                        wireless_path = iface_path / 'wireless'
+                        wireless_path = iface_path / "wireless"
                         if wireless_path.exists():
                             iface_name = iface_path.name
                             supports_monitor = self._check_monitor_support(iface_name)
-                            interfaces.append({
-                                'name': iface_name,
-                                'description': f'Wireless interface {iface_name}',
-                                'supports_monitor': supports_monitor,
-                            })
+                            interfaces.append(
+                                {
+                                    "name": iface_name,
+                                    "description": f"Wireless interface {iface_name}",
+                                    "supports_monitor": supports_monitor,
+                                }
+                            )
             except Exception as e:
                 logger.debug(f"Error detecting Linux interfaces: {e}")
 
@@ -250,23 +254,23 @@ class UnifiedWiFiScanner:
         """Check if interface supports monitor mode."""
         try:
             result = subprocess.run(
-                ['iw', interface, 'info'],
+                ["iw", interface, "info"],
                 capture_output=True,
                 text=True,
                 timeout=TOOL_TIMEOUT_DETECT,
             )
             # Get phy name
-            phy_match = re.search(r'wiphy (\d+)', result.stdout)
+            phy_match = re.search(r"wiphy (\d+)", result.stdout)
             if phy_match:
                 phy = f"phy{phy_match.group(1)}"
                 # Check supported modes
                 result = subprocess.run(
-                    ['iw', phy, 'info'],
+                    ["iw", phy, "info"],
                     capture_output=True,
                     text=True,
                     timeout=TOOL_TIMEOUT_DETECT,
                 )
-                return 'monitor' in result.stdout.lower()
+                return "monitor" in result.stdout.lower()
         except Exception:
             pass
         return False
@@ -280,21 +284,21 @@ class UnifiedWiFiScanner:
         - iw reports type as 'monitor'
         """
         # Quick check by name convention
-        if interface.endswith('mon'):
+        if interface.endswith("mon"):
             return True
 
         # Check actual mode via iw
-        if shutil.which('iw'):
+        if shutil.which("iw"):
             try:
                 result = subprocess.run(
-                    ['iw', interface, 'info'],
+                    ["iw", interface, "info"],
                     capture_output=True,
                     text=True,
                     timeout=TOOL_TIMEOUT_DETECT,
                 )
                 if result.returncode == 0:
                     # Look for "type monitor" in output
-                    if re.search(r'type\s+monitor', result.stdout, re.IGNORECASE):
+                    if re.search(r"type\s+monitor", result.stdout, re.IGNORECASE):
                         return True
             except Exception:
                 pass
@@ -330,10 +334,10 @@ class UnifiedWiFiScanner:
             pass
 
         # Try ip link set up
-        if shutil.which('ip'):
+        if shutil.which("ip"):
             try:
                 result = subprocess.run(
-                    ['ip', 'link', 'set', interface, 'up'],
+                    ["ip", "link", "set", interface, "up"],
                     capture_output=True,
                     text=True,
                     timeout=5,
@@ -348,10 +352,10 @@ class UnifiedWiFiScanner:
                 logger.warning(f"Failed to run ip link: {e}")
 
         # Fallback to ifconfig
-        if shutil.which('ifconfig'):
+        if shutil.which("ifconfig"):
             try:
                 result = subprocess.run(
-                    ['ifconfig', interface, 'up'],
+                    ["ifconfig", interface, "up"],
                     capture_output=True,
                     text=True,
                     timeout=5,
@@ -420,10 +424,10 @@ class UnifiedWiFiScanner:
         errors_encountered = []
 
         try:
-            if self._capabilities.platform == 'darwin':
+            if self._capabilities.platform == "darwin":
                 if self._capabilities.has_airport:
                     observations = self._scan_with_airport(iface, timeout)
-                    tool_used = 'airport'
+                    tool_used = "airport"
                 else:
                     result.error = "No WiFi scanning tool available on macOS (airport not found)"
                     result.is_complete = True
@@ -434,11 +438,11 @@ class UnifiedWiFiScanner:
 
                 tools_to_try = []
                 if self._capabilities.has_nmcli:
-                    tools_to_try.append(('nmcli', self._scan_with_nmcli))
+                    tools_to_try.append(("nmcli", self._scan_with_nmcli))
                 if self._capabilities.has_iw:
-                    tools_to_try.append(('iw', self._scan_with_iw))
+                    tools_to_try.append(("iw", self._scan_with_iw))
                 if self._capabilities.has_iwlist:
-                    tools_to_try.append(('iwlist', self._scan_with_iwlist))
+                    tools_to_try.append(("iwlist", self._scan_with_iwlist))
 
                 if not tools_to_try:
                     result.error = "No WiFi scanning tools available. Install NetworkManager (nmcli) or wireless-tools (iw/iwlist)."
@@ -457,7 +461,7 @@ class UnifiedWiFiScanner:
                         error_msg = f"{tool_name}: {str(e)}"
                         errors_encountered.append(error_msg)
                         logger.warning(f"Quick scan with {tool_name} failed: {e}")
-                        if 'is down' in str(e):
+                        if "is down" in str(e):
                             interface_was_down = True
                         continue  # Try next tool
 
@@ -522,11 +526,11 @@ class UnifiedWiFiScanner:
         """Scan using macOS airport utility."""
         from .parsers.airport import parse_airport_scan
 
-        airport_path = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
+        airport_path = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
 
         try:
             result = subprocess.run(
-                [airport_path, '-s'],
+                [airport_path, "-s"],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -554,21 +558,31 @@ class UnifiedWiFiScanner:
         try:
             # Try to trigger a rescan first (might fail if interface not managed by NM)
             rescan_result = subprocess.run(
-                ['nmcli', 'device', 'wifi', 'rescan', 'ifname', interface],
+                ["nmcli", "device", "wifi", "rescan", "ifname", interface],
                 capture_output=True,
                 timeout=timeout / 2,
             )
             if rescan_result.returncode != 0:
                 # Try without interface specification
                 subprocess.run(
-                    ['nmcli', 'device', 'wifi', 'rescan'],
+                    ["nmcli", "device", "wifi", "rescan"],
                     capture_output=True,
                     timeout=timeout / 2,
                 )
 
             # Get results - try with interface first, then without
             result = subprocess.run(
-                ['nmcli', '-t', '-f', 'BSSID,SSID,MODE,CHAN,FREQ,RATE,SIGNAL,SECURITY', 'device', 'wifi', 'list', 'ifname', interface],
+                [
+                    "nmcli",
+                    "-t",
+                    "-f",
+                    "BSSID,SSID,MODE,CHAN,FREQ,RATE,SIGNAL,SECURITY",
+                    "device",
+                    "wifi",
+                    "list",
+                    "ifname",
+                    interface,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -578,7 +592,7 @@ class UnifiedWiFiScanner:
             if result.returncode != 0 or not result.stdout.strip():
                 logger.debug(f"nmcli scan with interface {interface} failed, trying general scan")
                 result = subprocess.run(
-                    ['nmcli', '-t', '-f', 'BSSID,SSID,MODE,CHAN,FREQ,RATE,SIGNAL,SECURITY', 'device', 'wifi', 'list'],
+                    ["nmcli", "-t", "-f", "BSSID,SSID,MODE,CHAN,FREQ,RATE,SIGNAL,SECURITY", "device", "wifi", "list"],
                     capture_output=True,
                     text=True,
                     timeout=timeout,
@@ -587,9 +601,9 @@ class UnifiedWiFiScanner:
             if result.returncode != 0:
                 error_msg = result.stderr.strip() or f"nmcli returned code {result.returncode}"
                 # Check for common issues
-                if 'not running' in error_msg.lower():
+                if "not running" in error_msg.lower():
                     raise RuntimeError("NetworkManager is not running")
-                elif 'not found' in error_msg.lower() or 'no such' in error_msg.lower():
+                elif "not found" in error_msg.lower() or "no such" in error_msg.lower():
                     raise RuntimeError(f"Interface {interface} not found or not managed by NetworkManager")
                 else:
                     raise RuntimeError(f"nmcli scan failed: {error_msg}")
@@ -609,7 +623,7 @@ class UnifiedWiFiScanner:
 
         try:
             result = subprocess.run(
-                ['iw', interface, 'scan'],
+                ["iw", interface, "scan"],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -618,9 +632,9 @@ class UnifiedWiFiScanner:
             if result.returncode != 0:
                 error_msg = result.stderr.strip() or f"iw returned code {result.returncode}"
                 # Check for common errors
-                if 'Operation not permitted' in error_msg or 'Permission denied' in error_msg:
+                if "Operation not permitted" in error_msg or "Permission denied" in error_msg:
                     raise RuntimeError(f"iw scan requires root privileges: {error_msg}")
-                elif 'Network is down' in error_msg:
+                elif "Network is down" in error_msg:
                     raise RuntimeError(f"Interface {interface} is down: {error_msg}")
                 else:
                     raise RuntimeError(f"iw scan failed: {error_msg}")
@@ -637,7 +651,7 @@ class UnifiedWiFiScanner:
 
         try:
             result = subprocess.run(
-                ['iwlist', interface, 'scan'],
+                ["iwlist", interface, "scan"],
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -645,9 +659,9 @@ class UnifiedWiFiScanner:
 
             if result.returncode != 0:
                 error_msg = result.stderr.strip() or f"iwlist returned code {result.returncode}"
-                if 'Operation not permitted' in error_msg or 'Permission denied' in error_msg:
+                if "Operation not permitted" in error_msg or "Permission denied" in error_msg:
                     raise RuntimeError(f"iwlist scan requires root privileges: {error_msg}")
-                elif 'Network is down' in error_msg:
+                elif "Network is down" in error_msg:
                     raise RuntimeError(f"Interface {interface} is down: {error_msg}")
                 else:
                     raise RuntimeError(f"iwlist scan failed: {error_msg}")
@@ -665,7 +679,7 @@ class UnifiedWiFiScanner:
     def start_deep_scan(
         self,
         interface: str | None = None,
-        band: str = 'all',
+        band: str = "all",
         channel: int | None = None,
         channels: list[int] | None = None,
     ) -> bool:
@@ -715,11 +729,13 @@ class UnifiedWiFiScanner:
                 started_at=datetime.now(),
             )
 
-            self._queue_event({
-                'type': 'scan_started',
-                'mode': SCAN_MODE_DEEP,
-                'interface': iface,
-            })
+            self._queue_event(
+                {
+                    "type": "scan_started",
+                    "mode": SCAN_MODE_DEEP,
+                    "interface": iface,
+                }
+            )
 
             # Auto-start deauth detector
             self._start_deauth_detector(iface)
@@ -752,10 +768,12 @@ class UnifiedWiFiScanner:
             self._status.is_scanning = False
             self._status.error = None
 
-            self._queue_event({
-                'type': 'scan_stopped',
-                'mode': SCAN_MODE_DEEP,
-            })
+            self._queue_event(
+                {
+                    "type": "scan_stopped",
+                    "mode": SCAN_MODE_DEEP,
+                }
+            )
 
         cleanup_start = time.perf_counter()
 
@@ -768,7 +786,7 @@ class UnifiedWiFiScanner:
                 try:
                     detector.stop()
                     logger.info("Deauth detector stopped")
-                    self._queue_event({'type': 'deauth_detector_stopped'})
+                    self._queue_event({"type": "deauth_detector_stopped"})
                 except Exception as exc:
                     logger.error(f"Error stopping deauth detector: {exc}")
 
@@ -790,7 +808,7 @@ class UnifiedWiFiScanner:
             target=_finalize_stop,
             args=(cleanup_process, cleanup_thread, cleanup_detector),
             daemon=True,
-            name='wifi-deep-stop',
+            name="wifi-deep-stop",
         ).start()
 
         return True
@@ -808,22 +826,22 @@ class UnifiedWiFiScanner:
         from .parsers.airodump import parse_airodump_csv
 
         # Create temp directory for output files
-        with tempfile.TemporaryDirectory(prefix='wifi_scan_') as tmpdir:
-            output_prefix = os.path.join(tmpdir, 'scan')
+        with tempfile.TemporaryDirectory(prefix="wifi_scan_") as tmpdir:
+            output_prefix = os.path.join(tmpdir, "scan")
 
             # Build command
-            cmd = ['airodump-ng', '-w', output_prefix, '--output-format', 'csv']
+            cmd = ["airodump-ng", "-w", output_prefix, "--output-format", "csv"]
 
             if channels:
-                cmd.extend(['-c', ','.join(str(c) for c in channels)])
+                cmd.extend(["-c", ",".join(str(c) for c in channels)])
             elif channel:
-                cmd.extend(['-c', str(channel)])
-            elif band == '2.4':
-                cmd.extend(['--band', 'bg'])
-            elif band == '5':
-                cmd.extend(['--band', 'a'])
+                cmd.extend(["-c", str(channel)])
+            elif band == "2.4":
+                cmd.extend(["--band", "bg"])
+            elif band == "5":
+                cmd.extend(["--band", "a"])
             else:
-                cmd.extend(['--band', 'abg'])
+                cmd.extend(["--band", "abg"])
 
             cmd.append(interface)
 
@@ -878,10 +896,12 @@ class UnifiedWiFiScanner:
 
             except Exception as e:
                 logger.exception(f"Deep scan error: {e}")
-                self._queue_event({
-                    'type': 'scan_error',
-                    'error': str(e),
-                })
+                self._queue_event(
+                    {
+                        "type": "scan_error",
+                        "error": str(e),
+                    }
+                )
             finally:
                 with self._lock:
                     if process is not None and self._deep_scan_process is process:
@@ -908,10 +928,12 @@ class UnifiedWiFiScanner:
                 ap.is_new = True
 
             # Queue update event
-            self._queue_event({
-                'type': 'network_update',
-                'network': ap.to_summary_dict(),
-            })
+            self._queue_event(
+                {
+                    "type": "network_update",
+                    "network": ap.to_summary_dict(),
+                }
+            )
 
             # Callback
             if self._on_network_updated:
@@ -970,11 +992,13 @@ class UnifiedWiFiScanner:
         # Update ESSID if revealed
         if obs.essid and ap.is_hidden:
             ap.revealed_essid = obs.essid
-            self._queue_event({
-                'type': 'hidden_revealed',
-                'bssid': ap.bssid,
-                'revealed_essid': obs.essid,
-            })
+            self._queue_event(
+                {
+                    "type": "hidden_revealed",
+                    "bssid": ap.bssid,
+                    "revealed_essid": obs.essid,
+                }
+            )
 
         # Update RSSI stats
         if obs.rssi is not None:
@@ -1018,8 +1042,8 @@ class UnifiedWiFiScanner:
 
     def _process_client(self, client_data: dict):
         """Process client data from airodump-ng."""
-        mac = client_data.get('mac', '').upper()
-        if not mac or mac == '(not associated)':
+        mac = client_data.get("mac", "").upper()
+        if not mac or mac == "(not associated)":
             return
 
         with self._lock:
@@ -1031,13 +1055,15 @@ class UnifiedWiFiScanner:
                 self._clients[mac] = client
 
             # Queue update event
-            self._queue_event({
-                'type': 'client_update',
-                'client': client.to_dict(),
-            })
+            self._queue_event(
+                {
+                    "type": "client_update",
+                    "client": client.to_dict(),
+                }
+            )
 
             # Process probe requests
-            probed = client_data.get('probed_essids', [])
+            probed = client_data.get("probed_essids", [])
             for ssid in probed:
                 if ssid and ssid not in client.probed_ssids:
                     client.probed_ssids.append(ssid)
@@ -1052,10 +1078,12 @@ class UnifiedWiFiScanner:
                     )
                     self._probe_requests.append(probe)
 
-                    self._queue_event({
-                        'type': 'probe_request',
-                        'probe': probe.to_dict(),
-                    })
+                    self._queue_event(
+                        {
+                            "type": "probe_request",
+                            "probe": probe.to_dict(),
+                        }
+                    )
 
             # Callback
             if self._on_client_updated:
@@ -1067,7 +1095,7 @@ class UnifiedWiFiScanner:
     def _create_client(self, data: dict) -> WiFiClient:
         """Create new client from data."""
         now = datetime.now()
-        mac = data.get('mac', '').upper()
+        mac = data.get("mac", "").upper()
 
         client = WiFiClient(
             mac=mac,
@@ -1077,7 +1105,7 @@ class UnifiedWiFiScanner:
             seen_count=1,
         )
 
-        rssi = data.get('rssi')
+        rssi = data.get("rssi")
         if rssi is not None:
             client.rssi_current = rssi
             client.rssi_samples = [(now, rssi)]
@@ -1088,8 +1116,8 @@ class UnifiedWiFiScanner:
             client.signal_band = get_signal_band(rssi)
             client.proximity_band = get_proximity_band(rssi)
 
-        bssid = data.get('bssid')
-        if bssid and bssid != '(not associated)':
+        bssid = data.get("bssid")
+        if bssid and bssid != "(not associated)":
             client.associated_bssid = bssid.upper()
             client.is_associated = True
 
@@ -1105,7 +1133,7 @@ class UnifiedWiFiScanner:
         client.last_seen = now
         client.seen_count += 1
 
-        rssi = data.get('rssi')
+        rssi = data.get("rssi")
         if rssi is not None:
             client.rssi_current = rssi
             client.rssi_samples.append((now, rssi))
@@ -1166,9 +1194,9 @@ class UnifiedWiFiScanner:
             if stats.ap_count > 0:
                 # Simple utilization score based on AP and client density
                 from .constants import CHANNEL_WEIGHT_AP_COUNT, CHANNEL_WEIGHT_CLIENT_COUNT
+
                 stats.utilization_score = (
-                    (stats.ap_count * CHANNEL_WEIGHT_AP_COUNT) +
-                    (stats.client_count * CHANNEL_WEIGHT_CLIENT_COUNT)
+                    (stats.ap_count * CHANNEL_WEIGHT_AP_COUNT) + (stats.client_count * CHANNEL_WEIGHT_CLIENT_COUNT)
                 ) / 10.0  # Normalize
                 stats.utilization_score = min(1.0, stats.utilization_score)
 
@@ -1192,25 +1220,29 @@ class UnifiedWiFiScanner:
         for channel in NON_OVERLAPPING_2_4_GHZ:
             s = stats_map.get(channel)
             score = s.utilization_score if s else 0.0
-            recommendations.append(ChannelRecommendation(
-                channel=channel,
-                band=BAND_2_4_GHZ,
-                score=score,
-                reason=f"{s.ap_count if s else 0} APs on channel" if s else "No APs detected",
-                is_dfs=False,
-            ))
+            recommendations.append(
+                ChannelRecommendation(
+                    channel=channel,
+                    band=BAND_2_4_GHZ,
+                    score=score,
+                    reason=f"{s.ap_count if s else 0} APs on channel" if s else "No APs detected",
+                    is_dfs=False,
+                )
+            )
 
         for channel in NON_OVERLAPPING_5_GHZ:
             s = stats_map.get(channel)
             score = s.utilization_score if s else 0.0
             is_dfs = 52 <= channel <= 144
-            recommendations.append(ChannelRecommendation(
-                channel=channel,
-                band=BAND_5_GHZ,
-                score=score,
-                reason=f"{s.ap_count if s else 0} APs on channel" + (" (DFS)" if is_dfs else ""),
-                is_dfs=is_dfs,
-            ))
+            recommendations.append(
+                ChannelRecommendation(
+                    channel=channel,
+                    band=BAND_5_GHZ,
+                    score=score,
+                    reason=f"{s.ap_count if s else 0} APs on channel" + (" (DFS)" if is_dfs else ""),
+                    is_dfs=is_dfs,
+                )
+            )
 
         # Sort by score (lower is better)
         recommendations.sort(key=lambda r: (r.score, r.is_dfs))
@@ -1244,7 +1276,7 @@ class UnifiedWiFiScanner:
                 event = self._event_queue.get(timeout=1.0)
                 yield event
             except queue.Empty:
-                yield {'type': 'keepalive'}
+                yield {"type": "keepalive"}
             except Exception:
                 break
 
@@ -1334,10 +1366,11 @@ class UnifiedWiFiScanner:
             # Also store in app-level DataStore if available
             try:
                 import app as app_module
-                if hasattr(app_module, 'deauth_alerts') and event.get('type') == 'deauth_alert':
-                    alert_id = event.get('id', str(time.time()))
+
+                if hasattr(app_module, "deauth_alerts") and event.get("type") == "deauth_alert":
+                    alert_id = event.get("id", str(time.time()))
                     app_module.deauth_alerts[alert_id] = event
-                if hasattr(app_module, 'deauth_detector_queue'):
+                if hasattr(app_module, "deauth_detector_queue"):
                     with contextlib.suppress(queue.Full):
                         app_module.deauth_detector_queue.put_nowait(event)
             except Exception as e:
@@ -1363,16 +1396,20 @@ class UnifiedWiFiScanner:
             self._deauth_detector.start()
             logger.info(f"Deauth detector started on {interface}")
 
-            self._queue_event({
-                'type': 'deauth_detector_started',
-                'interface': interface,
-            })
+            self._queue_event(
+                {
+                    "type": "deauth_detector_started",
+                    "interface": interface,
+                }
+            )
         except Exception as e:
             logger.error(f"Failed to start deauth detector: {e}")
-            self._queue_event({
-                'type': 'deauth_error',
-                'error': f"Failed to start deauth detector: {e}",
-            })
+            self._queue_event(
+                {
+                    "type": "deauth_error",
+                    "error": f"Failed to start deauth detector: {e}",
+                }
+            )
 
     def _stop_deauth_detector(self):
         """Stop the deauth detector."""
@@ -1380,9 +1417,11 @@ class UnifiedWiFiScanner:
             try:
                 self._deauth_detector.stop()
                 logger.info("Deauth detector stopped")
-                self._queue_event({
-                    'type': 'deauth_detector_stopped',
-                })
+                self._queue_event(
+                    {
+                        "type": "deauth_detector_stopped",
+                    }
+                )
             except Exception as e:
                 logger.error(f"Error stopping deauth detector: {e}")
             finally:
@@ -1406,7 +1445,8 @@ class UnifiedWiFiScanner:
         # Also clear from app-level store
         try:
             import app as app_module
-            if hasattr(app_module, 'deauth_alerts'):
+
+            if hasattr(app_module, "deauth_alerts"):
                 app_module.deauth_alerts.clear()
         except Exception:
             pass
@@ -1415,6 +1455,7 @@ class UnifiedWiFiScanner:
 # =============================================================================
 # Module-level functions
 # =============================================================================
+
 
 def get_wifi_scanner(interface: str | None = None) -> UnifiedWiFiScanner:
     """

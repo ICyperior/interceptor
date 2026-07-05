@@ -35,7 +35,7 @@ from .image_decoder import SSTVImageDecoder
 from .modes import get_mode
 from .vis import VISDetector
 
-logger = get_logger('intercept.sstv')
+logger = get_logger("intercept.sstv")
 
 try:
     from PIL import Image as PILImage
@@ -56,59 +56,61 @@ except ImportError:
 @dataclass
 class SSTVImage:
     """Decoded SSTV image."""
+
     filename: str
     path: Path
     mode: str
     timestamp: datetime
     frequency: float
     size_bytes: int = 0
-    url_prefix: str = '/sstv'
+    url_prefix: str = "/sstv"
 
     def to_dict(self) -> dict:
         return {
-            'filename': self.filename,
-            'path': str(self.path),
-            'mode': self.mode,
-            'timestamp': self.timestamp.isoformat(),
-            'frequency': self.frequency,
-            'size_bytes': self.size_bytes,
-            'url': f'{self.url_prefix}/images/{self.filename}'
+            "filename": self.filename,
+            "path": str(self.path),
+            "mode": self.mode,
+            "timestamp": self.timestamp.isoformat(),
+            "frequency": self.frequency,
+            "size_bytes": self.size_bytes,
+            "url": f"{self.url_prefix}/images/{self.filename}",
         }
 
 
 @dataclass
 class DecodeProgress:
     """SSTV decode progress update."""
+
     status: str  # 'detecting', 'decoding', 'complete', 'error'
     mode: str | None = None
     progress_percent: int = 0
     message: str | None = None
     image: SSTVImage | None = None
     signal_level: int | None = None  # 0-100 RMS audio level, None = not measured
-    sstv_tone: str | None = None     # 'leader', 'sync', 'noise', None
-    vis_state: str | None = None     # VIS detector state name
+    sstv_tone: str | None = None  # 'leader', 'sync', 'noise', None
+    vis_state: str | None = None  # VIS detector state name
     partial_image: str | None = None  # base64 data URL of partial decode
 
     def to_dict(self) -> dict:
         result: dict = {
-            'type': 'sstv_progress',
-            'status': self.status,
-            'progress': self.progress_percent,
+            "type": "sstv_progress",
+            "status": self.status,
+            "progress": self.progress_percent,
         }
         if self.mode:
-            result['mode'] = self.mode
+            result["mode"] = self.mode
         if self.message:
-            result['message'] = self.message
+            result["message"] = self.message
         if self.image:
-            result['image'] = self.image.to_dict()
+            result["image"] = self.image.to_dict()
         if self.signal_level is not None:
-            result['signal_level'] = self.signal_level
+            result["signal_level"] = self.signal_level
         if self.sstv_tone:
-            result['sstv_tone'] = self.sstv_tone
+            result["sstv_tone"] = self.sstv_tone
         if self.vis_state:
-            result['vis_state'] = self.vis_state
+            result["vis_state"] = self.vis_state
         if self.partial_image:
-            result['partial_image'] = self.partial_image
+            result["partial_image"] = self.partial_image
         return result
 
 
@@ -131,29 +133,30 @@ def _encode_scope_waveform(raw_samples: np.ndarray, window_size: int = 256) -> l
 # SSTVDecoder
 # ---------------------------------------------------------------------------
 
+
 class SSTVDecoder:
     """SSTV decoder using pure-Python DSP with Doppler compensation."""
 
     RETUNE_THRESHOLD_HZ = 500
     DOPPLER_UPDATE_INTERVAL = 5
 
-    def __init__(self, output_dir: str | Path | None = None, url_prefix: str = '/sstv'):
+    def __init__(self, output_dir: str | Path | None = None, url_prefix: str = "/sstv"):
         self._rtl_process = None
         self._running = False
         self._lock = threading.Lock()
         self._callback: Callable[[dict], None] | None = None
-        self._output_dir = Path(output_dir) if output_dir else Path('instance/sstv_images')
+        self._output_dir = Path(output_dir) if output_dir else Path("instance/sstv_images")
         self._url_prefix = url_prefix
         self._images: list[SSTVImage] = []
         self._decode_thread = None
         self._doppler_thread = None
         self._frequency = ISS_SSTV_FREQ
-        self._modulation = 'fm'
+        self._modulation = "fm"
         self._current_tuned_freq_hz: int = 0
         self._device_index = 0
 
         # Doppler tracking
-        self._doppler_tracker = DopplerTracker('ISS')
+        self._doppler_tracker = DopplerTracker("ISS")
         self._doppler_enabled = False
         self._last_doppler_info: DopplerInfo | None = None
 
@@ -167,7 +170,7 @@ class SSTVDecoder:
     @property
     def decoder_available(self) -> str:
         """Return name of available decoder. Always available with pure Python."""
-        return 'python-sstv'
+        return "python-sstv"
 
     def set_callback(self, callback: Callable[[dict], None]) -> None:
         """Set callback for decode progress updates."""
@@ -179,7 +182,7 @@ class SSTVDecoder:
         device_index: int = 0,
         latitude: float | None = None,
         longitude: float | None = None,
-        modulation: str = 'fm',
+        modulation: str = "fm",
     ) -> bool:
         """Start SSTV decoder listening on specified frequency.
 
@@ -220,30 +223,24 @@ class SSTVDecoder:
 
                 # Start Doppler tracking thread if enabled
                 if self._doppler_enabled:
-                    self._doppler_thread = threading.Thread(
-                        target=self._doppler_tracking_loop, daemon=True)
+                    self._doppler_thread = threading.Thread(target=self._doppler_tracking_loop, daemon=True)
                     self._doppler_thread.start()
                     logger.info(f"SSTV decoder started on {frequency} MHz with Doppler tracking")
-                    self._emit_progress(DecodeProgress(
-                        status='detecting',
-                        message=f'Listening on {frequency} MHz with Doppler tracking...'
-                    ))
+                    self._emit_progress(
+                        DecodeProgress(
+                            status="detecting", message=f"Listening on {frequency} MHz with Doppler tracking..."
+                        )
+                    )
                 else:
                     logger.info(f"SSTV decoder started on {frequency} MHz (no Doppler tracking)")
-                    self._emit_progress(DecodeProgress(
-                        status='detecting',
-                        message=f'Listening on {frequency} MHz...'
-                    ))
+                    self._emit_progress(DecodeProgress(status="detecting", message=f"Listening on {frequency} MHz..."))
 
                 return True
 
             except Exception as e:
                 self._running = False
                 logger.error(f"Failed to start SSTV decoder: {e}")
-                self._emit_progress(DecodeProgress(
-                    status='error',
-                    message=str(e)
-                ))
+                self._emit_progress(DecodeProgress(status="error", message=str(e)))
                 return False
 
     def _get_doppler_corrected_freq_hz(self) -> int:
@@ -267,27 +264,28 @@ class SSTVDecoder:
     def _start_pipeline(self, freq_hz: int) -> None:
         """Start the rtl_fm -> Python decode pipeline."""
         rtl_cmd = [
-            'rtl_fm',
-            '-d', str(self._device_index),
-            '-f', str(freq_hz),
-            '-M', self._modulation,
-            '-s', str(SAMPLE_RATE),
-            '-r', str(SAMPLE_RATE),
-            '-l', '0',  # No squelch
-            '-'
+            "rtl_fm",
+            "-d",
+            str(self._device_index),
+            "-f",
+            str(freq_hz),
+            "-M",
+            self._modulation,
+            "-s",
+            str(SAMPLE_RATE),
+            "-r",
+            str(SAMPLE_RATE),
+            "-l",
+            "0",  # No squelch
+            "-",
         ]
 
         logger.info(f"Starting rtl_fm: {' '.join(rtl_cmd)}")
 
-        self._rtl_process = subprocess.Popen(
-            rtl_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+        self._rtl_process = subprocess.Popen(rtl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # Start decode thread that reads from rtl_fm stdout
-        self._decode_thread = threading.Thread(
-            target=self._decode_audio_stream, daemon=True)
+        self._decode_thread = threading.Thread(target=self._decode_audio_stream, daemon=True)
         self._decode_thread.start()
 
     def _decode_audio_stream(self) -> None:
@@ -304,7 +302,7 @@ class SSTVDecoder:
         last_partial_pct = -1
 
         logger.info("Audio decode thread started")
-        rtl_fm_error: str = ''
+        rtl_fm_error: str = ""
 
         while self._running and self._rtl_process:
             try:
@@ -312,16 +310,12 @@ class SSTVDecoder:
                 if not raw_data:
                     if self._running:
                         # Read stderr to diagnose why rtl_fm exited
-                        stderr_msg = ''
+                        stderr_msg = ""
                         if self._rtl_process and self._rtl_process.stderr:
                             with contextlib.suppress(Exception):
-                                stderr_msg = self._rtl_process.stderr.read().decode(
-                                    errors='replace').strip()
+                                stderr_msg = self._rtl_process.stderr.read().decode(errors="replace").strip()
                         rc = self._rtl_process.poll() if self._rtl_process else None
-                        logger.warning(
-                            f"rtl_fm stream ended unexpectedly "
-                            f"(exit code: {rc})"
-                        )
+                        logger.warning(f"rtl_fm stream ended unexpectedly (exit code: {rc})")
                         if stderr_msg:
                             logger.warning(f"rtl_fm stderr: {stderr_msg}")
                             rtl_fm_error = stderr_msg
@@ -331,7 +325,7 @@ class SSTVDecoder:
                 n_samples = len(raw_data) // 2
                 if n_samples == 0:
                     continue
-                raw_samples = np.frombuffer(raw_data[:n_samples * 2], dtype=np.int16)
+                raw_samples = np.frombuffer(raw_data[: n_samples * 2], dtype=np.int16)
                 samples = normalize_audio(raw_samples)
 
                 chunk_counter += 1
@@ -354,21 +348,23 @@ class SSTVDecoder:
                             img = image_decoder.get_image()
                             if img is not None:
                                 buf = io.BytesIO()
-                                img.save(buf, format='JPEG', quality=40)
-                                b64 = base64.b64encode(buf.getvalue()).decode('ascii')
-                                partial_url = f'data:image/jpeg;base64,{b64}'
+                                img.save(buf, format="JPEG", quality=40)
+                                b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+                                partial_url = f"data:image/jpeg;base64,{b64}"
                         except Exception:
                             pass
 
                     # Emit progress
-                    self._emit_progress(DecodeProgress(
-                        status='decoding',
-                        mode=current_mode_name,
-                        progress_percent=pct,
-                        message=f'Decoding {current_mode_name}: {pct}%',
-                        partial_image=partial_url,
-                    ))
-                    self._emit_scope(rms_val, peak_val, 'decoding', waveform)
+                    self._emit_progress(
+                        DecodeProgress(
+                            status="decoding",
+                            mode=current_mode_name,
+                            progress_percent=pct,
+                            message=f"Decoding {current_mode_name}: {pct}%",
+                            partial_image=partial_url,
+                        )
+                    )
+                    self._emit_scope(rms_val, peak_val, "decoding", waveform)
 
                     if complete:
                         # Save image
@@ -386,8 +382,10 @@ class SSTVDecoder:
                         # the image decoder before the next chunk arrives.
                         remaining = vis_detector.remaining_buffer.copy()
                         vis_detector.reset()
-                        logger.info(f"VIS detected: code={vis_code}, mode={mode_name}, "
-                                    f"{len(remaining)} image-start samples retained")
+                        logger.info(
+                            f"VIS detected: code={vis_code}, mode={mode_name}, "
+                            f"{len(remaining)} image-start samples retained"
+                        )
 
                         mode_spec = get_mode(vis_code)
                         if mode_spec:
@@ -399,23 +397,27 @@ class SSTVDecoder:
                             )
                             if len(remaining) > 0:
                                 image_decoder.feed(remaining)
-                            self._emit_progress(DecodeProgress(
-                                status='decoding',
-                                mode=mode_name,
-                                progress_percent=0,
-                                message=f'Detected {mode_name} - decoding...'
-                            ))
+                            self._emit_progress(
+                                DecodeProgress(
+                                    status="decoding",
+                                    mode=mode_name,
+                                    progress_percent=0,
+                                    message=f"Detected {mode_name} - decoding...",
+                                )
+                            )
                         else:
                             logger.warning(f"No mode spec for VIS code {vis_code}")
-                            self._emit_progress(DecodeProgress(
-                                status='detecting',
-                                message=f'Detected unknown mode (VIS {vis_code}: {mode_name}) - unsupported',
-                            ))
+                            self._emit_progress(
+                                DecodeProgress(
+                                    status="detecting",
+                                    message=f"Detected unknown mode (VIS {vis_code}: {mode_name}) - unsupported",
+                                )
+                            )
 
                     # Emit signal level metrics every ~500ms (every 5th 100ms chunk)
                     scope_tone: str | None = None
                     if chunk_counter % 5 == 0 and image_decoder is None:
-                        rms = float(np.sqrt(np.mean(samples ** 2)))
+                        rms = float(np.sqrt(np.mean(samples**2)))
                         signal_level = min(100, int(rms * 500))
 
                         leader_energy = goertzel_mag(samples, 1900.0, SAMPLE_RATE)
@@ -425,26 +427,26 @@ class SSTVDecoder:
                         # Require the tone to both exceed the noise floor AND
                         # dominate the other tone by 2x to avoid false positives
                         # from broadband noise.
-                        if (leader_energy > noise_floor * 5
-                                and leader_energy > sync_energy * 2):
-                            sstv_tone = 'leader'
-                        elif (sync_energy > noise_floor * 5
-                              and sync_energy > leader_energy * 2):
-                            sstv_tone = 'sync'
+                        if leader_energy > noise_floor * 5 and leader_energy > sync_energy * 2:
+                            sstv_tone = "leader"
+                        elif sync_energy > noise_floor * 5 and sync_energy > leader_energy * 2:
+                            sstv_tone = "sync"
                         elif signal_level > 10:
-                            sstv_tone = 'noise'
+                            sstv_tone = "noise"
                         else:
                             sstv_tone = None
 
                         scope_tone = sstv_tone
 
-                        self._emit_progress(DecodeProgress(
-                            status='detecting',
-                            message='Listening...',
-                            signal_level=signal_level,
-                            sstv_tone=sstv_tone,
-                            vis_state=vis_detector.state.value,
-                        ))
+                        self._emit_progress(
+                            DecodeProgress(
+                                status="detecting",
+                                message="Listening...",
+                                signal_level=signal_level,
+                                sstv_tone=sstv_tone,
+                                vis_state=vis_detector.state.value,
+                            )
+                        )
 
                     self._emit_scope(rms_val, peak_val, scope_tone, waveform)
 
@@ -473,37 +475,32 @@ class SSTVDecoder:
 
         if was_running:
             logger.warning("Audio decode thread stopped unexpectedly")
-            err_detail = rtl_fm_error.split('\n')[-1] if rtl_fm_error else ''
-            msg = f'rtl_fm failed: {err_detail}' if err_detail else 'Decode pipeline stopped unexpectedly'
-            self._emit_progress(DecodeProgress(
-                status='error',
-                message=msg
-            ))
+            err_detail = rtl_fm_error.split("\n")[-1] if rtl_fm_error else ""
+            msg = f"rtl_fm failed: {err_detail}" if err_detail else "Decode pipeline stopped unexpectedly"
+            self._emit_progress(DecodeProgress(status="error", message=msg))
         else:
             logger.info("Audio decode thread stopped")
 
-    def _save_decoded_image(self, decoder: SSTVImageDecoder,
-                            mode_name: str | None) -> None:
+    def _save_decoded_image(self, decoder: SSTVImageDecoder, mode_name: str | None) -> None:
         """Save a completed decoded image to disk."""
         try:
             img = decoder.get_image()
             if img is None:
                 logger.error("Failed to get image from decoder (Pillow not available?)")
-                self._emit_progress(DecodeProgress(
-                    status='error',
-                    message='Failed to create image - Pillow not installed'
-                ))
+                self._emit_progress(
+                    DecodeProgress(status="error", message="Failed to create image - Pillow not installed")
+                )
                 return
 
             timestamp = datetime.now(timezone.utc)
             filename = f"sstv_{timestamp.strftime('%Y%m%d_%H%M%S')}_{mode_name or 'unknown'}.png"
             filepath = self._output_dir / filename
-            img.save(filepath, 'PNG')
+            img.save(filepath, "PNG")
 
             sstv_image = SSTVImage(
                 filename=filename,
                 path=filepath,
-                mode=mode_name or 'Unknown',
+                mode=mode_name or "Unknown",
                 timestamp=timestamp,
                 frequency=self._frequency,
                 size_bytes=filepath.stat().st_size,
@@ -512,20 +509,19 @@ class SSTVDecoder:
             self._images.append(sstv_image)
 
             logger.info(f"SSTV image saved: {filename} ({sstv_image.size_bytes} bytes)")
-            self._emit_progress(DecodeProgress(
-                status='complete',
-                mode=mode_name,
-                progress_percent=100,
-                message='Image decoded',
-                image=sstv_image,
-            ))
+            self._emit_progress(
+                DecodeProgress(
+                    status="complete",
+                    mode=mode_name,
+                    progress_percent=100,
+                    message="Image decoded",
+                    image=sstv_image,
+                )
+            )
 
         except Exception as e:
             logger.error(f"Error saving decoded image: {e}")
-            self._emit_progress(DecodeProgress(
-                status='error',
-                message=f'Error saving image: {e}'
-            ))
+            self._emit_progress(DecodeProgress(status="error", message=f"Error saving image: {e}"))
 
     def _doppler_tracking_loop(self) -> None:
         """Background thread that monitors Doppler shift and retunes when needed."""
@@ -552,10 +548,12 @@ class SSTVDecoder:
                     f"diff from tuned: {freq_diff} Hz"
                 )
 
-                self._emit_progress(DecodeProgress(
-                    status='detecting',
-                    message=f'Doppler: {doppler_info.shift_hz:+.0f} Hz, elevation: {doppler_info.elevation:.1f}\u00b0'
-                ))
+                self._emit_progress(
+                    DecodeProgress(
+                        status="detecting",
+                        message=f"Doppler: {doppler_info.shift_hz:+.0f} Hz, elevation: {doppler_info.elevation:.1f}\u00b0",
+                    )
+                )
 
                 if freq_diff >= self.RETUNE_THRESHOLD_HZ:
                     logger.info(
@@ -589,23 +587,25 @@ class SSTVDecoder:
 
         # Build and start new process outside lock
         rtl_cmd = [
-            'rtl_fm',
-            '-d', str(self._device_index),
-            '-f', str(new_freq_hz),
-            '-M', self._modulation,
-            '-s', str(SAMPLE_RATE),
-            '-r', str(SAMPLE_RATE),
-            '-l', '0',
-            '-'
+            "rtl_fm",
+            "-d",
+            str(self._device_index),
+            "-f",
+            str(new_freq_hz),
+            "-M",
+            self._modulation,
+            "-s",
+            str(SAMPLE_RATE),
+            "-r",
+            str(SAMPLE_RATE),
+            "-l",
+            "0",
+            "-",
         ]
 
         logger.debug(f"Restarting rtl_fm: {' '.join(rtl_cmd)}")
 
-        new_proc = subprocess.Popen(
-            rtl_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+        new_proc = subprocess.Popen(rtl_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # Re-acquire lock to install new process
         with self._lock:
@@ -665,7 +665,7 @@ class SSTVDecoder:
     def delete_all_images(self) -> int:
         """Delete all decoded images. Returns count deleted."""
         count = 0
-        for filepath in self._output_dir.glob('*.png'):
+        for filepath in self._output_dir.glob("*.png"):
             filepath.unlink()
             count += 1
         self._images.clear()
@@ -676,14 +676,14 @@ class SSTVDecoder:
         """Scan output directory for images."""
         known_filenames = {img.filename for img in self._images}
 
-        for filepath in self._output_dir.glob('*.png'):
+        for filepath in self._output_dir.glob("*.png"):
             if filepath.name not in known_filenames:
                 try:
                     stat = filepath.stat()
                     image = SSTVImage(
                         filename=filepath.name,
                         path=filepath,
-                        mode='Unknown',
+                        mode="Unknown",
                         timestamp=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
                         frequency=self._frequency,
                         size_bytes=stat.st_size,
@@ -711,9 +711,9 @@ class SSTVDecoder:
         """Emit scope signal levels to callback."""
         if self._callback:
             try:
-                payload = {'type': 'sstv_scope', 'rms': rms, 'peak': peak, 'tone': tone}
+                payload = {"type": "sstv_scope", "rms": rms, "peak": peak, "tone": tone}
                 if waveform:
-                    payload['waveform'] = waveform
+                    payload["waveform"] = waveform
                 self._callback(payload)
             except Exception:
                 pass
@@ -739,15 +739,14 @@ class SSTVDecoder:
         images: list[SSTVImage] = []
 
         try:
-            with wave.open(str(audio_path), 'rb') as wf:
+            with wave.open(str(audio_path), "rb") as wf:
                 n_channels = wf.getnchannels()
                 sample_width = wf.getsampwidth()
                 file_sample_rate = wf.getframerate()
                 n_frames = wf.getnframes()
 
                 logger.info(
-                    f"Decoding WAV: {n_channels}ch, {sample_width*8}bit, "
-                    f"{file_sample_rate}Hz, {n_frames} frames"
+                    f"Decoding WAV: {n_channels}ch, {sample_width * 8}bit, {file_sample_rate}Hz, {n_frames} frames"
                 )
 
                 # Read all audio data
@@ -780,7 +779,7 @@ class SSTVDecoder:
             offset = 0
 
             while offset < len(audio):
-                chunk = audio[offset:offset + chunk_size]
+                chunk = audio[offset : offset + chunk_size]
                 offset += chunk_size
 
                 if image_decoder is not None:
@@ -789,14 +788,16 @@ class SSTVDecoder:
                         img = image_decoder.get_image()
                         if img is not None:
                             timestamp = datetime.now(timezone.utc)
-                            filename = f"sstv_{timestamp.strftime('%Y%m%d_%H%M%S')}_{current_mode_name or 'unknown'}.png"
+                            filename = (
+                                f"sstv_{timestamp.strftime('%Y%m%d_%H%M%S')}_{current_mode_name or 'unknown'}.png"
+                            )
                             filepath = self._output_dir / filename
-                            img.save(filepath, 'PNG')
+                            img.save(filepath, "PNG")
 
                             sstv_image = SSTVImage(
                                 filename=filename,
                                 path=filepath,
-                                mode=current_mode_name or 'Unknown',
+                                mode=current_mode_name or "Unknown",
                                 timestamp=timestamp,
                                 frequency=0,
                                 size_bytes=filepath.stat().st_size,
@@ -879,7 +880,7 @@ def get_general_sstv_decoder() -> SSTVDecoder:
     global _general_decoder
     if _general_decoder is None:
         _general_decoder = SSTVDecoder(
-            output_dir='instance/sstv_general_images',
-            url_prefix='/sstv-general',
+            output_dir="instance/sstv_general_images",
+            url_prefix="/sstv-general",
         )
     return _general_decoder

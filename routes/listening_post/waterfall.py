@@ -34,12 +34,13 @@ from . import (
 # WATERFALL HELPER FUNCTIONS
 # ============================================
 
+
 def _parse_rtl_power_line(line: str) -> tuple[str | None, float | None, float | None, list[float]]:
     """Parse a single rtl_power CSV line into bins."""
-    if not line or line.startswith('#'):
+    if not line or line.startswith("#"):
         return None, None, None, []
 
-    parts = [p.strip() for p in line.split(',')]
+    parts = [p.strip() for p in line.split(",")]
     if len(parts) < 6:
         return None, None, None, []
 
@@ -62,7 +63,7 @@ def _parse_rtl_power_line(line: str) -> tuple[str | None, float | None, float | 
         seg_start = float(parts[start_idx])
         seg_end = float(parts[start_idx + 1])
         raw_values = []
-        for v in parts[start_idx + 3:]:
+        for v in parts[start_idx + 3 :]:
             try:
                 raw_values.append(float(v))
             except ValueError:
@@ -77,11 +78,13 @@ def _parse_rtl_power_line(line: str) -> tuple[str | None, float | None, float | 
 def _queue_waterfall_error(message: str) -> None:
     """Push an error message onto the waterfall SSE queue."""
     with contextlib.suppress(queue.Full):
-        _state.waterfall_queue.put_nowait({
-            'type': 'waterfall_error',
-            'message': message,
-            'timestamp': datetime.now().isoformat(),
-        })
+        _state.waterfall_queue.put_nowait(
+            {
+                "type": "waterfall_error",
+                "message": message,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
 
 def _downsample_bins(values: list[float], target: int) -> list[float]:
@@ -107,9 +110,10 @@ def _downsample_bins(values: list[float], target: int) -> list[float]:
 # WATERFALL LOOP IMPLEMENTATIONS
 # ============================================
 
+
 def _waterfall_loop():
     """Continuous waterfall sweep loop emitting FFT data."""
-    sdr_type_str = _state.waterfall_config.get('sdr_type', 'rtlsdr')
+    sdr_type_str = _state.waterfall_config.get("sdr_type", "rtlsdr")
     try:
         sdr_type = SDRType(sdr_type_str)
     except ValueError:
@@ -123,11 +127,11 @@ def _waterfall_loop():
 
 def _waterfall_loop_iq(sdr_type: SDRType):
     """Waterfall loop using rx_sdr IQ capture + FFT for HackRF/SoapySDR devices."""
-    start_freq = _state.waterfall_config['start_freq']
-    end_freq = _state.waterfall_config['end_freq']
-    gain = _state.waterfall_config['gain']
-    device = _state.waterfall_config['device']
-    interval = float(_state.waterfall_config.get('interval', 0.4))
+    start_freq = _state.waterfall_config["start_freq"]
+    end_freq = _state.waterfall_config["end_freq"]
+    gain = _state.waterfall_config["gain"]
+    device = _state.waterfall_config["device"]
+    interval = float(_state.waterfall_config.get("interval", 0.4))
 
     # Use center frequency and sample rate to cover the requested span
     center_mhz = (start_freq + end_freq) / 2.0
@@ -147,7 +151,7 @@ def _waterfall_loop_iq(sdr_type: SDRType):
         gain=float(gain),
     )
 
-    fft_size = min(int(_state.waterfall_config.get('max_bins') or 1024), 4096)
+    fft_size = min(int(_state.waterfall_config.get("max_bins") or 1024), 4096)
 
     try:
         _state.waterfall_process = subprocess.Popen(
@@ -159,19 +163,19 @@ def _waterfall_loop_iq(sdr_type: SDRType):
         # Detect immediate startup failures
         time.sleep(0.35)
         if _state.waterfall_process.poll() is not None:
-            stderr_text = ''
+            stderr_text = ""
             try:
                 if _state.waterfall_process.stderr:
-                    stderr_text = _state.waterfall_process.stderr.read().decode('utf-8', errors='ignore').strip()
+                    stderr_text = _state.waterfall_process.stderr.read().decode("utf-8", errors="ignore").strip()
             except Exception:
-                stderr_text = ''
-            msg = stderr_text or f'IQ capture exited early (code {_state.waterfall_process.returncode})'
+                stderr_text = ""
+            msg = stderr_text or f"IQ capture exited early (code {_state.waterfall_process.returncode})"
             logger.error(f"Waterfall startup failed: {msg}")
             _queue_waterfall_error(msg)
             return
 
         if not _state.waterfall_process.stdout:
-            _queue_waterfall_error('IQ capture stdout unavailable')
+            _queue_waterfall_error("IQ capture stdout unavailable")
             return
 
         # Read IQ samples and compute FFT
@@ -190,7 +194,7 @@ def _waterfall_loop_iq(sdr_type: SDRType):
             received_any = True
 
             # Convert CU8 to complex float: center at 127.5
-            iq = struct.unpack(f'{fft_size * 2}B', raw)
+            iq = struct.unpack(f"{fft_size * 2}B", raw)
             # Compute power spectrum via FFT
             real_parts = [(iq[i * 2] - 127.5) / 127.5 for i in range(fft_size)]
             imag_parts = [(iq[i * 2 + 1] - 127.5) / 127.5 for i in range(fft_size)]
@@ -199,6 +203,7 @@ def _waterfall_loop_iq(sdr_type: SDRType):
             try:
                 # Try numpy if available for efficient FFT
                 import numpy as np
+
                 samples = np.array(real_parts, dtype=np.float32) + 1j * np.array(imag_parts, dtype=np.float32)
                 # Apply Hann window
                 window = np.hanning(fft_size)
@@ -211,19 +216,19 @@ def _waterfall_loop_iq(sdr_type: SDRType):
                 # Just report raw magnitudes per sample as approximate power
                 for i in range(fft_size):
                     mag = math.sqrt(real_parts[i] ** 2 + imag_parts[i] ** 2)
-                    power = 10.0 * math.log10(mag ** 2 + 1e-10)
+                    power = 10.0 * math.log10(mag**2 + 1e-10)
                     bins.append(power)
 
-            max_bins = int(_state.waterfall_config.get('max_bins') or 0)
+            max_bins = int(_state.waterfall_config.get("max_bins") or 0)
             if max_bins > 0 and len(bins) > max_bins:
                 bins = _downsample_bins(bins, max_bins)
 
             msg = {
-                'type': 'waterfall_sweep',
-                'start_freq': start_freq,
-                'end_freq': end_freq,
-                'bins': bins,
-                'timestamp': datetime.now().isoformat(),
+                "type": "waterfall_sweep",
+                "start_freq": start_freq,
+                "end_freq": end_freq,
+                "bins": bins,
+                "timestamp": datetime.now().isoformat(),
             }
             try:
                 _state.waterfall_queue.put_nowait(msg)
@@ -237,7 +242,7 @@ def _waterfall_loop_iq(sdr_type: SDRType):
             time.sleep(interval)
 
         if _state.waterfall_running and not received_any:
-            _queue_waterfall_error(f'No IQ data received from {sdr_type.value}')
+            _queue_waterfall_error(f"No IQ data received from {sdr_type.value}")
 
     except Exception as e:
         logger.error(f"Waterfall IQ loop error: {e}")
@@ -260,23 +265,27 @@ def _waterfall_loop_rtl_power():
     rtl_power_path = find_rtl_power()
     if not rtl_power_path:
         logger.error("rtl_power not found for waterfall")
-        _queue_waterfall_error('rtl_power not found')
+        _queue_waterfall_error("rtl_power not found")
         _state.waterfall_running = False
         return
 
-    start_hz = int(_state.waterfall_config['start_freq'] * 1e6)
-    end_hz = int(_state.waterfall_config['end_freq'] * 1e6)
-    bin_hz = int(_state.waterfall_config['bin_size'])
-    gain = _state.waterfall_config['gain']
-    device = _state.waterfall_config['device']
-    interval = float(_state.waterfall_config.get('interval', 0.4))
+    start_hz = int(_state.waterfall_config["start_freq"] * 1e6)
+    end_hz = int(_state.waterfall_config["end_freq"] * 1e6)
+    bin_hz = int(_state.waterfall_config["bin_size"])
+    gain = _state.waterfall_config["gain"]
+    device = _state.waterfall_config["device"]
+    interval = float(_state.waterfall_config.get("interval", 0.4))
 
     cmd = [
         rtl_power_path,
-        '-f', f'{start_hz}:{end_hz}:{bin_hz}',
-        '-i', str(interval),
-        '-g', str(gain),
-        '-d', str(device),
+        "-f",
+        f"{start_hz}:{end_hz}:{bin_hz}",
+        "-i",
+        str(interval),
+        "-g",
+        str(gain),
+        "-d",
+        str(device),
     ]
 
     try:
@@ -291,13 +300,13 @@ def _waterfall_loop_rtl_power():
         # Detect immediate startup failures (e.g. device busy / no device).
         time.sleep(0.35)
         if _state.waterfall_process.poll() is not None:
-            stderr_text = ''
+            stderr_text = ""
             try:
                 if _state.waterfall_process.stderr:
                     stderr_text = _state.waterfall_process.stderr.read().strip()
             except Exception:
-                stderr_text = ''
-            msg = stderr_text or f'rtl_power exited early (code {_state.waterfall_process.returncode})'
+                stderr_text = ""
+            msg = stderr_text or f"rtl_power exited early (code {_state.waterfall_process.returncode})"
             logger.error(f"Waterfall startup failed: {msg}")
             _queue_waterfall_error(msg)
             return
@@ -309,7 +318,7 @@ def _waterfall_loop_rtl_power():
         received_any = False
 
         if not _state.waterfall_process.stdout:
-            _queue_waterfall_error('rtl_power stdout unavailable')
+            _queue_waterfall_error("rtl_power stdout unavailable")
             return
 
         for line in _state.waterfall_process.stdout:
@@ -325,16 +334,16 @@ def _waterfall_loop_rtl_power():
                 current_ts = ts
 
             if ts != current_ts and all_bins:
-                max_bins = int(_state.waterfall_config.get('max_bins') or 0)
+                max_bins = int(_state.waterfall_config.get("max_bins") or 0)
                 bins_to_send = all_bins
                 if max_bins > 0 and len(bins_to_send) > max_bins:
                     bins_to_send = _downsample_bins(bins_to_send, max_bins)
                 msg = {
-                    'type': 'waterfall_sweep',
-                    'start_freq': sweep_start_hz / 1e6,
-                    'end_freq': sweep_end_hz / 1e6,
-                    'bins': bins_to_send,
-                    'timestamp': datetime.now().isoformat(),
+                    "type": "waterfall_sweep",
+                    "start_freq": sweep_start_hz / 1e6,
+                    "end_freq": sweep_end_hz / 1e6,
+                    "bins": bins_to_send,
+                    "timestamp": datetime.now().isoformat(),
                 }
                 try:
                     _state.waterfall_queue.put_nowait(msg)
@@ -357,22 +366,22 @@ def _waterfall_loop_rtl_power():
 
         # Flush any remaining bins
         if all_bins and _state.waterfall_running:
-            max_bins = int(_state.waterfall_config.get('max_bins') or 0)
+            max_bins = int(_state.waterfall_config.get("max_bins") or 0)
             bins_to_send = all_bins
             if max_bins > 0 and len(bins_to_send) > max_bins:
                 bins_to_send = _downsample_bins(bins_to_send, max_bins)
             msg = {
-                'type': 'waterfall_sweep',
-                'start_freq': sweep_start_hz / 1e6,
-                'end_freq': sweep_end_hz / 1e6,
-                'bins': bins_to_send,
-                'timestamp': datetime.now().isoformat(),
+                "type": "waterfall_sweep",
+                "start_freq": sweep_start_hz / 1e6,
+                "end_freq": sweep_end_hz / 1e6,
+                "bins": bins_to_send,
+                "timestamp": datetime.now().isoformat(),
             }
             with contextlib.suppress(queue.Full):
                 _state.waterfall_queue.put_nowait(msg)
 
         if _state.waterfall_running and not received_any:
-            _queue_waterfall_error('No waterfall FFT data received from rtl_power')
+            _queue_waterfall_error("No waterfall FFT data received from rtl_power")
 
     except Exception as e:
         logger.error(f"Waterfall loop error: {e}")
@@ -394,22 +403,25 @@ def _waterfall_loop_rtl_power():
 # WATERFALL API ENDPOINTS
 # ============================================
 
-@receiver_bp.route('/waterfall/start', methods=['POST'])
+
+@receiver_bp.route("/waterfall/start", methods=["POST"])
 def start_waterfall() -> Response:
     """Start the waterfall/spectrogram display."""
     with _state.waterfall_lock:
         if _state.waterfall_running:
-            return jsonify({
-                'status': 'started',
-                'already_running': True,
-                'message': 'Waterfall already running',
-                'config': _state.waterfall_config,
-            })
+            return jsonify(
+                {
+                    "status": "started",
+                    "already_running": True,
+                    "message": "Waterfall already running",
+                    "config": _state.waterfall_config,
+                }
+            )
 
     data = request.json or {}
 
     # Determine SDR type
-    sdr_type_str = data.get('sdr_type', 'rtlsdr')
+    sdr_type_str = data.get("sdr_type", "rtlsdr")
     try:
         sdr_type = SDRType(sdr_type_str)
     except ValueError:
@@ -418,30 +430,30 @@ def start_waterfall() -> Response:
 
     # RTL-SDR uses rtl_power; other types use rx_sdr via IQ capture
     if sdr_type == SDRType.RTL_SDR and not find_rtl_power():
-        return jsonify({'status': 'error', 'message': 'rtl_power not found'}), 503
+        return jsonify({"status": "error", "message": "rtl_power not found"}), 503
 
     try:
-        _state.waterfall_config['start_freq'] = float(data.get('start_freq', 88.0))
-        _state.waterfall_config['end_freq'] = float(data.get('end_freq', 108.0))
-        _state.waterfall_config['bin_size'] = int(data.get('bin_size', 10000))
-        _state.waterfall_config['gain'] = int(data.get('gain', 40))
-        _state.waterfall_config['device'] = int(data.get('device', 0))
-        _state.waterfall_config['sdr_type'] = sdr_type_str
-        if data.get('interval') is not None:
-            interval = float(data.get('interval', _state.waterfall_config['interval']))
+        _state.waterfall_config["start_freq"] = float(data.get("start_freq", 88.0))
+        _state.waterfall_config["end_freq"] = float(data.get("end_freq", 108.0))
+        _state.waterfall_config["bin_size"] = int(data.get("bin_size", 10000))
+        _state.waterfall_config["gain"] = int(data.get("gain", 40))
+        _state.waterfall_config["device"] = int(data.get("device", 0))
+        _state.waterfall_config["sdr_type"] = sdr_type_str
+        if data.get("interval") is not None:
+            interval = float(data.get("interval", _state.waterfall_config["interval"]))
             if interval < 0.1 or interval > 5:
-                return jsonify({'status': 'error', 'message': 'interval must be between 0.1 and 5 seconds'}), 400
-            _state.waterfall_config['interval'] = interval
-        if data.get('max_bins') is not None:
-            max_bins = int(data.get('max_bins', _state.waterfall_config['max_bins']))
+                return jsonify({"status": "error", "message": "interval must be between 0.1 and 5 seconds"}), 400
+            _state.waterfall_config["interval"] = interval
+        if data.get("max_bins") is not None:
+            max_bins = int(data.get("max_bins", _state.waterfall_config["max_bins"]))
             if max_bins < 64 or max_bins > 4096:
-                return jsonify({'status': 'error', 'message': 'max_bins must be between 64 and 4096'}), 400
-            _state.waterfall_config['max_bins'] = max_bins
+                return jsonify({"status": "error", "message": "max_bins must be between 64 and 4096"}), 400
+            _state.waterfall_config["max_bins"] = max_bins
     except (ValueError, TypeError) as e:
-        return jsonify({'status': 'error', 'message': f'Invalid parameter: {e}'}), 400
+        return jsonify({"status": "error", "message": f"Invalid parameter: {e}"}), 400
 
-    if _state.waterfall_config['start_freq'] >= _state.waterfall_config['end_freq']:
-        return jsonify({'status': 'error', 'message': 'start_freq must be less than end_freq'}), 400
+    if _state.waterfall_config["start_freq"] >= _state.waterfall_config["end_freq"]:
+        return jsonify({"status": "error", "message": "start_freq must be less than end_freq"}), 400
 
     # Clear stale queue
     try:
@@ -451,43 +463,44 @@ def start_waterfall() -> Response:
         pass
 
     # Claim SDR device
-    error = app_module.claim_sdr_device(_state.waterfall_config['device'], 'waterfall', sdr_type_str)
+    error = app_module.claim_sdr_device(_state.waterfall_config["device"], "waterfall", sdr_type_str)
     if error:
-        return jsonify({'status': 'error', 'error_type': 'DEVICE_BUSY', 'message': error}), 409
+        return jsonify({"status": "error", "error_type": "DEVICE_BUSY", "message": error}), 409
 
-    _state.waterfall_active_device = _state.waterfall_config['device']
+    _state.waterfall_active_device = _state.waterfall_config["device"]
     _state.waterfall_active_sdr_type = sdr_type_str
     _state.waterfall_running = True
     _state.waterfall_thread = threading.Thread(target=_waterfall_loop, daemon=True)
     _state.waterfall_thread.start()
 
-    return jsonify({'status': 'started', 'config': _state.waterfall_config})
+    return jsonify({"status": "started", "config": _state.waterfall_config})
 
 
-@receiver_bp.route('/waterfall/stop', methods=['POST'])
+@receiver_bp.route("/waterfall/stop", methods=["POST"])
 def stop_waterfall() -> Response:
     """Stop the waterfall display."""
     _stop_waterfall_internal()
 
-    return jsonify({'status': 'stopped'})
+    return jsonify({"status": "stopped"})
 
 
-@receiver_bp.route('/waterfall/stream')
+@receiver_bp.route("/waterfall/stream")
 def stream_waterfall() -> Response:
     """SSE stream for waterfall data."""
+
     def _on_msg(msg: dict[str, Any]) -> None:
-        process_event('waterfall', msg, msg.get('type'))
+        process_event("waterfall", msg, msg.get("type"))
 
     response = Response(
         sse_stream_fanout(
             source_queue=_state.waterfall_queue,
-            channel_key='receiver_waterfall',
+            channel_key="receiver_waterfall",
             timeout=SSE_QUEUE_TIMEOUT,
             keepalive_interval=SSE_KEEPALIVE_INTERVAL,
             on_message=_on_msg,
         ),
-        mimetype='text/event-stream',
+        mimetype="text/event-stream",
     )
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
     return response

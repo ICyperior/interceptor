@@ -30,52 +30,52 @@ class TestDeviceKey:
     def test_identity_address_takes_priority(self):
         """Identity address should always be used when available."""
         key = generate_device_key(
-            address='AA:BB:CC:DD:EE:FF',
-            address_type='rpa',
-            identity_address='11:22:33:44:55:66',
-            name='Test Device',
+            address="AA:BB:CC:DD:EE:FF",
+            address_type="rpa",
+            identity_address="11:22:33:44:55:66",
+            name="Test Device",
             manufacturer_id=76,
         )
-        assert key == 'id:11:22:33:44:55:66'
+        assert key == "id:11:22:33:44:55:66"
 
     def test_public_mac_used_directly(self):
         """Public MAC addresses should be used directly."""
         key = generate_device_key(
-            address='AA:BB:CC:DD:EE:FF',
-            address_type='public',
+            address="AA:BB:CC:DD:EE:FF",
+            address_type="public",
         )
-        assert key == 'mac:AA:BB:CC:DD:EE:FF'
+        assert key == "mac:AA:BB:CC:DD:EE:FF"
 
     def test_static_random_mac_used_directly(self):
         """Random static addresses should be used directly."""
         key = generate_device_key(
-            address='CA:BB:CC:DD:EE:FF',
-            address_type='random_static',
+            address="CA:BB:CC:DD:EE:FF",
+            address_type="random_static",
         )
-        assert key == 'mac:CA:BB:CC:DD:EE:FF'
+        assert key == "mac:CA:BB:CC:DD:EE:FF"
 
     def test_random_address_fingerprint_with_name(self):
         """Random addresses should generate fingerprint from name."""
         key = generate_device_key(
-            address='AA:BB:CC:DD:EE:FF',
-            address_type='rpa',
-            name='AirPods Pro',
+            address="AA:BB:CC:DD:EE:FF",
+            address_type="rpa",
+            name="AirPods Pro",
         )
-        assert key.startswith('fp:')
+        assert key.startswith("fp:")
         assert len(key) == 19  # 'fp:' + 16 hex chars
 
     def test_random_address_fingerprint_stability(self):
         """Same name/mfr/services should produce same fingerprint key."""
         key1 = generate_device_key(
-            address='AA:BB:CC:DD:EE:FF',
-            address_type='rpa',
-            name='AirPods Pro',
+            address="AA:BB:CC:DD:EE:FF",
+            address_type="rpa",
+            name="AirPods Pro",
             manufacturer_id=76,
         )
         key2 = generate_device_key(
-            address='11:22:33:44:55:66',  # Different address
-            address_type='nrpa',
-            name='AirPods Pro',
+            address="11:22:33:44:55:66",  # Different address
+            address_type="nrpa",
+            name="AirPods Pro",
             manufacturer_id=76,
         )
         assert key1 == key2
@@ -83,53 +83,53 @@ class TestDeviceKey:
     def test_different_names_produce_different_keys(self):
         """Different names should produce different fingerprint keys."""
         key1 = generate_device_key(
-            address='AA:BB:CC:DD:EE:FF',
-            address_type='rpa',
-            name='AirPods Pro',
+            address="AA:BB:CC:DD:EE:FF",
+            address_type="rpa",
+            name="AirPods Pro",
         )
         key2 = generate_device_key(
-            address='AA:BB:CC:DD:EE:FF',
-            address_type='rpa',
-            name='AirPods Max',
+            address="AA:BB:CC:DD:EE:FF",
+            address_type="rpa",
+            name="AirPods Max",
         )
         assert key1 != key2
 
     def test_random_address_fallback_to_mac(self):
         """Random addresses without fingerprint data fall back to MAC."""
         key = generate_device_key(
-            address='AA:BB:CC:DD:EE:FF',
-            address_type='rpa',
+            address="AA:BB:CC:DD:EE:FF",
+            address_type="rpa",
             # No name, manufacturer, or services
         )
-        assert key == 'mac:AA:BB:CC:DD:EE:FF'
+        assert key == "mac:AA:BB:CC:DD:EE:FF"
 
     def test_is_randomized_mac_public(self):
         """Public addresses are not randomized."""
-        assert is_randomized_mac('public') is False
+        assert is_randomized_mac("public") is False
 
     def test_is_randomized_mac_random_static(self):
         """Random static addresses are not randomized."""
-        assert is_randomized_mac('random_static') is False
+        assert is_randomized_mac("random_static") is False
 
     def test_is_randomized_mac_rpa(self):
         """RPA addresses are randomized."""
-        assert is_randomized_mac('rpa') is True
+        assert is_randomized_mac("rpa") is True
 
     def test_is_randomized_mac_nrpa(self):
         """NRPA addresses are randomized."""
-        assert is_randomized_mac('nrpa') is True
+        assert is_randomized_mac("nrpa") is True
 
     def test_extract_key_type_id(self):
         """Extract type from identity key."""
-        assert extract_key_type('id:11:22:33:44:55:66') == 'id'
+        assert extract_key_type("id:11:22:33:44:55:66") == "id"
 
     def test_extract_key_type_mac(self):
         """Extract type from MAC key."""
-        assert extract_key_type('mac:AA:BB:CC:DD:EE:FF') == 'mac'
+        assert extract_key_type("mac:AA:BB:CC:DD:EE:FF") == "mac"
 
     def test_extract_key_type_fingerprint(self):
         """Extract type from fingerprint key."""
-        assert extract_key_type('fp:abcd1234efgh5678') == 'fp'
+        assert extract_key_type("fp:abcd1234efgh5678") == "fp"
 
 
 class TestDistanceEstimator:
@@ -257,38 +257,38 @@ class TestRingBuffer:
     def test_ingest_new_device(self, buffer):
         """Ingesting a new device should succeed."""
         now = datetime.now()
-        result = buffer.ingest('device:1', rssi=-50, timestamp=now)
+        result = buffer.ingest("device:1", rssi=-50, timestamp=now)
         assert result is True
         assert buffer.get_device_count() == 1
-        assert buffer.get_observation_count('device:1') == 1
+        assert buffer.get_observation_count("device:1") == 1
 
     def test_ingest_rate_limited(self, buffer):
         """Ingestion should be rate-limited to min_interval."""
         now = datetime.now()
-        buffer.ingest('device:1', rssi=-50, timestamp=now)
+        buffer.ingest("device:1", rssi=-50, timestamp=now)
 
         # Try to ingest again within rate limit (1 second later)
-        result = buffer.ingest('device:1', rssi=-55, timestamp=now + timedelta(seconds=1))
+        result = buffer.ingest("device:1", rssi=-55, timestamp=now + timedelta(seconds=1))
         assert result is False
-        assert buffer.get_observation_count('device:1') == 1
+        assert buffer.get_observation_count("device:1") == 1
 
     def test_ingest_after_interval(self, buffer):
         """Ingestion should succeed after min_interval."""
         now = datetime.now()
-        buffer.ingest('device:1', rssi=-50, timestamp=now)
+        buffer.ingest("device:1", rssi=-50, timestamp=now)
 
         # Ingest after rate limit passes (3 seconds later)
-        result = buffer.ingest('device:1', rssi=-55, timestamp=now + timedelta(seconds=3))
+        result = buffer.ingest("device:1", rssi=-55, timestamp=now + timedelta(seconds=3))
         assert result is True
-        assert buffer.get_observation_count('device:1') == 2
+        assert buffer.get_observation_count("device:1") == 2
 
     def test_prune_old_observations(self, buffer):
         """Old observations should be pruned."""
         now = datetime.now()
         old_time = now - timedelta(minutes=45)  # Older than retention
 
-        buffer.ingest('device:1', rssi=-50, timestamp=old_time)
-        buffer.ingest('device:2', rssi=-60, timestamp=now)
+        buffer.ingest("device:1", rssi=-50, timestamp=old_time)
+        buffer.ingest("device:2", rssi=-60, timestamp=now)
 
         removed = buffer.prune_old()
         assert removed == 1
@@ -301,46 +301,46 @@ class TestRingBuffer:
         # Add observations
         for i in range(10):
             ts = now - timedelta(seconds=i * 5)
-            buffer.ingest('device:1', rssi=-50 - i, timestamp=ts)
+            buffer.ingest("device:1", rssi=-50 - i, timestamp=ts)
 
-        timeseries = buffer.get_timeseries('device:1', window_minutes=5, downsample_seconds=10)
+        timeseries = buffer.get_timeseries("device:1", window_minutes=5, downsample_seconds=10)
         assert isinstance(timeseries, list)
         assert len(timeseries) > 0
 
         for point in timeseries:
-            assert 'timestamp' in point
-            assert 'rssi' in point
+            assert "timestamp" in point
+            assert "rssi" in point
 
     def test_get_timeseries_empty_device(self, buffer):
         """Unknown device should return empty timeseries."""
-        timeseries = buffer.get_timeseries('unknown:device')
+        timeseries = buffer.get_timeseries("unknown:device")
         assert timeseries == []
 
     def test_get_all_timeseries_sorted_by_recency(self, buffer):
         """All timeseries should be sorted by recency."""
         now = datetime.now()
-        buffer.ingest('device:old', rssi=-50, timestamp=now - timedelta(minutes=5))
-        buffer.ingest('device:new', rssi=-60, timestamp=now)
+        buffer.ingest("device:old", rssi=-50, timestamp=now - timedelta(minutes=5))
+        buffer.ingest("device:new", rssi=-60, timestamp=now)
 
-        all_ts = buffer.get_all_timeseries(sort_by='recency')
+        all_ts = buffer.get_all_timeseries(sort_by="recency")
         keys = list(all_ts.keys())
-        assert keys[0] == 'device:new'  # Most recent first
+        assert keys[0] == "device:new"  # Most recent first
 
     def test_get_all_timeseries_sorted_by_strength(self, buffer):
         """All timeseries should be sortable by signal strength."""
         now = datetime.now()
-        buffer.ingest('device:weak', rssi=-80, timestamp=now)
-        buffer.ingest('device:strong', rssi=-40, timestamp=now + timedelta(seconds=3))
+        buffer.ingest("device:weak", rssi=-80, timestamp=now)
+        buffer.ingest("device:strong", rssi=-40, timestamp=now + timedelta(seconds=3))
 
-        all_ts = buffer.get_all_timeseries(sort_by='strength')
+        all_ts = buffer.get_all_timeseries(sort_by="strength")
         keys = list(all_ts.keys())
-        assert keys[0] == 'device:strong'  # Strongest first
+        assert keys[0] == "device:strong"  # Strongest first
 
     def test_get_all_timeseries_top_n_limit(self, buffer):
         """Top N should limit returned devices."""
         now = datetime.now()
         for i in range(10):
-            buffer.ingest(f'device:{i}', rssi=-50, timestamp=now + timedelta(seconds=i * 3))
+            buffer.ingest(f"device:{i}", rssi=-50, timestamp=now + timedelta(seconds=i * 3))
 
         all_ts = buffer.get_all_timeseries(top_n=5)
         assert len(all_ts) == 5
@@ -348,8 +348,8 @@ class TestRingBuffer:
     def test_clear(self, buffer):
         """Clear should remove all observations."""
         now = datetime.now()
-        buffer.ingest('device:1', rssi=-50, timestamp=now)
-        buffer.ingest('device:2', rssi=-60, timestamp=now)
+        buffer.ingest("device:1", rssi=-50, timestamp=now)
+        buffer.ingest("device:2", rssi=-60, timestamp=now)
 
         buffer.clear()
         assert buffer.get_device_count() == 0
@@ -359,37 +359,37 @@ class TestRingBuffer:
         now = datetime.now()
 
         # Add multiple observations in same 10s bucket
-        buffer._observations['device:1'] = [
+        buffer._observations["device:1"] = [
             (now, -50),
             (now + timedelta(seconds=1), -60),
             (now + timedelta(seconds=2), -55),
         ]
-        buffer._last_ingested['device:1'] = now + timedelta(seconds=2)
+        buffer._last_ingested["device:1"] = now + timedelta(seconds=2)
 
-        timeseries = buffer.get_timeseries('device:1', window_minutes=5, downsample_seconds=10)
+        timeseries = buffer.get_timeseries("device:1", window_minutes=5, downsample_seconds=10)
         assert len(timeseries) == 1
         # Average of -50, -60, -55 = -55
-        assert timeseries[0]['rssi'] == -55.0
+        assert timeseries[0]["rssi"] == -55.0
 
     def test_get_device_stats(self, buffer):
         """Device stats should return correct values."""
         now = datetime.now()
-        buffer._observations['device:1'] = [
+        buffer._observations["device:1"] = [
             (now - timedelta(seconds=10), -50),
             (now - timedelta(seconds=5), -60),
             (now, -55),
         ]
 
-        stats = buffer.get_device_stats('device:1')
+        stats = buffer.get_device_stats("device:1")
         assert stats is not None
-        assert stats['observation_count'] == 3
-        assert stats['rssi_min'] == -60
-        assert stats['rssi_max'] == -50
-        assert stats['rssi_avg'] == -55.0
+        assert stats["observation_count"] == 3
+        assert stats["rssi_min"] == -60
+        assert stats["rssi_max"] == -50
+        assert stats["rssi_avg"] == -55.0
 
     def test_get_device_stats_unknown_device(self, buffer):
         """Unknown device should return None."""
-        stats = buffer.get_device_stats('unknown:device')
+        stats = buffer.get_device_stats("unknown:device")
         assert stats is None
 
 
@@ -398,17 +398,17 @@ class TestProximityBand:
 
     def test_proximity_band_str(self):
         """ProximityBand should convert to string correctly."""
-        assert str(ProximityBand.IMMEDIATE) == 'immediate'
-        assert str(ProximityBand.NEAR) == 'near'
-        assert str(ProximityBand.FAR) == 'far'
-        assert str(ProximityBand.UNKNOWN) == 'unknown'
+        assert str(ProximityBand.IMMEDIATE) == "immediate"
+        assert str(ProximityBand.NEAR) == "near"
+        assert str(ProximityBand.FAR) == "far"
+        assert str(ProximityBand.UNKNOWN) == "unknown"
 
     def test_proximity_band_values(self):
         """ProximityBand values should match expected strings."""
-        assert ProximityBand.IMMEDIATE.value == 'immediate'
-        assert ProximityBand.NEAR.value == 'near'
-        assert ProximityBand.FAR.value == 'far'
-        assert ProximityBand.UNKNOWN.value == 'unknown'
+        assert ProximityBand.IMMEDIATE.value == "immediate"
+        assert ProximityBand.NEAR.value == "near"
+        assert ProximityBand.FAR.value == "far"
+        assert ProximityBand.UNKNOWN.value == "unknown"
 
 
 class TestRssiThresholds:

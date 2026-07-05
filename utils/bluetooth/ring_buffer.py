@@ -84,9 +84,7 @@ class RingBuffer:
 
             # Initialize deque for new device
             if device_key not in self._observations:
-                self._observations[device_key] = deque(
-                    maxlen=self.max_observations_per_device
-                )
+                self._observations[device_key] = deque(maxlen=self.max_observations_per_device)
 
             # Store observation
             self._observations[device_key].append((timestamp, rssi))
@@ -132,7 +130,7 @@ class RingBuffer:
         window_minutes: int | None = None,
         downsample_seconds: int = 10,
         top_n: int | None = None,
-        sort_by: str = 'recency',
+        sort_by: str = "recency",
     ) -> dict[str, list[dict]]:
         """
         Get downsampled timeseries for all devices.
@@ -164,9 +162,9 @@ class RingBuffer:
                 device_info.append((device_key, last_seen, avg_rssi, len(recent)))
 
             # Sort based on criteria
-            if sort_by == 'strength':
+            if sort_by == "strength":
                 device_info.sort(key=lambda x: x[2], reverse=True)  # Higher RSSI first
-            elif sort_by == 'activity':
+            elif sort_by == "activity":
                 device_info.sort(key=lambda x: x[3], reverse=True)  # More observations first
             else:  # recency
                 device_info.sort(key=lambda x: x[1], reverse=True)  # Most recent first
@@ -221,10 +219,12 @@ class RingBuffer:
         for bucket_ts in sorted(buckets.keys()):
             rssi_values = buckets[bucket_ts]
             avg_rssi = sum(rssi_values) / len(rssi_values)
-            result.append({
-                'timestamp': bucket_ts.isoformat(),
-                'rssi': round(avg_rssi, 1),
-            })
+            result.append(
+                {
+                    "timestamp": bucket_ts.isoformat(),
+                    "rssi": round(avg_rssi, 1),
+                }
+            )
 
         return result
 
@@ -304,12 +304,12 @@ class RingBuffer:
             timestamps = [ts for ts, _ in obs]
 
             return {
-                'observation_count': len(obs),
-                'first_observation': min(timestamps).isoformat(),
-                'last_observation': max(timestamps).isoformat(),
-                'rssi_min': min(rssi_values),
-                'rssi_max': max(rssi_values),
-                'rssi_avg': sum(rssi_values) / len(rssi_values),
+                "observation_count": len(obs),
+                "first_observation": min(timestamps).isoformat(),
+                "last_observation": max(timestamps).isoformat(),
+                "rssi_min": min(rssi_values),
+                "rssi_max": max(rssi_values),
+                "rssi_avg": sum(rssi_values) / len(rssi_values),
             }
 
 

@@ -30,7 +30,7 @@ from utils.validation import (
     validate_rtl_tcp_port,
 )
 
-sensor_bp = Blueprint('sensor', __name__)
+sensor_bp = Blueprint("sensor", __name__)
 
 # Track which device is being used
 sensor_active_device: int | None = None
@@ -64,7 +64,7 @@ def _build_scope_waveform(rssi: float, snr: float, noise: float, points: int = 2
         noise_wobble = math.sin((2.0 * math.pi * (cycles * 7.0) * t) + (phase * 2.1))
 
         sample = amplitude * (base + (harmonic * overtone) + (hiss * noise_wobble))
-        sample /= (1.0 + harmonic + hiss)
+        sample /= 1.0 + harmonic + hiss
         packed = int(round(max(-1.0, min(1.0, sample)) * 127.0))
         waveform.append(max(-127, min(127, packed)))
 
@@ -74,23 +74,23 @@ def _build_scope_waveform(rssi: float, snr: float, noise: float, points: int = 2
 def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
     """Stream rtl_433 JSON output to queue."""
     try:
-        app_module.sensor_queue.put({'type': 'status', 'text': 'started'})
+        app_module.sensor_queue.put({"type": "status", "text": "started"})
 
-        for line in iter(process.stdout.readline, b''):
-            line = line.decode('utf-8', errors='replace').strip()
+        for line in iter(process.stdout.readline, b""):
+            line = line.decode("utf-8", errors="replace").strip()
             if not line:
                 continue
 
             try:
                 # rtl_433 outputs JSON objects, one per line
                 data = json.loads(line)
-                data['type'] = 'sensor'
+                data["type"] = "sensor"
                 app_module.sensor_queue.put(data)
 
                 # Track RSSI history per device
-                _model = data.get('model', '')
-                _dev_id = data.get('id', '')
-                _rssi_val = data.get('rssi')
+                _model = data.get("model", "")
+                _dev_id = data.get("id", "")
+                _rssi_val = data.get("rssi")
                 if _rssi_val is not None and _model:
                     _hist_key = f"{_model}_{_dev_id}"
                     hist = sensor_rssi_history.setdefault(_hist_key, [])
@@ -99,42 +99,44 @@ def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
                         del hist[: len(hist) - _MAX_RSSI_HISTORY]
 
                 # Push scope event when signal level data is present
-                rssi = data.get('rssi')
-                snr = data.get('snr')
-                noise = data.get('noise')
+                rssi = data.get("rssi")
+                snr = data.get("snr")
+                noise = data.get("noise")
                 if rssi is not None or snr is not None:
                     try:
                         rssi_value = float(rssi) if rssi is not None else 0.0
                         snr_value = float(snr) if snr is not None else 0.0
                         noise_value = float(noise) if noise is not None else 0.0
-                        app_module.sensor_queue.put_nowait({
-                            'type': 'scope',
-                            'rssi': rssi_value,
-                            'snr': snr_value,
-                            'noise': noise_value,
-                            'waveform': _build_scope_waveform(
-                                rssi=rssi_value,
-                                snr=snr_value,
-                                noise=noise_value,
-                            ),
-                        })
+                        app_module.sensor_queue.put_nowait(
+                            {
+                                "type": "scope",
+                                "rssi": rssi_value,
+                                "snr": snr_value,
+                                "noise": noise_value,
+                                "waveform": _build_scope_waveform(
+                                    rssi=rssi_value,
+                                    snr=snr_value,
+                                    noise=noise_value,
+                                ),
+                            }
+                        )
                     except (TypeError, ValueError, queue.Full):
                         pass
 
                 # Log if enabled
                 if app_module.logging_enabled:
                     try:
-                        with open(app_module.log_file_path, 'a') as f:
-                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        with open(app_module.log_file_path, "a") as f:
+                            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                             f.write(f"{timestamp} | {data.get('model', 'Unknown')} | {json.dumps(data)}\n")
                     except Exception:
                         pass
             except json.JSONDecodeError:
                 # Not JSON, send as raw
-                app_module.sensor_queue.put({'type': 'raw', 'text': line})
+                app_module.sensor_queue.put({"type": "raw", "text": line})
 
     except Exception as e:
-        app_module.sensor_queue.put({'type': 'error', 'text': str(e)})
+        app_module.sensor_queue.put({"type": "error", "text": str(e)})
     finally:
         global sensor_active_device, sensor_active_sdr_type
         # Ensure process is terminated
@@ -145,56 +147,56 @@ def stream_sensor_output(process: subprocess.Popen[bytes]) -> None:
             with contextlib.suppress(Exception):
                 process.kill()
         unregister_process(process)
-        app_module.sensor_queue.put({'type': 'status', 'text': 'stopped'})
+        app_module.sensor_queue.put({"type": "status", "text": "stopped"})
         with app_module.sensor_lock:
             app_module.sensor_process = None
         # Release SDR device
         if sensor_active_device is not None:
-            app_module.release_sdr_device(sensor_active_device, sensor_active_sdr_type or 'rtlsdr')
+            app_module.release_sdr_device(sensor_active_device, sensor_active_sdr_type or "rtlsdr")
             sensor_active_device = None
             sensor_active_sdr_type = None
 
 
-@sensor_bp.route('/sensor/status')
+@sensor_bp.route("/sensor/status")
 def sensor_status() -> Response:
     """Check if sensor decoder is currently running."""
     with app_module.sensor_lock:
         running = app_module.sensor_process is not None and app_module.sensor_process.poll() is None
-    return jsonify({'running': running})
+    return jsonify({"running": running})
 
 
-@sensor_bp.route('/start_sensor', methods=['POST'])
+@sensor_bp.route("/start_sensor", methods=["POST"])
 def start_sensor() -> Response:
     global sensor_active_device, sensor_active_sdr_type
 
     with app_module.sensor_lock:
         if app_module.sensor_process:
-            return api_error('Sensor already running', 409)
+            return api_error("Sensor already running", 409)
 
         data = request.json or {}
 
         # Validate inputs
         try:
-            freq = validate_frequency(data.get('frequency', '433.92'))
-            gain = validate_gain(data.get('gain', '0'))
-            ppm = validate_ppm(data.get('ppm', '0'))
-            device = validate_device_index(data.get('device', '0'))
+            freq = validate_frequency(data.get("frequency", "433.92"))
+            gain = validate_gain(data.get("gain", "0"))
+            ppm = validate_ppm(data.get("ppm", "0"))
+            device = validate_device_index(data.get("device", "0"))
         except ValueError as e:
             return api_error(str(e), 400)
 
         # Check for rtl_tcp (remote SDR) connection
-        rtl_tcp_host = data.get('rtl_tcp_host')
-        rtl_tcp_port = data.get('rtl_tcp_port', 1234)
+        rtl_tcp_host = data.get("rtl_tcp_host")
+        rtl_tcp_port = data.get("rtl_tcp_port", 1234)
 
         # Get SDR type early so we can pass it to claim/release
-        sdr_type_str = data.get('sdr_type', 'rtlsdr')
+        sdr_type_str = data.get("sdr_type", "rtlsdr")
 
         # Claim local device if not using remote rtl_tcp
         if not rtl_tcp_host:
             device_int = int(device)
-            error = app_module.claim_sdr_device(device_int, 'sensor', sdr_type_str)
+            error = app_module.claim_sdr_device(device_int, "sensor", sdr_type_str)
             if error:
-                return api_error(error, 409, error_type='DEVICE_BUSY')
+                return api_error(error, 409, error_type="DEVICE_BUSY")
             sensor_active_device = device_int
             sensor_active_sdr_type = sdr_type_str
 
@@ -228,28 +230,24 @@ def start_sensor() -> Response:
         builder = SDRFactory.get_builder(sdr_device.sdr_type)
 
         # Build ISM band decoder command
-        bias_t = data.get('bias_t', False)
+        bias_t = data.get("bias_t", False)
         cmd = builder.build_ism_command(
             device=sdr_device,
             frequency_mhz=freq,
             gain=float(gain) if gain and gain != 0 else None,
             ppm=int(ppm) if ppm and ppm != 0 else None,
-            bias_t=bias_t
+            bias_t=bias_t,
         )
 
-        full_cmd = ' '.join(cmd)
+        full_cmd = " ".join(cmd)
         logger.info(f"Running: {full_cmd}")
 
         # Add signal level metadata so the frontend scope can display RSSI/SNR
         # Disable stats reporting to suppress "row count limit 50 reached" warnings
-        cmd.extend(['-M', 'level', '-M', 'stats:0'])
+        cmd.extend(["-M", "level", "-M", "stats:0"])
 
         try:
-            app_module.sensor_process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
+            app_module.sensor_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             register_process(app_module.sensor_process)
 
             # Start output thread
@@ -260,42 +258,42 @@ def start_sensor() -> Response:
             # Monitor stderr
             # Filter noisy rtl_433 diagnostics that aren't useful to display
             _stderr_noise = (
-                'bitbuffer_add_bit',
-                'row count limit',
+                "bitbuffer_add_bit",
+                "row count limit",
             )
 
             def monitor_stderr():
                 for line in app_module.sensor_process.stderr:
-                    err = line.decode('utf-8', errors='replace').strip()
+                    err = line.decode("utf-8", errors="replace").strip()
                     if err and not any(noise in err for noise in _stderr_noise):
                         logger.debug(f"[rtl_433] {err}")
-                        app_module.sensor_queue.put({'type': 'info', 'text': f'[rtl_433] {err}'})
+                        app_module.sensor_queue.put({"type": "info", "text": f"[rtl_433] {err}"})
 
             stderr_thread = threading.Thread(target=monitor_stderr)
             stderr_thread.daemon = True
             stderr_thread.start()
 
-            app_module.sensor_queue.put({'type': 'info', 'text': f'Command: {full_cmd}'})
+            app_module.sensor_queue.put({"type": "info", "text": f"Command: {full_cmd}"})
 
-            return jsonify({'status': 'started', 'command': full_cmd})
+            return jsonify({"status": "started", "command": full_cmd})
 
         except FileNotFoundError:
             # Release device on failure
             if sensor_active_device is not None:
-                app_module.release_sdr_device(sensor_active_device, sensor_active_sdr_type or 'rtlsdr')
+                app_module.release_sdr_device(sensor_active_device, sensor_active_sdr_type or "rtlsdr")
                 sensor_active_device = None
                 sensor_active_sdr_type = None
-            return api_error('rtl_433 not found. Install with: brew install rtl_433')
+            return api_error("rtl_433 not found. Install with: brew install rtl_433")
         except Exception as e:
             # Release device on failure
             if sensor_active_device is not None:
-                app_module.release_sdr_device(sensor_active_device, sensor_active_sdr_type or 'rtlsdr')
+                app_module.release_sdr_device(sensor_active_device, sensor_active_sdr_type or "rtlsdr")
                 sensor_active_device = None
                 sensor_active_sdr_type = None
             return api_error(str(e))
 
 
-@sensor_bp.route('/stop_sensor', methods=['POST'])
+@sensor_bp.route("/stop_sensor", methods=["POST"])
 def stop_sensor() -> Response:
     global sensor_active_device, sensor_active_sdr_type
 
@@ -310,40 +308,40 @@ def stop_sensor() -> Response:
 
             # Release device from registry
             if sensor_active_device is not None:
-                app_module.release_sdr_device(sensor_active_device, sensor_active_sdr_type or 'rtlsdr')
+                app_module.release_sdr_device(sensor_active_device, sensor_active_sdr_type or "rtlsdr")
                 sensor_active_device = None
                 sensor_active_sdr_type = None
 
-            return jsonify({'status': 'stopped'})
+            return jsonify({"status": "stopped"})
 
-        return jsonify({'status': 'not_running'})
+        return jsonify({"status": "not_running"})
 
 
-@sensor_bp.route('/stream_sensor')
+@sensor_bp.route("/stream_sensor")
 def stream_sensor() -> Response:
     def _on_msg(msg: dict[str, Any]) -> None:
-        process_event('sensor', msg, msg.get('type'))
+        process_event("sensor", msg, msg.get("type"))
 
     response = Response(
         sse_stream_fanout(
             source_queue=app_module.sensor_queue,
-            channel_key='sensor',
+            channel_key="sensor",
             timeout=1.0,
             keepalive_interval=30.0,
             on_message=_on_msg,
         ),
-        mimetype='text/event-stream',
+        mimetype="text/event-stream",
     )
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
-    response.headers['Connection'] = 'keep-alive'
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Connection"] = "keep-alive"
     return response
 
 
-@sensor_bp.route('/sensor/rssi_history')
+@sensor_bp.route("/sensor/rssi_history")
 def get_rssi_history() -> Response:
     """Return RSSI history for all tracked sensor devices."""
     result = {}
     for key, entries in sensor_rssi_history.items():
-        result[key] = [{'t': round(t, 1), 'rssi': rssi} for t, rssi in entries]
-    return api_success(data={'devices': result})
+        result[key] = [{"t": round(t, 1), "rssi": rssi} for t, rssi in entries]
+    return api_success(data={"devices": result})

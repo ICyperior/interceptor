@@ -24,6 +24,7 @@ from utils.responses import api_error
 
 try:
     from flask_sock import Sock
+
     WEBSOCKET_AVAILABLE = True
 except ImportError:
     WEBSOCKET_AVAILABLE = False
@@ -43,15 +44,15 @@ from utils.waterfall_fft import (
     quantize_to_uint8,
 )
 
-logger = get_logger('intercept.meteor')
+logger = get_logger("intercept.meteor")
 
 # Module-level shared state
 _state_lock = threading.Lock()
 _state: dict[str, Any] = {
-    'running': False,
-    'device': None,
-    'frequency_mhz': 0.0,
-    'sample_rate': 0,
+    "running": False,
+    "device": None,
+    "frequency_mhz": 0.0,
+    "sample_rate": 0,
 }
 _detector: MeteorDetector | None = None
 _sse_queue: queue.Queue = queue.Queue(maxsize=500)
@@ -80,12 +81,12 @@ def _push_sse(data: dict[str, Any]) -> None:
 
 def _resolve_sdr_type(sdr_type_str: str) -> SDRType:
     mapping = {
-        'rtlsdr': SDRType.RTL_SDR,
-        'rtl_sdr': SDRType.RTL_SDR,
-        'hackrf': SDRType.HACKRF,
-        'limesdr': SDRType.LIME_SDR,
-        'airspy': SDRType.AIRSPY,
-        'sdrplay': SDRType.SDRPLAY,
+        "rtlsdr": SDRType.RTL_SDR,
+        "rtl_sdr": SDRType.RTL_SDR,
+        "hackrf": SDRType.HACKRF,
+        "limesdr": SDRType.LIME_SDR,
+        "airspy": SDRType.AIRSPY,
+        "sdrplay": SDRType.SDRPLAY,
     }
     return mapping.get(sdr_type_str.lower(), SDRType.RTL_SDR)
 
@@ -96,8 +97,8 @@ def _build_dummy_device(device_index: int, sdr_type: SDRType) -> SDRDevice:
     return SDRDevice(
         sdr_type=sdr_type,
         index=device_index,
-        name=f'{sdr_type.value}-{device_index}',
-        serial='N/A',
+        name=f"{sdr_type.value}-{device_index}",
+        serial="N/A",
         driver=sdr_type.value,
         capabilities=caps,
     )
@@ -113,95 +114,98 @@ def _pick_sample_rate(span_hz: int, caps: SDRCapabilities, sdr_type: SDRType) ->
 
 # ── Blueprint for REST/SSE endpoints ──
 
-meteor_bp = Blueprint('meteor', __name__, url_prefix='/meteor')
+meteor_bp = Blueprint("meteor", __name__, url_prefix="/meteor")
 
 
-@meteor_bp.route('/status')
+@meteor_bp.route("/status")
 def meteor_status():
     """Return current meteor monitoring status."""
     with _state_lock:
-        running = _state['running']
-        freq = _state['frequency_mhz']
-        device = _state['device']
-        sr = _state['sample_rate']
+        running = _state["running"]
+        freq = _state["frequency_mhz"]
+        device = _state["device"]
+        sr = _state["sample_rate"]
 
     detector = _detector
     stats = None
     if detector:
         stats = detector._build_stats(time.time())
 
-    return jsonify({
-        'running': running,
-        'frequency_mhz': freq,
-        'device': device,
-        'sample_rate': sr,
-        'stats': stats,
-    })
+    return jsonify(
+        {
+            "running": running,
+            "frequency_mhz": freq,
+            "device": device,
+            "sample_rate": sr,
+            "stats": stats,
+        }
+    )
 
 
-@meteor_bp.route('/stream')
+@meteor_bp.route("/stream")
 def meteor_stream():
     """SSE endpoint for meteor detection events and stats."""
     response = Response(
         sse_stream_fanout(
             source_queue=_sse_queue,
-            channel_key='meteor',
+            channel_key="meteor",
             timeout=1.0,
             keepalive_interval=30.0,
         ),
-        mimetype='text/event-stream',
+        mimetype="text/event-stream",
     )
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
-    response.headers['Connection'] = 'keep-alive'
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Connection"] = "keep-alive"
     return response
 
 
-@meteor_bp.route('/events')
+@meteor_bp.route("/events")
 def meteor_events():
     """Return detected events as JSON."""
     detector = _detector
     if not detector:
-        return jsonify({'events': []})
-    limit = request.args.get('limit', 500, type=int)
-    return jsonify({'events': detector.get_events(limit=limit)})
+        return jsonify({"events": []})
+    limit = request.args.get("limit", 500, type=int)
+    return jsonify({"events": detector.get_events(limit=limit)})
 
 
-@meteor_bp.route('/events/export')
+@meteor_bp.route("/events/export")
 def meteor_events_export():
     """Export events as CSV or JSON."""
     detector = _detector
     if not detector:
-        return api_error('No active session', 400)
+        return api_error("No active session", 400)
 
-    fmt = request.args.get('format', 'json').lower()
-    if fmt == 'csv':
+    fmt = request.args.get("format", "json").lower()
+    if fmt == "csv":
         csv_data = detector.export_events_csv()
         return Response(
             csv_data,
-            mimetype='text/csv',
-            headers={'Content-Disposition': 'attachment; filename=meteor_events.csv'},
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=meteor_events.csv"},
         )
     else:
         json_data = detector.export_events_json()
         return Response(
             json_data,
-            mimetype='application/json',
-            headers={'Content-Disposition': 'attachment; filename=meteor_events.json'},
+            mimetype="application/json",
+            headers={"Content-Disposition": "attachment; filename=meteor_events.json"},
         )
 
 
-@meteor_bp.route('/events/clear', methods=['POST'])
+@meteor_bp.route("/events/clear", methods=["POST"])
 def meteor_events_clear():
     """Clear all detected events."""
     detector = _detector
     if not detector:
-        return jsonify({'cleared': 0})
+        return jsonify({"cleared": 0})
     count = detector.clear_events()
-    return jsonify({'cleared': count})
+    return jsonify({"cleared": count})
 
 
 # ── WebSocket handler ──
+
 
 def init_meteor_websocket(app: Flask):
     """Initialize WebSocket meteor scatter streaming."""
@@ -213,7 +217,7 @@ def init_meteor_websocket(app: Flask):
 
     sock = Sock(app)
 
-    @sock.route('/ws/meteor')
+    @sock.route("/ws/meteor")
     def meteor_stream_ws(ws):
         """WebSocket endpoint for meteor scatter waterfall + detection."""
         global _detector
@@ -225,7 +229,7 @@ def init_meteor_websocket(app: Flask):
         reader_thread = None
         stop_event = threading.Event()
         claimed_device = None
-        claimed_sdr_type = 'rtlsdr'
+        claimed_sdr_type = "rtlsdr"
         send_queue: queue.Queue = queue.Queue(maxsize=120)
 
         try:
@@ -264,9 +268,9 @@ def init_meteor_websocket(app: Flask):
                 except (json.JSONDecodeError, TypeError):
                     continue
 
-                cmd = data.get('cmd')
+                cmd = data.get("cmd")
 
-                if cmd == 'start':
+                if cmd == "start":
                     # Stop any existing capture
                     was_restarting = iq_process is not None
                     stop_event.set()
@@ -280,7 +284,7 @@ def init_meteor_websocket(app: Flask):
                         app_module.release_sdr_device(claimed_device, claimed_sdr_type)
                         claimed_device = None
                     with _state_lock:
-                        _state['running'] = False
+                        _state["running"] = False
                     stop_event.clear()
                     while not send_queue.empty():
                         try:
@@ -292,34 +296,38 @@ def init_meteor_websocket(app: Flask):
 
                     # Parse config
                     try:
-                        frequency_mhz = float(data.get('frequency_mhz', 143.05))
+                        frequency_mhz = float(data.get("frequency_mhz", 143.05))
                         validate_frequency(frequency_mhz)
-                        gain_raw = data.get('gain')
-                        if gain_raw is None or str(gain_raw).lower() == 'auto':
+                        gain_raw = data.get("gain")
+                        if gain_raw is None or str(gain_raw).lower() == "auto":
                             gain = None
                         else:
                             gain = validate_gain(float(gain_raw))
-                        device_index = validate_device_index(int(data.get('device', 0)))
-                        sdr_type_str = data.get('sdr_type', 'rtlsdr')
-                        sample_rate_req = int(data.get('sample_rate', 250000))
-                        fft_size = int(data.get('fft_size', 1024))
-                        fps = int(data.get('fps', 20))
-                        avg_count = int(data.get('avg_count', 4))
-                        ppm = data.get('ppm')
+                        device_index = validate_device_index(int(data.get("device", 0)))
+                        sdr_type_str = data.get("sdr_type", "rtlsdr")
+                        sample_rate_req = int(data.get("sample_rate", 250000))
+                        fft_size = int(data.get("fft_size", 1024))
+                        fps = int(data.get("fps", 20))
+                        avg_count = int(data.get("avg_count", 4))
+                        ppm = data.get("ppm")
                         if ppm is not None:
                             ppm = int(ppm)
-                        bias_t = bool(data.get('bias_t', False))
+                        bias_t = bool(data.get("bias_t", False))
 
                         # Detection settings
-                        snr_threshold = float(data.get('snr_threshold', 6.0))
-                        min_duration = float(data.get('min_duration_ms', 50.0))
-                        cooldown = float(data.get('cooldown_ms', 200.0))
-                        freq_drift = float(data.get('freq_drift_tolerance_hz', 500.0))
+                        snr_threshold = float(data.get("snr_threshold", 6.0))
+                        min_duration = float(data.get("min_duration_ms", 50.0))
+                        cooldown = float(data.get("cooldown_ms", 200.0))
+                        freq_drift = float(data.get("freq_drift_tolerance_hz", 500.0))
                     except (TypeError, ValueError) as exc:
-                        ws.send(json.dumps({
-                            'status': 'error',
-                            'message': f'Invalid configuration: {exc}',
-                        }))
+                        ws.send(
+                            json.dumps(
+                                {
+                                    "status": "error",
+                                    "message": f"Invalid configuration: {exc}",
+                                }
+                            )
+                        )
                         continue
 
                     # Clamp values
@@ -342,17 +350,21 @@ def init_meteor_websocket(app: Flask):
                     max_claim_attempts = 4 if was_restarting else 1
                     claim_err = None
                     for _attempt in range(max_claim_attempts):
-                        claim_err = app_module.claim_sdr_device(device_index, 'meteor', sdr_type_str)
+                        claim_err = app_module.claim_sdr_device(device_index, "meteor", sdr_type_str)
                         if not claim_err:
                             break
                         if _attempt < max_claim_attempts - 1:
                             time.sleep(0.4)
                     if claim_err:
-                        ws.send(json.dumps({
-                            'status': 'error',
-                            'message': claim_err,
-                            'error_type': 'DEVICE_BUSY',
-                        }))
+                        ws.send(
+                            json.dumps(
+                                {
+                                    "status": "error",
+                                    "message": claim_err,
+                                    "error_type": "DEVICE_BUSY",
+                                }
+                            )
+                        )
                         continue
                     claimed_device = device_index
                     claimed_sdr_type = sdr_type_str
@@ -371,17 +383,21 @@ def init_meteor_websocket(app: Flask):
                     except NotImplementedError as e:
                         app_module.release_sdr_device(device_index, sdr_type_str)
                         claimed_device = None
-                        ws.send(json.dumps({'status': 'error', 'message': str(e)}))
+                        ws.send(json.dumps({"status": "error", "message": str(e)}))
                         continue
 
                     # Check binary exists
                     if not shutil.which(iq_cmd[0]):
                         app_module.release_sdr_device(device_index, sdr_type_str)
                         claimed_device = None
-                        ws.send(json.dumps({
-                            'status': 'error',
-                            'message': f'Required tool "{iq_cmd[0]}" not found.',
-                        }))
+                        ws.send(
+                            json.dumps(
+                                {
+                                    "status": "error",
+                                    "message": f'Required tool "{iq_cmd[0]}" not found.',
+                                }
+                            )
+                        )
                         continue
 
                     # Spawn I/Q capture
@@ -402,10 +418,10 @@ def init_meteor_websocket(app: Flask):
 
                             time.sleep(0.3)
                             if iq_process.poll() is not None:
-                                stderr_out = ''
+                                stderr_out = ""
                                 if iq_process.stderr:
                                     with suppress(Exception):
-                                        stderr_out = iq_process.stderr.read().decode('utf-8', errors='replace').strip()
+                                        stderr_out = iq_process.stderr.read().decode("utf-8", errors="replace").strip()
                                 unregister_process(iq_process)
                                 iq_process = None
                                 if attempt < max_attempts - 1:
@@ -422,10 +438,14 @@ def init_meteor_websocket(app: Flask):
                             iq_process = None
                         app_module.release_sdr_device(device_index, sdr_type_str)
                         claimed_device = None
-                        ws.send(json.dumps({
-                            'status': 'error',
-                            'message': f'Failed to start I/Q capture: {e}',
-                        }))
+                        ws.send(
+                            json.dumps(
+                                {
+                                    "status": "error",
+                                    "message": f"Failed to start I/Q capture: {e}",
+                                }
+                            )
+                        )
                         continue
 
                     # Initialize detector
@@ -437,27 +457,39 @@ def init_meteor_websocket(app: Flask):
                     )
 
                     with _state_lock:
-                        _state['running'] = True
-                        _state['device'] = device_index
-                        _state['frequency_mhz'] = frequency_mhz
-                        _state['sample_rate'] = sample_rate
+                        _state["running"] = True
+                        _state["device"] = device_index
+                        _state["frequency_mhz"] = frequency_mhz
+                        _state["sample_rate"] = sample_rate
 
                     # Send confirmation
-                    ws.send(json.dumps({
-                        'status': 'started',
-                        'frequency_mhz': frequency_mhz,
-                        'start_freq': start_freq,
-                        'end_freq': end_freq,
-                        'fft_size': fft_size,
-                        'sample_rate': sample_rate,
-                        'span_mhz': span_mhz,
-                    }))
+                    ws.send(
+                        json.dumps(
+                            {
+                                "status": "started",
+                                "frequency_mhz": frequency_mhz,
+                                "start_freq": start_freq,
+                                "end_freq": end_freq,
+                                "fft_size": fft_size,
+                                "sample_rate": sample_rate,
+                                "span_mhz": span_mhz,
+                            }
+                        )
+                    )
 
                     # Start FFT reader + detection thread
                     def fft_reader(
-                        proc, _send_q, stop_evt, detector,
-                        _fft_size, _avg_count, _fps, _sample_rate,
-                        _start_freq, _end_freq, _freq_mhz,
+                        proc,
+                        _send_q,
+                        stop_evt,
+                        detector,
+                        _fft_size,
+                        _avg_count,
+                        _fps,
+                        _sample_rate,
+                        _start_freq,
+                        _end_freq,
+                        _freq_mhz,
                     ):
                         required_fft_samples = _fft_size * _avg_count
                         timeslice_samples = max(required_fft_samples, int(_sample_rate / max(1, _fps)))
@@ -475,7 +507,7 @@ def init_meteor_websocket(app: Flask):
                                 frame_start = time.monotonic()
 
                                 # Read raw I/Q
-                                raw = b''
+                                raw = b""
                                 remaining = bytes_per_frame
                                 while remaining > 0 and not stop_evt.is_set():
                                     chunk = proc.stdout.read(min(remaining, 65536))
@@ -489,7 +521,9 @@ def init_meteor_websocket(app: Flask):
 
                                 # FFT pipeline
                                 samples = cu8_to_complex(raw)
-                                fft_samples = samples[-required_fft_samples:] if len(samples) > required_fft_samples else samples
+                                fft_samples = (
+                                    samples[-required_fft_samples:] if len(samples) > required_fft_samples else samples
+                                )
                                 power_db = compute_power_spectrum(
                                     fft_samples,
                                     fft_size=_fft_size,
@@ -505,20 +539,27 @@ def init_meteor_websocket(app: Flask):
                                 # Run detection on raw dB spectrum
                                 now = time.time()
                                 stats, event = detector.process_frame(
-                                    power_db, start_freq_hz, end_freq_hz, now,
+                                    power_db,
+                                    start_freq_hz,
+                                    end_freq_hz,
+                                    now,
                                 )
 
                                 # Push event immediately via SSE
                                 if event:
-                                    _push_sse({
-                                        'type': 'event',
-                                        'event': event.to_dict(),
-                                    })
+                                    _push_sse(
+                                        {
+                                            "type": "event",
+                                            "event": event.to_dict(),
+                                        }
+                                    )
                                     # Also send as JSON via WS for immediate UI update
-                                    event_msg = json.dumps({
-                                        'type': 'detection',
-                                        'event': event.to_dict(),
-                                    })
+                                    event_msg = json.dumps(
+                                        {
+                                            "type": "detection",
+                                            "event": event.to_dict(),
+                                        }
+                                    )
                                     with suppress(queue.Full):
                                         _send_q.put_nowait(event_msg)
 
@@ -539,26 +580,34 @@ def init_meteor_websocket(app: Flask):
                     reader_thread = threading.Thread(
                         target=fft_reader,
                         args=(
-                            iq_process, send_queue, stop_event, _detector,
-                            fft_size, avg_count, fps, sample_rate,
-                            start_freq, end_freq, frequency_mhz,
+                            iq_process,
+                            send_queue,
+                            stop_event,
+                            _detector,
+                            fft_size,
+                            avg_count,
+                            fps,
+                            sample_rate,
+                            start_freq,
+                            end_freq,
+                            frequency_mhz,
                         ),
                         daemon=True,
                     )
                     reader_thread.start()
 
-                elif cmd == 'update_threshold':
+                elif cmd == "update_threshold":
                     detector = _detector
                     if detector:
                         detector.update_settings(
-                            snr_threshold_db=data.get('snr_threshold'),
-                            min_duration_ms=data.get('min_duration_ms'),
-                            cooldown_ms=data.get('cooldown_ms'),
-                            freq_drift_tolerance_hz=data.get('freq_drift_tolerance_hz'),
+                            snr_threshold_db=data.get("snr_threshold"),
+                            min_duration_ms=data.get("min_duration_ms"),
+                            cooldown_ms=data.get("cooldown_ms"),
+                            freq_drift_tolerance_hz=data.get("freq_drift_tolerance_hz"),
                         )
-                        ws.send(json.dumps({'status': 'threshold_updated'}))
+                        ws.send(json.dumps({"status": "threshold_updated"}))
 
-                elif cmd == 'stop':
+                elif cmd == "stop":
                     stop_event.set()
                     if reader_thread and reader_thread.is_alive():
                         reader_thread.join(timeout=2)
@@ -571,10 +620,10 @@ def init_meteor_websocket(app: Flask):
                         app_module.release_sdr_device(claimed_device, claimed_sdr_type)
                         claimed_device = None
                     with _state_lock:
-                        _state['running'] = False
-                        _state['device'] = None
+                        _state["running"] = False
+                        _state["device"] = None
                     stop_event.clear()
-                    ws.send(json.dumps({'status': 'stopped'}))
+                    ws.send(json.dumps({"status": "stopped"}))
 
         except Exception as e:
             logger.info(f"WebSocket meteor closed: {e}")
@@ -588,8 +637,8 @@ def init_meteor_websocket(app: Flask):
             if claimed_device is not None:
                 app_module.release_sdr_device(claimed_device, claimed_sdr_type)
             with _state_lock:
-                _state['running'] = False
-                _state['device'] = None
+                _state["running"] = False
+                _state["device"] = None
             with suppress(Exception):
                 ws.close()
             with suppress(Exception):

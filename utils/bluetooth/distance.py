@@ -12,10 +12,11 @@ from enum import Enum
 
 class ProximityBand(str, Enum):
     """Proximity band classifications."""
-    IMMEDIATE = 'immediate'  # < 1m
-    NEAR = 'near'           # 1-3m
-    FAR = 'far'             # 3-10m
-    UNKNOWN = 'unknown'     # Cannot determine
+
+    IMMEDIATE = "immediate"  # < 1m
+    NEAR = "near"  # 1-3m
+    FAR = "far"  # 3-10m
+    UNKNOWN = "unknown"  # Cannot determine
 
     def __str__(self) -> str:
         return self.value
@@ -26,8 +27,8 @@ DEFAULT_PATH_LOSS_EXPONENT = 2.5
 
 # RSSI thresholds for band classification (dBm)
 RSSI_THRESHOLD_IMMEDIATE = -40  # >= -40 dBm
-RSSI_THRESHOLD_NEAR = -55       # >= -55 dBm
-RSSI_THRESHOLD_FAR = -75        # >= -75 dBm
+RSSI_THRESHOLD_NEAR = -55  # >= -55 dBm
+RSSI_THRESHOLD_FAR = -75  # >= -75 dBm
 
 # Default reference RSSI at 1 meter (typical BLE)
 DEFAULT_RSSI_AT_1M = -59
@@ -36,8 +37,8 @@ DEFAULT_RSSI_AT_1M = -59
 DEFAULT_EMA_ALPHA = 0.3
 
 # Variance thresholds for confidence scoring
-LOW_VARIANCE_THRESHOLD = 25.0   # dBm^2
-HIGH_VARIANCE_THRESHOLD = 100.0 # dBm^2
+LOW_VARIANCE_THRESHOLD = 25.0  # dBm^2
+HIGH_VARIANCE_THRESHOLD = 100.0  # dBm^2
 
 
 class DistanceEstimator:
@@ -117,7 +118,7 @@ class DistanceEstimator:
             Estimated distance in meters.
         """
         exponent = (tx_power - rssi) / (10 * self.path_loss_exponent)
-        distance = 10 ** exponent
+        distance = 10**exponent
         # Clamp to reasonable range
         return max(0.1, min(100.0, distance))
 

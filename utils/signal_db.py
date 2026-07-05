@@ -13,7 +13,7 @@ from typing import Any
 
 from utils.logging import get_logger
 
-logger = get_logger('intercept.signal_db')
+logger = get_logger("intercept.signal_db")
 
 _DB_PATH = Path(__file__).resolve().parent.parent / "data" / "signals.json"
 _cache: list[dict[str, Any]] | None = None
@@ -109,8 +109,7 @@ def match_signals(
             elif bw_range["min_hz"] <= bandwidth_hz <= bw_range["max_hz"]:
                 score += 30
                 reasons.append("bandwidth: within typical")
-            elif (bandwidth_hz <= bw_range["max_hz"] * 2
-                  and bandwidth_hz >= bw_range["min_hz"] // 2):
+            elif bandwidth_hz <= bw_range["max_hz"] * 2 and bandwidth_hz >= bw_range["min_hz"] // 2:
                 score += 15
                 reasons.append("bandwidth: near typical")
             # else: 0 pts, no reason added

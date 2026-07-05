@@ -12,6 +12,7 @@ from flask import Flask
 # Try to import flask-sock
 try:
     from flask_sock import Sock
+
     WEBSOCKET_AVAILABLE = True
 except ImportError:
     WEBSOCKET_AVAILABLE = False
@@ -21,33 +22,27 @@ import contextlib
 
 from utils.logging import get_logger
 
-logger = get_logger('intercept.audio_ws')
+logger = get_logger("intercept.audio_ws")
 
 # Global state
 audio_process = None
 rtl_process = None
 process_lock = threading.Lock()
-current_config = {
-    'frequency': 118.0,
-    'modulation': 'am',
-    'squelch': 0,
-    'gain': 40,
-    'device': 0
-}
+current_config = {"frequency": 118.0, "modulation": "am", "squelch": 0, "gain": 40, "device": 0}
 
 
 def find_rtl_fm():
-    return shutil.which('rtl_fm')
+    return shutil.which("rtl_fm")
 
 
 def find_ffmpeg():
-    return shutil.which('ffmpeg')
+    return shutil.which("ffmpeg")
 
 
 def _rtl_fm_demod_mode(modulation):
     """Map UI modulation names to rtl_fm demod tokens."""
-    mod = str(modulation or '').lower().strip()
-    return 'wbfm' if mod == 'wfm' else mod
+    mod = str(modulation or "").lower().strip()
+    return "wbfm" if mod == "wfm" else mod
 
 
 def kill_audio_processes():
@@ -90,17 +85,17 @@ def start_audio_stream(config):
 
     current_config.update(config)
 
-    freq = config.get('frequency', 118.0)
-    mod = config.get('modulation', 'am')
-    squelch = config.get('squelch', 0)
-    gain = config.get('gain', 40)
-    device = config.get('device', 0)
+    freq = config.get("frequency", 118.0)
+    mod = config.get("modulation", "am")
+    squelch = config.get("squelch", 0)
+    gain = config.get("gain", 40)
+    device = config.get("device", 0)
 
     # Sample rates based on modulation
-    if mod == 'wfm':
+    if mod == "wfm":
         sample_rate = 170000
         resample_rate = 32000
-    elif mod in ['usb', 'lsb']:
+    elif mod in ["usb", "lsb"]:
         sample_rate = 12000
         resample_rate = 12000
     else:
@@ -111,45 +106,53 @@ def start_audio_stream(config):
 
     rtl_cmd = [
         rtl_fm,
-        '-M', _rtl_fm_demod_mode(mod),
-        '-f', str(freq_hz),
-        '-s', str(sample_rate),
-        '-r', str(resample_rate),
-        '-g', str(gain),
-        '-d', str(device),
-        '-l', str(squelch),
+        "-M",
+        _rtl_fm_demod_mode(mod),
+        "-f",
+        str(freq_hz),
+        "-s",
+        str(sample_rate),
+        "-r",
+        str(resample_rate),
+        "-g",
+        str(gain),
+        "-d",
+        str(device),
+        "-l",
+        str(squelch),
     ]
 
     # Encode to MP3 for browser compatibility
     ffmpeg_cmd = [
         ffmpeg,
-        '-hide_banner',
-        '-loglevel', 'error',
-        '-f', 's16le',
-        '-ar', str(resample_rate),
-        '-ac', '1',
-        '-i', 'pipe:0',
-        '-acodec', 'libmp3lame',
-        '-b:a', '128k',
-        '-f', 'mp3',
-        '-flush_packets', '1',
-        'pipe:1'
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-f",
+        "s16le",
+        "-ar",
+        str(resample_rate),
+        "-ac",
+        "1",
+        "-i",
+        "pipe:0",
+        "-acodec",
+        "libmp3lame",
+        "-b:a",
+        "128k",
+        "-f",
+        "mp3",
+        "-flush_packets",
+        "1",
+        "pipe:1",
     ]
 
     try:
         logger.info(f"Starting rtl_fm: {freq} MHz, {mod}")
-        rtl_process = subprocess.Popen(
-            rtl_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL
-        )
+        rtl_process = subprocess.Popen(rtl_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
         audio_process = subprocess.Popen(
-            ffmpeg_cmd,
-            stdin=rtl_process.stdout,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-            bufsize=0
+            ffmpeg_cmd, stdin=rtl_process.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0
         )
 
         rtl_process.stdout.close()
@@ -177,7 +180,7 @@ def init_audio_websocket(app: Flask):
 
     sock = Sock(app)
 
-    @sock.route('/ws/audio')
+    @sock.route("/ws/audio")
     def audio_stream(ws):
         """WebSocket endpoint for audio streaming."""
         logger.info("WebSocket audio client connected")
@@ -192,39 +195,39 @@ def init_audio_websocket(app: Flask):
                     msg = ws.receive(timeout=0.01)
                     if msg:
                         data = json.loads(msg)
-                        cmd = data.get('cmd')
+                        cmd = data.get("cmd")
 
-                        if cmd == 'start':
-                            config = data.get('config', {})
+                        if cmd == "start":
+                            config = data.get("config", {})
                             logger.info(f"Starting audio: {config}")
                             with process_lock:
                                 proc = start_audio_stream(config)
                             if proc:
                                 streaming = True
-                                ws.send(json.dumps({'status': 'started'}))
+                                ws.send(json.dumps({"status": "started"}))
                             else:
-                                ws.send(json.dumps({'status': 'error', 'message': 'Failed to start'}))
+                                ws.send(json.dumps({"status": "error", "message": "Failed to start"}))
 
-                        elif cmd == 'stop':
+                        elif cmd == "stop":
                             logger.info("Stopping audio")
                             streaming = False
                             with process_lock:
                                 kill_audio_processes()
                             proc = None
-                            ws.send(json.dumps({'status': 'stopped'}))
+                            ws.send(json.dumps({"status": "stopped"}))
 
-                        elif cmd == 'tune':
+                        elif cmd == "tune":
                             # Change frequency/modulation - restart stream
-                            config = data.get('config', {})
+                            config = data.get("config", {})
                             logger.info(f"Retuning: {config}")
                             with process_lock:
                                 proc = start_audio_stream(config)
                             if proc:
                                 streaming = True
-                                ws.send(json.dumps({'status': 'tuned'}))
+                                ws.send(json.dumps({"status": "tuned"}))
                             else:
                                 streaming = False
-                                ws.send(json.dumps({'status': 'error', 'message': 'Failed to tune'}))
+                                ws.send(json.dumps({"status": "error", "message": "Failed to tune"}))
 
                 except TimeoutError:
                     pass
@@ -248,7 +251,7 @@ def init_audio_websocket(app: Flask):
                 elif streaming:
                     # Process died
                     streaming = False
-                    ws.send(json.dumps({'status': 'error', 'message': 'Audio process died'}))
+                    ws.send(json.dumps({"status": "error", "message": "Audio process died"}))
                 else:
                     time.sleep(0.01)
 

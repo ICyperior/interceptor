@@ -91,6 +91,7 @@ class TestSignalidMatchRoute:
 
     def test_cached_true_on_second_identical_request(self, client):
         import routes.signalid as signalid_module
+
         signalid_module._match_cache.clear()
         payload = json.dumps({"frequency_mhz": 98.5})
         client.post("/signalid/match", data=payload, content_type="application/json")

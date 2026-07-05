@@ -23,7 +23,7 @@ from .constants import (
     VALID_FORMAT_SPECIFIERS,
 )
 
-logger = logging.getLogger('intercept.dsc.parser')
+logger = logging.getLogger("intercept.dsc.parser")
 
 
 def get_country_from_mmsi(mmsi: str) -> str | None:
@@ -47,13 +47,13 @@ def get_country_from_mmsi(mmsi: str) -> str | None:
         return MID_COUNTRY_MAP[mid]
 
     # Coast station MMSI: starts with 00 + MID
-    if mmsi.startswith('00') and len(mmsi) >= 5:
+    if mmsi.startswith("00") and len(mmsi) >= 5:
         mid = mmsi[2:5]
         if mid in MID_COUNTRY_MAP:
             return MID_COUNTRY_MAP[mid]
 
     # Group ship station MMSI: starts with 0 + MID
-    if mmsi.startswith('0') and len(mmsi) >= 4:
+    if mmsi.startswith("0") and len(mmsi) >= 4:
         mid = mmsi[1:4]
         if mid in MID_COUNTRY_MAP:
             return MID_COUNTRY_MAP[mid]
@@ -69,7 +69,7 @@ def get_distress_nature_text(code: int | str) -> str:
         except ValueError:
             return str(code)
 
-    return DISTRESS_NATURE_CODES.get(code, f'UNKNOWN ({code})')
+    return DISTRESS_NATURE_CODES.get(code, f"UNKNOWN ({code})")
 
 
 def get_format_text(code: int | str) -> str:
@@ -80,7 +80,7 @@ def get_format_text(code: int | str) -> str:
         except ValueError:
             return str(code)
 
-    return FORMAT_CODES.get(code, f'UNKNOWN ({code})')
+    return FORMAT_CODES.get(code, f"UNKNOWN ({code})")
 
 
 def get_telecommand_text(code: int | str) -> str:
@@ -91,7 +91,7 @@ def get_telecommand_text(code: int | str) -> str:
         except ValueError:
             return str(code)
 
-    return TELECOMMAND_CODES.get(code, f'UNKNOWN ({code})')
+    return TELECOMMAND_CODES.get(code, f"UNKNOWN ({code})")
 
 
 def get_category_priority(category: str) -> int:
@@ -135,25 +135,25 @@ def parse_dsc_message(raw_line: str) -> dict[str, Any] | None:
         return None
 
     # Validate required fields
-    if data.get('type') != 'dsc':
+    if data.get("type") != "dsc":
         return None
 
-    if 'source_mmsi' not in data:
+    if "source_mmsi" not in data:
         return None
 
     # ITU-R M.493 validation: format specifier must be valid
-    format_code = data.get('format')
+    format_code = data.get("format")
     if format_code not in VALID_FORMAT_SPECIFIERS:
         logger.debug(f"Rejected DSC: invalid format specifier {format_code}")
         return None
 
     # Validate MMSIs
-    source_mmsi = str(data.get('source_mmsi', ''))
+    source_mmsi = str(data.get("source_mmsi", ""))
     if not validate_mmsi(source_mmsi):
         logger.debug(f"Rejected DSC: invalid source MMSI {source_mmsi}")
         return None
 
-    dest_mmsi_val = data.get('dest_mmsi')
+    dest_mmsi_val = data.get("dest_mmsi")
     if dest_mmsi_val is not None:
         dest_mmsi_str = str(dest_mmsi_val)
         if not validate_mmsi(dest_mmsi_str):
@@ -161,10 +161,10 @@ def parse_dsc_message(raw_line: str) -> dict[str, Any] | None:
             return None
 
     # Validate raw field structure if present
-    raw = data.get('raw')
+    raw = data.get("raw")
     if raw is not None:
         raw_str = str(raw)
-        if not re.match(r'^\d+$', raw_str):
+        if not re.match(r"^\d+$", raw_str):
             logger.debug("Rejected DSC: raw field contains non-digits")
             return None
         if len(raw_str) % 3 != 0:
@@ -178,7 +178,7 @@ def parse_dsc_message(raw_line: str) -> dict[str, Any] | None:
                 return None
 
     # Validate telecommand values if present (must be 100-127)
-    for tc_field in ('telecommand1', 'telecommand2'):
+    for tc_field in ("telecommand1", "telecommand2"):
         tc_val = data.get(tc_field)
         if tc_val is not None:
             try:
@@ -192,65 +192,69 @@ def parse_dsc_message(raw_line: str) -> dict[str, Any] | None:
 
     # Build parsed message
     msg = {
-        'type': 'dsc_message',
-        'source_mmsi': source_mmsi,
-        'dest_mmsi': str(data.get('dest_mmsi', '')) if data.get('dest_mmsi') is not None else None,
-        'format_code': format_code,
-        'format_text': get_format_text(format_code),
-        'category': data.get('category', 'UNKNOWN').upper(),
-        'timestamp': data.get('timestamp') or datetime.utcnow().isoformat(),
+        "type": "dsc_message",
+        "source_mmsi": source_mmsi,
+        "dest_mmsi": str(data.get("dest_mmsi", "")) if data.get("dest_mmsi") is not None else None,
+        "format_code": format_code,
+        "format_text": get_format_text(format_code),
+        "category": data.get("category", "UNKNOWN").upper(),
+        "timestamp": data.get("timestamp") or datetime.utcnow().isoformat(),
     }
 
     # Add country from MMSI
-    country = get_country_from_mmsi(msg['source_mmsi'])
+    country = get_country_from_mmsi(msg["source_mmsi"])
     if country:
-        msg['source_country'] = country
+        msg["source_country"] = country
 
     # Add distress nature if present
-    if data.get('nature') is not None:
-        msg['nature_code'] = data['nature']
-        msg['nature_of_distress'] = get_distress_nature_text(data['nature'])
+    if data.get("nature") is not None:
+        msg["nature_code"] = data["nature"]
+        msg["nature_of_distress"] = get_distress_nature_text(data["nature"])
 
     # Add position if present
-    position = data.get('position')
+    position = data.get("position")
     if position and isinstance(position, dict):
-        lat = position.get('lat')
-        lon = position.get('lon')
+        lat = position.get("lat")
+        lon = position.get("lon")
         if lat is not None and lon is not None:
             try:
-                msg['latitude'] = float(lat)
-                msg['longitude'] = float(lon)
+                msg["latitude"] = float(lat)
+                msg["longitude"] = float(lon)
             except (ValueError, TypeError):
                 pass
 
     # Add telecommand info
-    if data.get('telecommand1') is not None:
-        msg['telecommand1'] = data['telecommand1']
-        msg['telecommand1_text'] = get_telecommand_text(data['telecommand1'])
+    if data.get("telecommand1") is not None:
+        msg["telecommand1"] = data["telecommand1"]
+        msg["telecommand1_text"] = get_telecommand_text(data["telecommand1"])
 
-    if data.get('telecommand2') is not None:
-        msg['telecommand2'] = data['telecommand2']
-        msg['telecommand2_text'] = get_telecommand_text(data['telecommand2'])
+    if data.get("telecommand2") is not None:
+        msg["telecommand2"] = data["telecommand2"]
+        msg["telecommand2_text"] = get_telecommand_text(data["telecommand2"])
 
     # Add channel if present
-    if data.get('channel') is not None:
-        msg['channel'] = data['channel']
+    if data.get("channel") is not None:
+        msg["channel"] = data["channel"]
 
     # Add EOS (End of Sequence) info
-    if 'eos' in data:
-        msg['eos'] = data['eos']
+    if "eos" in data:
+        msg["eos"] = data["eos"]
 
     # Add raw message for debugging
-    if 'raw' in data:
-        msg['raw_message'] = data['raw']
+    if "raw" in data:
+        msg["raw_message"] = data["raw"]
 
     # Calculate priority
-    msg['priority'] = get_category_priority(msg['category'])
+    msg["priority"] = get_category_priority(msg["category"])
 
     # Mark if this is a critical alert
-    msg['is_critical'] = msg['category'] in (
-        'DISTRESS', 'DISTRESS_ACK', 'DISTRESS_RELAY',
-        'URGENCY', 'SAFETY', 'ALL_SHIPS_URGENCY_SAFETY',
+    msg["is_critical"] = msg["category"] in (
+        "DISTRESS",
+        "DISTRESS_ACK",
+        "DISTRESS_RELAY",
+        "URGENCY",
+        "SAFETY",
+        "ALL_SHIPS_URGENCY_SAFETY",
     )
 
     return msg
@@ -269,9 +273,9 @@ def format_dsc_for_display(msg: dict) -> str:
     lines = []
 
     # Header with category and MMSI
-    category = msg.get('category', 'UNKNOWN')
-    mmsi = msg.get('source_mmsi', 'UNKNOWN')
-    country = msg.get('source_country', '')
+    category = msg.get("category", "UNKNOWN")
+    mmsi = msg.get("source_mmsi", "UNKNOWN")
+    country = msg.get("source_country", "")
 
     header = f"[{category}] MMSI: {mmsi}"
     if country:
@@ -279,34 +283,34 @@ def format_dsc_for_display(msg: dict) -> str:
     lines.append(header)
 
     # Destination if present
-    if msg.get('dest_mmsi'):
+    if msg.get("dest_mmsi"):
         lines.append(f"  To: {msg['dest_mmsi']}")
 
     # Distress nature
-    if msg.get('nature_of_distress'):
+    if msg.get("nature_of_distress"):
         lines.append(f"  Nature: {msg['nature_of_distress']}")
 
     # Position
-    if msg.get('latitude') is not None and msg.get('longitude') is not None:
-        lat = msg['latitude']
-        lon = msg['longitude']
-        lat_dir = 'N' if lat >= 0 else 'S'
-        lon_dir = 'E' if lon >= 0 else 'W'
+    if msg.get("latitude") is not None and msg.get("longitude") is not None:
+        lat = msg["latitude"]
+        lon = msg["longitude"]
+        lat_dir = "N" if lat >= 0 else "S"
+        lon_dir = "E" if lon >= 0 else "W"
         lines.append(f"  Position: {abs(lat):.4f}{lat_dir} {abs(lon):.4f}{lon_dir}")
 
     # Telecommand
-    if msg.get('telecommand1_text'):
+    if msg.get("telecommand1_text"):
         lines.append(f"  Request: {msg['telecommand1_text']}")
 
     # Channel
-    if msg.get('channel'):
+    if msg.get("channel"):
         lines.append(f"  Channel: {msg['channel']}")
 
     # Timestamp
-    if msg.get('timestamp'):
+    if msg.get("timestamp"):
         lines.append(f"  Time: {msg['timestamp']}")
 
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 def validate_mmsi(mmsi: str) -> bool:
@@ -326,11 +330,11 @@ def validate_mmsi(mmsi: str) -> bool:
         return False
 
     # Must be 9 digits
-    if not re.match(r'^\d{9}$', mmsi):
+    if not re.match(r"^\d{9}$", mmsi):
         return False
 
     # All zeros is invalid
-    return mmsi != '000000000'
+    return mmsi != "000000000"
 
 
 def classify_mmsi(mmsi: str) -> str:
@@ -344,30 +348,30 @@ def classify_mmsi(mmsi: str) -> str:
         Classification: 'ship', 'coast', 'group', 'sar', 'aton', or 'unknown'
     """
     if not validate_mmsi(mmsi):
-        return 'unknown'
+        return "unknown"
 
     first_digit = mmsi[0]
     first_two = mmsi[:2]
     first_three = mmsi[:3]
 
     # Coast station: starts with 00
-    if first_two == '00':
-        return 'coast'
+    if first_two == "00":
+        return "coast"
 
     # Group call: starts with 0
-    if first_digit == '0':
-        return 'group'
+    if first_digit == "0":
+        return "group"
 
     # SAR aircraft: starts with 111
-    if first_three == '111':
-        return 'sar'
+    if first_three == "111":
+        return "sar"
 
     # Aids to Navigation: starts with 99
-    if first_two == '99':
-        return 'aton'
+    if first_two == "99":
+        return "aton"
 
     # Ship station: starts with MID (2-7)
-    if first_digit in '234567':
-        return 'ship'
+    if first_digit in "234567":
+        return "ship"
 
-    return 'unknown'
+    return "unknown"

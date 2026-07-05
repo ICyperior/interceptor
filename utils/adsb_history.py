@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 try:
     import psycopg2
     from psycopg2.extras import Json, execute_values
+
     PSYCOPG2_AVAILABLE = True
 except ImportError:
     psycopg2 = None  # type: ignore
@@ -34,57 +35,58 @@ from config import (
     ADSB_HISTORY_QUEUE_SIZE,
 )
 
-logger = logging.getLogger('intercept.adsb_history')
+logger = logging.getLogger("intercept.adsb_history")
 
 
 _MESSAGE_FIELDS = (
-    'received_at',
-    'msg_time',
-    'logged_time',
-    'icao',
-    'msg_type',
-    'callsign',
-    'altitude',
-    'speed',
-    'heading',
-    'vertical_rate',
-    'lat',
-    'lon',
-    'squawk',
-    'session_id',
-    'aircraft_id',
-    'flight_id',
-    'raw_line',
-    'source_host',
+    "received_at",
+    "msg_time",
+    "logged_time",
+    "icao",
+    "msg_type",
+    "callsign",
+    "altitude",
+    "speed",
+    "heading",
+    "vertical_rate",
+    "lat",
+    "lon",
+    "squawk",
+    "session_id",
+    "aircraft_id",
+    "flight_id",
+    "raw_line",
+    "source_host",
 )
 
 _MESSAGE_INSERT_SQL = f"""
-    INSERT INTO adsb_messages ({', '.join(_MESSAGE_FIELDS)})
+    INSERT INTO adsb_messages ({", ".join(_MESSAGE_FIELDS)})
     VALUES %s
 """
 
 _SNAPSHOT_FIELDS = (
-    'captured_at',
-    'icao',
-    'callsign',
-    'registration',
-    'type_code',
-    'type_desc',
-    'altitude',
-    'speed',
-    'heading',
-    'vertical_rate',
-    'lat',
-    'lon',
-    'squawk',
-    'source_host',
-    'snapshot',
+    "captured_at",
+    "icao",
+    "callsign",
+    "registration",
+    "type_code",
+    "type_desc",
+    "altitude",
+    "speed",
+    "heading",
+    "vertical_rate",
+    "lat",
+    "lon",
+    "squawk",
+    "source_host",
+    "snapshot",
 )
 
 _SNAPSHOT_INSERT_SQL = f"""
-    INSERT INTO adsb_snapshots ({', '.join(_SNAPSHOT_FIELDS)})
+    INSERT INTO adsb_snapshots ({", ".join(_SNAPSHOT_FIELDS)})
     VALUES %s
 """
+
 
 def _ensure_adsb_schema(conn: psycopg2.extensions.connection) -> None:
     with conn.cursor() as cur:
@@ -200,8 +202,7 @@ def _ensure_adsb_schema(conn: psycopg2.extensions.connection) -> None:
 
 def _make_dsn() -> str:
     return (
-        f"host={ADSB_DB_HOST} port={ADSB_DB_PORT} dbname={ADSB_DB_NAME} "
-        f"user={ADSB_DB_USER} password={ADSB_DB_PASSWORD}"
+        f"host={ADSB_DB_HOST} port={ADSB_DB_PORT} dbname={ADSB_DB_NAME} user={ADSB_DB_USER} password={ADSB_DB_PASSWORD}"
     )
 
 
@@ -221,7 +222,7 @@ class AdsbHistoryWriter:
             return
         if self._thread and self._thread.is_alive():
             return
-        self._thread = threading.Thread(target=self._run, name='adsb-history-writer', daemon=True)
+        self._thread = threading.Thread(target=self._run, name="adsb-history-writer", daemon=True)
         self._thread.start()
         logger.info("ADS-B history writer started")
 
@@ -231,8 +232,8 @@ class AdsbHistoryWriter:
     def enqueue(self, record: dict) -> None:
         if not self.enabled:
             return
-        if 'received_at' not in record or record['received_at'] is None:
-            record['received_at'] = datetime.now(timezone.utc)
+        if "received_at" not in record or record["received_at"] is None:
+            record["received_at"] = datetime.now(timezone.utc)
         try:
             self._queue.put_nowait(record)
         except queue.Full:
@@ -317,7 +318,7 @@ class AdsbSnapshotWriter:
             return
         if self._thread and self._thread.is_alive():
             return
-        self._thread = threading.Thread(target=self._run, name='adsb-snapshot-writer', daemon=True)
+        self._thread = threading.Thread(target=self._run, name="adsb-snapshot-writer", daemon=True)
         self._thread.start()
         logger.info("ADS-B snapshot writer started")
 
@@ -327,8 +328,8 @@ class AdsbSnapshotWriter:
     def enqueue(self, record: dict) -> None:
         if not self.enabled:
             return
-        if 'captured_at' not in record or record['captured_at'] is None:
-            record['captured_at'] = datetime.now(timezone.utc)
+        if "captured_at" not in record or record["captured_at"] is None:
+            record["captured_at"] = datetime.now(timezone.utc)
         try:
             self._queue.put_nowait(record)
         except queue.Full:
@@ -381,7 +382,7 @@ class AdsbSnapshotWriter:
             row = []
             for field in _SNAPSHOT_FIELDS:
                 value = record.get(field)
-                if field == 'snapshot' and value is not None:
+                if field == "snapshot" and value is not None:
                     value = Json(value)
                 row.append(value)
             values.append(tuple(row))

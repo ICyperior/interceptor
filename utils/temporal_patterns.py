@@ -35,8 +35,8 @@ class TemporalPatternDetector:
         for key in keys:
             result = self._analyze_intervals(self._timestamps.get(key, []))
             if result:
-                result['device_id'] = device_id
-                result['mode'] = key.split(':')[0]
+                result["device_id"] = device_id
+                result["mode"] = key.split(":")[0]
                 return result
         return None
 
@@ -62,9 +62,9 @@ class TemporalPatternDetector:
             return None
 
         return {
-            'period_seconds': round(median, 1),
-            'confidence': round(confidence, 3),
-            'occurrences': len(timestamps),
+            "period_seconds": round(median, 1),
+            "confidence": round(confidence, 3),
+            "occurrences": len(timestamps),
         }
 
     def get_all_patterns(self) -> list[dict]:
@@ -72,7 +72,7 @@ class TemporalPatternDetector:
         results = []
         seen = set()
         for key in self._timestamps:
-            mode, device_id = key.split(':', 1)
+            mode, device_id = key.split(":", 1)
             if device_id in seen:
                 continue
             pattern = self.detect_patterns(device_id, mode)

@@ -52,7 +52,7 @@ def parse_airport_scan(output: str) -> list[WiFiObservation]:
         List of WiFiObservation objects.
     """
     observations = []
-    lines = output.strip().split('\n')
+    lines = output.strip().split("\n")
 
     if len(lines) < 2:
         return observations
@@ -82,7 +82,7 @@ def _parse_airport_line(line: str) -> WiFiObservation | None:
         # Split into parts, but we need to handle SSID which may have spaces
         # BSSID is always 17 chars (xx:xx:xx:xx:xx:xx)
         # Find BSSID using regex
-        bssid_match = re.search(r'([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}', line)
+        bssid_match = re.search(r"([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}", line)
         if not bssid_match:
             return None
 
@@ -93,11 +93,11 @@ def _parse_airport_line(line: str) -> WiFiObservation | None:
         ssid = line[:bssid_pos].strip()
 
         # Handle hidden network indicator
-        if ssid == '--' or not ssid:
+        if ssid == "--" or not ssid:
             ssid = None
 
         # Parse remainder after BSSID
-        remainder = line[bssid_match.end():].strip()
+        remainder = line[bssid_match.end() :].strip()
         parts = remainder.split()
 
         if len(parts) < 4:
@@ -106,23 +106,23 @@ def _parse_airport_line(line: str) -> WiFiObservation | None:
 
         # Parse RSSI (negative number)
         rssi_str = parts[0]
-        rssi = int(rssi_str) if rssi_str.lstrip('-').isdigit() else None
+        rssi = int(rssi_str) if rssi_str.lstrip("-").isdigit() else None
 
         # Parse channel - might include +1 or -1 for 40MHz
         channel_str = parts[1]
-        channel_match = re.match(r'(\d+)', channel_str)
+        channel_match = re.match(r"(\d+)", channel_str)
         channel = int(channel_match.group(1)) if channel_match else None
 
         # Determine width from channel string
         width = WIDTH_20_MHZ
-        if '+' in channel_str or '-' in channel_str:
+        if "+" in channel_str or "-" in channel_str:
             width = WIDTH_40_MHZ
 
         # HT flag (Y/N) at parts[2]
         # CC (country code) at parts[3]
 
         # Security is the rest (might have multiple parts like WPA2(PSK/AES/AES))
-        security_str = ' '.join(parts[4:]) if len(parts) > 4 else ''
+        security_str = " ".join(parts[4:]) if len(parts) > 4 else ""
         security, cipher, auth = _parse_airport_security(security_str)
 
         # Get frequency
@@ -158,44 +158,44 @@ def _parse_airport_security(security_str: str) -> tuple[str, str, str]:
         'WEP' -> (WEP, WEP, OPEN)
         'NONE' or '' -> (Open, None, Open)
     """
-    if not security_str or security_str.upper() == 'NONE':
+    if not security_str or security_str.upper() == "NONE":
         return SECURITY_OPEN, CIPHER_NONE, AUTH_OPEN
 
     security_upper = security_str.upper()
 
     # Determine security type
     security = SECURITY_UNKNOWN
-    if 'WPA3' in security_upper or 'SAE' in security_upper:
+    if "WPA3" in security_upper or "SAE" in security_upper:
         security = SECURITY_WPA3
-    elif 'RSN' in security_upper or 'WPA2' in security_upper:
+    elif "RSN" in security_upper or "WPA2" in security_upper:
         security = SECURITY_WPA2
-    elif 'WPA' in security_upper:
+    elif "WPA" in security_upper:
         security = SECURITY_WPA
-    elif 'WEP' in security_upper:
+    elif "WEP" in security_upper:
         security = SECURITY_WEP
 
     # Handle mixed mode
-    if 'WPA2' in security_upper and 'WPA3' in security_upper:
+    if "WPA2" in security_upper and "WPA3" in security_upper:
         security = SECURITY_WPA2_WPA3
-    elif 'WPA' in security_upper and 'WPA2' in security_upper:
+    elif "WPA" in security_upper and "WPA2" in security_upper:
         security = SECURITY_WPA_WPA2
 
     # Determine cipher
     cipher = CIPHER_UNKNOWN
-    if 'AES' in security_upper or 'CCMP' in security_upper:
+    if "AES" in security_upper or "CCMP" in security_upper:
         cipher = CIPHER_CCMP
-    elif 'TKIP' in security_upper:
+    elif "TKIP" in security_upper:
         cipher = CIPHER_TKIP
-    elif 'WEP' in security_upper:
+    elif "WEP" in security_upper:
         cipher = CIPHER_WEP
 
     # Determine auth
     auth = AUTH_UNKNOWN
-    if 'SAE' in security_upper:
+    if "SAE" in security_upper:
         auth = AUTH_SAE
-    elif 'PSK' in security_upper:
+    elif "PSK" in security_upper:
         auth = AUTH_PSK
-    elif 'EAP' in security_upper or '802.1X' in security_upper:
+    elif "EAP" in security_upper or "802.1X" in security_upper:
         auth = AUTH_EAP
     elif security == SECURITY_OPEN:
         auth = AUTH_OPEN

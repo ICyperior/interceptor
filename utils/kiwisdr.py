@@ -13,6 +13,7 @@ from typing import Callable
 
 try:
     import websocket  # websocket-client library
+
     WEBSOCKET_CLIENT_AVAILABLE = True
 except ImportError:
     WEBSOCKET_CLIENT_AVAILABLE = False
@@ -21,7 +22,7 @@ import contextlib
 
 from utils.logging import get_logger
 
-logger = get_logger('intercept.kiwisdr')
+logger = get_logger("intercept.kiwisdr")
 
 # Protocol constants
 KIWI_KEEPALIVE_INTERVAL = 5.0
@@ -29,14 +30,14 @@ KIWI_SAMPLE_RATE = 12000  # 12 kHz mono
 KIWI_SND_HEADER_SIZE = 10  # "SND"(3) + flags(1) + seq(4) + smeter(2)
 KIWI_DEFAULT_PORT = 8073
 
-VALID_MODES = ('am', 'usb', 'lsb', 'cw')
+VALID_MODES = ("am", "usb", "lsb", "cw")
 
 # Default bandpass filters per mode (Hz)
 MODE_FILTERS = {
-    'am': (-4500, 4500),
-    'usb': (300, 3000),
-    'lsb': (-3000, -300),
-    'cw': (300, 800),
+    "am": (-4500, 4500),
+    "usb": (300, 3000),
+    "lsb": (-3000, -300),
+    "cw": (300, 800),
 }
 
 
@@ -46,21 +47,21 @@ def parse_host_port(url: str) -> tuple[str, int]:
     Returns (host, port) tuple. Defaults to port 8073 if not specified.
     """
     if not url:
-        return ('', KIWI_DEFAULT_PORT)
+        return ("", KIWI_DEFAULT_PORT)
 
     # Strip protocol
     cleaned = url
-    for prefix in ('http://', 'https://', 'ws://', 'wss://'):
+    for prefix in ("http://", "https://", "ws://", "wss://"):
         if cleaned.lower().startswith(prefix):
-            cleaned = cleaned[len(prefix):]
+            cleaned = cleaned[len(prefix) :]
             break
 
     # Strip path
-    cleaned = cleaned.split('/')[0]
+    cleaned = cleaned.split("/")[0]
 
     # Split host:port
-    if ':' in cleaned:
-        parts = cleaned.rsplit(':', 1)
+    if ":" in cleaned:
+        parts = cleaned.rsplit(":", 1)
         host = parts[0]
         try:
             port = int(parts[1])
@@ -83,7 +84,7 @@ class KiwiSDRClient:
         on_audio: Callable[[bytes, int], None] | None = None,
         on_error: Callable[[str], None] | None = None,
         on_disconnect: Callable[[], None] | None = None,
-        password: str = '',
+        password: str = "",
     ):
         self.host = host
         self.port = port
@@ -100,14 +101,14 @@ class KiwiSDRClient:
         self._send_lock = threading.Lock()
 
         self.frequency_khz: float = 0
-        self.mode: str = 'am'
+        self.mode: str = "am"
         self.last_smeter: int = 0
 
     @property
     def connected(self) -> bool:
         return self._connected
 
-    def connect(self, frequency_khz: float, mode: str = 'am') -> bool:
+    def connect(self, frequency_khz: float, mode: str = "am") -> bool:
         """Connect to KiwiSDR and start receiving audio."""
         if not WEBSOCKET_CLIENT_AVAILABLE:
             logger.error("websocket-client not installed")
@@ -117,7 +118,7 @@ class KiwiSDRClient:
             self.disconnect()
 
         self.frequency_khz = frequency_khz
-        self.mode = mode if mode in VALID_MODES else 'am'
+        self.mode = mode if mode in VALID_MODES else "am"
         self._stopping = False
 
         ws_url = self._build_ws_url()
@@ -129,33 +130,29 @@ class KiwiSDRClient:
             self._ws.connect(ws_url)
 
             # Auth
-            self._send('SET auth t=kiwi p=' + self.password)
+            self._send("SET auth t=kiwi p=" + self.password)
             time.sleep(0.2)
 
             # Request uncompressed PCM
-            self._send('SET compression=0')
+            self._send("SET compression=0")
 
             # Set AGC
-            self._send('SET agc=1 hang=0 thresh=-100 slope=6 decay=1000 manGain=50')
+            self._send("SET agc=1 hang=0 thresh=-100 slope=6 decay=1000 manGain=50")
 
             # Tune to frequency
             self._send_tune(frequency_khz, self.mode)
 
             # Request audio start
-            self._send('SET AR OK in=12000 out=44100')
+            self._send("SET AR OK in=12000 out=44100")
 
             self._connected = True
 
             # Start receive thread
-            self._receive_thread = threading.Thread(
-                target=self._receive_loop, daemon=True, name='kiwi-rx'
-            )
+            self._receive_thread = threading.Thread(target=self._receive_loop, daemon=True, name="kiwi-rx")
             self._receive_thread.start()
 
             # Start keepalive thread
-            self._keepalive_thread = threading.Thread(
-                target=self._keepalive_loop, daemon=True, name='kiwi-ka'
-            )
+            self._keepalive_thread = threading.Thread(target=self._keepalive_loop, daemon=True, name="kiwi-ka")
             self._keepalive_thread.start()
 
             logger.info(f"Connected to KiwiSDR {self.host}:{self.port} @ {frequency_khz} kHz {self.mode}")
@@ -166,7 +163,7 @@ class KiwiSDRClient:
             self._cleanup()
             return False
 
-    def tune(self, frequency_khz: float, mode: str = 'am') -> bool:
+    def tune(self, frequency_khz: float, mode: str = "am") -> bool:
         """Retune without disconnecting."""
         if not self._connected or not self._ws:
             return False
@@ -192,7 +189,7 @@ class KiwiSDRClient:
 
     def _build_ws_url(self) -> str:
         ts = int(time.time() * 1000)
-        return f'ws://{self.host}:{self.port}/{ts}/SND'
+        return f"ws://{self.host}:{self.port}/{ts}/SND"
 
     def _send(self, msg: str) -> None:
         with self._send_lock:
@@ -200,8 +197,8 @@ class KiwiSDRClient:
                 self._ws.send(msg)
 
     def _send_tune(self, freq_khz: float, mode: str) -> None:
-        low_cut, high_cut = MODE_FILTERS.get(mode, MODE_FILTERS['am'])
-        self._send(f'SET mod={mode} low_cut={low_cut} high_cut={high_cut} freq={freq_khz}')
+        low_cut, high_cut = MODE_FILTERS.get(mode, MODE_FILTERS["am"])
+        self._send(f"SET mod={mode} low_cut={low_cut} high_cut={high_cut} freq={freq_khz}")
 
     def _receive_loop(self) -> None:
         """Background thread: read frames from KiwiSDR WebSocket."""
@@ -241,14 +238,14 @@ class KiwiSDRClient:
             return
 
         # Check header magic
-        if data[:3] != b'SND':
+        if data[:3] != b"SND":
             return
 
         # flags = data[3]
         # seq = struct.unpack('>I', data[4:8])[0]
 
         # S-meter: big-endian int16 at offset 8
-        smeter_raw = struct.unpack('>h', data[8:10])[0]
+        smeter_raw = struct.unpack(">h", data[8:10])[0]
         self.last_smeter = smeter_raw
 
         # PCM audio data starts at offset 10
@@ -264,7 +261,7 @@ class KiwiSDRClient:
             time.sleep(KIWI_KEEPALIVE_INTERVAL)
             if self._connected and not self._stopping:
                 try:
-                    self._send('SET keepalive')
+                    self._send("SET keepalive")
                 except Exception:
                     break
 

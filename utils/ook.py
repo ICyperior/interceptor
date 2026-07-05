@@ -26,7 +26,7 @@ import threading
 from datetime import datetime
 from typing import Any
 
-logger = logging.getLogger('intercept.ook')
+logger = logging.getLogger("intercept.ook")
 
 
 def decode_ook_frame(hex_data: str) -> dict[str, Any] | None:
@@ -46,9 +46,9 @@ def decode_ook_frame(hex_data: str) -> dict[str, Any] | None:
         ``byte_count``, and ``bit_count``, or ``None`` on parse failure.
     """
     try:
-        cleaned = hex_data.replace(' ', '')
+        cleaned = hex_data.replace(" ", "")
         # rtl_433 flex decoder prefixes hex with '0x' — strip it
-        if cleaned.startswith(('0x', '0X')):
+        if cleaned.startswith(("0x", "0X")):
             cleaned = cleaned[2:]
         raw = bytes.fromhex(cleaned)
     except ValueError:
@@ -58,13 +58,13 @@ def decode_ook_frame(hex_data: str) -> dict[str, Any] | None:
         return None
 
     # Expand bytes to MSB-first bit string
-    bits = ''.join(f'{b:08b}' for b in raw)
+    bits = "".join(f"{b:08b}" for b in raw)
 
     return {
-        'bits': bits,
-        'hex': raw.hex(),
-        'byte_count': len(raw),
-        'bit_count': len(bits),
+        "bits": bits,
+        "hex": raw.hex(),
+        "byte_count": len(raw),
+        "bit_count": len(bits),
     }
 
 
@@ -72,7 +72,7 @@ def ook_parser_thread(
     rtl_stdout,
     output_queue: queue.Queue,
     stop_event: threading.Event,
-    encoding: str = 'pwm',
+    encoding: str = "pwm",
     deduplicate: bool = False,
 ) -> None:
     """Thread function: reads rtl_433 JSON output and emits OOK frame events.
@@ -99,39 +99,39 @@ def ook_parser_thread(
     last_hex: str | None = None
 
     try:
-        for line in iter(rtl_stdout.readline, b''):
+        for line in iter(rtl_stdout.readline, b""):
             if stop_event.is_set():
                 break
 
-            text = line.decode('utf-8', errors='replace').strip()
+            text = line.decode("utf-8", errors="replace").strip()
             if not text:
                 continue
 
             try:
                 data = json.loads(text)
             except json.JSONDecodeError:
-                logger.debug(f'[rtl_433/ook] {text}')
+                logger.debug(f"[rtl_433/ook] {text}")
                 continue
 
             # rtl_433 flex decoder puts hex in 'codes' (list or string),
             # 'code' (singular), or 'data' depending on version.
-            codes = data.get('codes')
+            codes = data.get("codes")
             if codes is not None and isinstance(codes, str):
                 codes = [codes] if codes else None
 
             if not codes:
-                code = data.get('code')
+                code = data.get("code")
                 if code:
                     codes = [str(code)]
 
             if not codes:
-                raw_data = data.get('data')
+                raw_data = data.get("data")
                 if raw_data:
                     codes = [str(raw_data)]
 
             # Extract signal level if rtl_433 was invoked with -M level
             rssi: float | None = None
-            for _rssi_key in ('snr', 'rssi', 'level', 'noise'):
+            for _rssi_key in ("snr", "rssi", "level", "noise"):
                 _rssi_val = data.get(_rssi_key)
                 if _rssi_val is not None:
                     with contextlib.suppress(TypeError, ValueError):
@@ -139,61 +139,61 @@ def ook_parser_thread(
                     break
 
             if not codes:
-                logger.warning(
-                    f'[rtl_433/ook] no code field — keys: {list(data.keys())}'
-                )
+                logger.warning(f"[rtl_433/ook] no code field — keys: {list(data.keys())}")
                 with contextlib.suppress(queue.Full):
-                    output_queue.put_nowait({
-                        'type': 'ook_raw',
-                        'data': data,
-                        'timestamp': datetime.now().strftime('%H:%M:%S'),
-                    })
+                    output_queue.put_nowait(
+                        {
+                            "type": "ook_raw",
+                            "data": data,
+                            "timestamp": datetime.now().strftime("%H:%M:%S"),
+                        }
+                    )
                 continue
 
             for code_hex in codes:
                 hex_str = str(code_hex).strip()
                 # Strip leading {N} bit-count prefix if present
-                if hex_str.startswith('{'):
-                    brace_end = hex_str.find('}')
+                if hex_str.startswith("{"):
+                    brace_end = hex_str.find("}")
                     if brace_end >= 0:
-                        hex_str = hex_str[brace_end + 1:]
+                        hex_str = hex_str[brace_end + 1 :]
 
                 frame = decode_ook_frame(hex_str)
                 if frame is None:
                     continue
 
-                timestamp = datetime.now().strftime('%H:%M:%S')
+                timestamp = datetime.now().strftime("%H:%M:%S")
 
                 # Deduplication: skip if identical to last frame
-                is_dup = deduplicate and frame['hex'] == last_hex
-                last_hex = frame['hex']
+                is_dup = deduplicate and frame["hex"] == last_hex
+                last_hex = frame["hex"]
 
                 if deduplicate and is_dup:
                     continue
 
                 try:
                     event: dict[str, Any] = {
-                        'type': 'ook_frame',
-                        'hex': frame['hex'],
-                        'bits': frame['bits'],
-                        'byte_count': frame['byte_count'],
-                        'bit_count': frame['bit_count'],
-                        'inverted': False,
-                        'encoding': encoding,
-                        'timestamp': timestamp,
+                        "type": "ook_frame",
+                        "hex": frame["hex"],
+                        "bits": frame["bits"],
+                        "byte_count": frame["byte_count"],
+                        "bit_count": frame["bit_count"],
+                        "inverted": False,
+                        "encoding": encoding,
+                        "timestamp": timestamp,
                     }
                     if rssi is not None:
-                        event['rssi'] = rssi
+                        event["rssi"] = rssi
                     output_queue.put_nowait(event)
                 except queue.Full:
                     pass
 
     except Exception as e:
-        logger.warning(f'OOK parser thread error: {e}')
+        logger.warning(f"OOK parser thread error: {e}")
         with contextlib.suppress(queue.Full):
-            output_queue.put_nowait({'type': 'error', 'text': str(e)})
+            output_queue.put_nowait({"type": "error", "text": str(e)})
 
     # Notify frontend that the parser has stopped (covers both normal exit
     # and unexpected rtl_433 crashes so the UI doesn't stay in "Listening").
     with contextlib.suppress(queue.Full):
-        output_queue.put_nowait({'type': 'status', 'text': 'stopped'})
+        output_queue.put_nowait({"type": "status", "text": "stopped"})

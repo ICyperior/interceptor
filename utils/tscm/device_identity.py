@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 
-logger = logging.getLogger('intercept.tscm.device_identity')
+logger = logging.getLogger("intercept.tscm.device_identity")
 
 
 # =============================================================================
@@ -40,8 +40,8 @@ logger = logging.getLogger('intercept.tscm.device_identity')
 # =============================================================================
 
 # Session gap thresholds (seconds)
-BLE_SESSION_GAP = 60       # New session if no observations for 60s
-WIFI_SESSION_GAP = 120     # WiFi clients may probe less frequently
+BLE_SESSION_GAP = 60  # New session if no observations for 60s
+WIFI_SESSION_GAP = 120  # WiFi clients may probe less frequently
 
 # Clustering thresholds
 MIN_CLUSTER_CONFIDENCE = 0.3  # Minimum confidence to consider clustering
@@ -56,64 +56,70 @@ TEMPORAL_CORRELATION_WINDOW = timedelta(seconds=5)
 
 # Fingerprint weights (sum to 1.0 for normalization)
 FINGERPRINT_WEIGHTS = {
-    'manufacturer_data': 0.25,
-    'service_uuids': 0.20,
-    'capabilities': 0.15,
-    'payload_structure': 0.15,
-    'timing_pattern': 0.10,
-    'rssi_trajectory': 0.10,
-    'name_similarity': 0.05,
+    "manufacturer_data": 0.25,
+    "service_uuids": 0.20,
+    "capabilities": 0.15,
+    "payload_structure": 0.15,
+    "timing_pattern": 0.10,
+    "rssi_trajectory": 0.10,
+    "name_similarity": 0.05,
 }
 
 
 class AddressType(Enum):
     """BLE address types per Bluetooth spec."""
-    PUBLIC = 'public'
-    RANDOM_STATIC = 'random_static'
-    RPA = 'rpa'  # Resolvable Private Address
-    NRPA = 'nrpa'  # Non-Resolvable Private Address
-    UNKNOWN = 'unknown'
+
+    PUBLIC = "public"
+    RANDOM_STATIC = "random_static"
+    RPA = "rpa"  # Resolvable Private Address
+    NRPA = "nrpa"  # Non-Resolvable Private Address
+    UNKNOWN = "unknown"
 
 
 class AdvType(Enum):
     """BLE advertisement types."""
-    ADV_IND = 'ADV_IND'
-    ADV_DIRECT_IND = 'ADV_DIRECT_IND'
-    ADV_NONCONN_IND = 'ADV_NONCONN_IND'
-    ADV_SCAN_IND = 'ADV_SCAN_IND'
-    SCAN_RSP = 'SCAN_RSP'
-    UNKNOWN = 'unknown'
+
+    ADV_IND = "ADV_IND"
+    ADV_DIRECT_IND = "ADV_DIRECT_IND"
+    ADV_NONCONN_IND = "ADV_NONCONN_IND"
+    ADV_SCAN_IND = "ADV_SCAN_IND"
+    SCAN_RSP = "SCAN_RSP"
+    UNKNOWN = "unknown"
 
 
 class WifiFrameType(Enum):
     """WiFi frame types of interest."""
-    BEACON = 'beacon'
-    PROBE_REQUEST = 'probe_request'
-    PROBE_RESPONSE = 'probe_response'
-    AUTH = 'auth'
-    ASSOC_REQUEST = 'assoc_request'
-    ASSOC_RESPONSE = 'assoc_response'
-    DEAUTH = 'deauth'
-    DISASSOC = 'disassoc'
-    DATA = 'data'
-    UNKNOWN = 'unknown'
+
+    BEACON = "beacon"
+    PROBE_REQUEST = "probe_request"
+    PROBE_RESPONSE = "probe_response"
+    AUTH = "auth"
+    ASSOC_REQUEST = "assoc_request"
+    ASSOC_RESPONSE = "assoc_response"
+    DEAUTH = "deauth"
+    DISASSOC = "disassoc"
+    DATA = "data"
+    UNKNOWN = "unknown"
 
 
 class RiskLevel(Enum):
     """TSCM risk levels for device clusters."""
-    INFORMATIONAL = 'informational'
-    LOW = 'low'
-    MEDIUM = 'medium'
-    HIGH = 'high'
+
+    INFORMATIONAL = "informational"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
 
 
 # =============================================================================
 # Observation Data Classes
 # =============================================================================
 
+
 @dataclass
 class BLEObservation:
     """Single BLE advertisement observation."""
+
     timestamp: datetime
     addr: str  # MAC-like address
     addr_type: AddressType = AddressType.UNKNOWN
@@ -189,7 +195,7 @@ class BLEObservation:
         # Check MAC address format for random bit
         # Bit 1 of first octet set = locally administered (random)
         try:
-            first_octet = int(self.addr.split(':')[0], 16)
+            first_octet = int(self.addr.split(":")[0], 16)
             return bool(first_octet & 0x02)
         except (ValueError, IndexError):
             return False
@@ -198,6 +204,7 @@ class BLEObservation:
 @dataclass
 class WifiObservation:
     """Single WiFi frame observation."""
+
     timestamp: datetime
     src_mac: str
     dst_mac: str | None = None
@@ -245,11 +252,11 @@ class WifiObservation:
         # Capability fingerprint
         caps = []
         if self.ht_capable:
-            caps.append('HT')
+            caps.append("HT")
         if self.vht_capable:
-            caps.append('VHT')
+            caps.append("VHT")
         if self.he_capable:
-            caps.append('HE')
+            caps.append("HE")
         if caps:
             components.append(f"caps:{'+'.join(caps)}")
 
@@ -276,7 +283,7 @@ class WifiObservation:
     def is_randomized_address(self) -> bool:
         """Check if source MAC appears to be randomized."""
         try:
-            first_octet = int(self.src_mac.split(':')[0], 16)
+            first_octet = int(self.src_mac.split(":")[0], 16)
             return bool(first_octet & 0x02)
         except (ValueError, IndexError):
             return False
@@ -286,6 +293,7 @@ class WifiObservation:
 # Session and Cluster Data Classes
 # =============================================================================
 
+
 @dataclass
 class DeviceSession:
     """
@@ -294,6 +302,7 @@ class DeviceSession:
     Multiple observations from the same MAC (or clustered identity) within
     the session gap threshold belong to the same session.
     """
+
     session_id: str
     protocol: str  # 'ble' or 'wifi'
     first_seen: datetime
@@ -312,11 +321,11 @@ class DeviceSession:
         self.observations.append(obs)
         self.last_seen = obs.timestamp
 
-        if hasattr(obs, 'addr'):
+        if hasattr(obs, "addr"):
             self.observed_macs.add(obs.addr)
             if self.primary_mac is None:
                 self.primary_mac = obs.addr
-        elif hasattr(obs, 'src_mac'):
+        elif hasattr(obs, "src_mac"):
             self.observed_macs.add(obs.src_mac)
             if self.primary_mac is None:
                 self.primary_mac = obs.src_mac
@@ -369,24 +378,25 @@ class DeviceSession:
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
         return {
-            'session_id': self.session_id,
-            'protocol': self.protocol,
-            'first_seen': self.first_seen.isoformat(),
-            'last_seen': self.last_seen.isoformat(),
-            'duration_seconds': self.get_duration().total_seconds(),
-            'observation_count': len(self.observations),
-            'primary_mac': self.primary_mac,
-            'observed_macs': list(self.observed_macs),
-            'fingerprint_hashes': list(self.fingerprint_hashes),
-            'mean_rssi': self.get_mean_rssi(),
-            'rssi_stability': self.get_rssi_stability(),
-            'mean_interval': self.get_mean_interval(),
+            "session_id": self.session_id,
+            "protocol": self.protocol,
+            "first_seen": self.first_seen.isoformat(),
+            "last_seen": self.last_seen.isoformat(),
+            "duration_seconds": self.get_duration().total_seconds(),
+            "observation_count": len(self.observations),
+            "primary_mac": self.primary_mac,
+            "observed_macs": list(self.observed_macs),
+            "fingerprint_hashes": list(self.fingerprint_hashes),
+            "mean_rssi": self.get_mean_rssi(),
+            "rssi_stability": self.get_rssi_stability(),
+            "mean_interval": self.get_mean_interval(),
         }
 
 
 @dataclass
 class RiskIndicator:
     """A TSCM risk indicator for a device cluster."""
+
     indicator_type: str
     description: str
     score: int  # 0-10
@@ -395,11 +405,11 @@ class RiskIndicator:
 
     def to_dict(self) -> dict:
         return {
-            'type': self.indicator_type,
-            'description': self.description,
-            'score': self.score,
-            'evidence': self.evidence,
-            'timestamp': self.timestamp.isoformat(),
+            "type": self.indicator_type,
+            "description": self.description,
+            "score": self.score,
+            "evidence": self.evidence,
+            "timestamp": self.timestamp.isoformat(),
         }
 
 
@@ -411,6 +421,7 @@ class DeviceCluster:
     Multiple sessions and MACs may be linked to the same cluster based
     on fingerprint similarity, temporal correlation, and RSSI patterns.
     """
+
     cluster_id: str
     protocol: str
     created_at: datetime = field(default_factory=datetime.now)
@@ -441,8 +452,7 @@ class DeviceCluster:
     last_seen: datetime | None = None
     presence_ratio: float = 0.0  # % of monitoring period device was present
 
-    def add_session(self, session: DeviceSession, link_reason: str,
-                    link_confidence: float) -> None:
+    def add_session(self, session: DeviceSession, link_reason: str, link_confidence: float) -> None:
         """Add a session to this cluster with linking evidence."""
         self.sessions.append(session)
         self.linked_macs.update(session.observed_macs)
@@ -455,18 +465,18 @@ class DeviceCluster:
         if self.last_seen is None or session.last_seen > self.last_seen:
             self.last_seen = session.last_seen
 
-        self.link_evidence.append({
-            'session_id': session.session_id,
-            'reason': link_reason,
-            'confidence': link_confidence,
-            'timestamp': datetime.now().isoformat(),
-        })
+        self.link_evidence.append(
+            {
+                "session_id": session.session_id,
+                "reason": link_reason,
+                "confidence": link_confidence,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
         # Update overall confidence (weighted average)
         if self.link_evidence:
-            self.confidence = statistics.mean(
-                e['confidence'] for e in self.link_evidence
-            )
+            self.confidence = statistics.mean(e["confidence"] for e in self.link_evidence)
 
     def add_risk_indicator(self, indicator: RiskIndicator) -> None:
         """Add a risk indicator and update risk assessment."""
@@ -493,33 +503,34 @@ class DeviceCluster:
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
         return {
-            'cluster_id': self.cluster_id,
-            'protocol': self.protocol,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'confidence': round(self.confidence, 3),
-            'session_count': len(self.sessions),
-            'linked_macs': list(self.linked_macs),
-            'fingerprint_hashes': list(self.fingerprint_hashes),
-            'best_name': self.best_name,
-            'manufacturer_id': self.manufacturer_id,
-            'manufacturer_name': self.manufacturer_name,
-            'device_type': self.device_type,
-            'risk_level': self.risk_level.value,
-            'risk_score': self.risk_score,
-            'risk_indicators': [i.to_dict() for i in self.risk_indicators],
-            'total_observations': self.total_observations,
-            'first_seen': self.first_seen.isoformat() if self.first_seen else None,
-            'last_seen': self.last_seen.isoformat() if self.last_seen else None,
-            'presence_ratio': round(self.presence_ratio, 3),
-            'link_evidence': self.link_evidence,
-            'sessions': [s.to_dict() for s in self.sessions],
+            "cluster_id": self.cluster_id,
+            "protocol": self.protocol,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "confidence": round(self.confidence, 3),
+            "session_count": len(self.sessions),
+            "linked_macs": list(self.linked_macs),
+            "fingerprint_hashes": list(self.fingerprint_hashes),
+            "best_name": self.best_name,
+            "manufacturer_id": self.manufacturer_id,
+            "manufacturer_name": self.manufacturer_name,
+            "device_type": self.device_type,
+            "risk_level": self.risk_level.value,
+            "risk_score": self.risk_score,
+            "risk_indicators": [i.to_dict() for i in self.risk_indicators],
+            "total_observations": self.total_observations,
+            "first_seen": self.first_seen.isoformat() if self.first_seen else None,
+            "last_seen": self.last_seen.isoformat() if self.last_seen else None,
+            "presence_ratio": round(self.presence_ratio, 3),
+            "link_evidence": self.link_evidence,
+            "sessions": [s.to_dict() for s in self.sessions],
         }
 
 
 # =============================================================================
 # Fingerprint Similarity Functions
 # =============================================================================
+
 
 def jaccard_similarity(set1: set, set2: set) -> float:
     """Calculate Jaccard similarity between two sets."""
@@ -530,8 +541,7 @@ def jaccard_similarity(set1: set, set2: set) -> float:
     return intersection / union if union > 0 else 0.0
 
 
-def manufacturer_data_similarity(data1: bytes | None,
-                                  data2: bytes | None) -> float:
+def manufacturer_data_similarity(data1: bytes | None, data2: bytes | None) -> float:
     """
     Calculate similarity between manufacturer data blobs.
 
@@ -546,9 +556,7 @@ def manufacturer_data_similarity(data1: bytes | None,
 
     # Compare common prefix (often contains device type info)
     prefix_len = min(8, len(data1), len(data2))
-    prefix_match = sum(
-        1 for i in range(prefix_len) if data1[i] == data2[i]
-    ) / prefix_len if prefix_len > 0 else 0.0
+    prefix_match = sum(1 for i in range(prefix_len) if data1[i] == data2[i]) / prefix_len if prefix_len > 0 else 0.0
 
     # Compare full content via byte-level similarity
     min_len = min(len(data1), len(data2))
@@ -559,9 +567,7 @@ def manufacturer_data_similarity(data1: bytes | None,
     return 0.5 * prefix_match + 0.3 * content_sim + 0.2 * len_sim
 
 
-def rssi_trajectory_similarity(samples1: list[int],
-                                samples2: list[int],
-                                time_window: float = 5.0) -> float:
+def rssi_trajectory_similarity(samples1: list[int], samples2: list[int], time_window: float = 5.0) -> float:
     """
     Calculate RSSI trajectory similarity.
 
@@ -594,8 +600,7 @@ def rssi_trajectory_similarity(samples1: list[int],
     return 0.6 * mean_sim + 0.4 * var_sim
 
 
-def timing_pattern_similarity(intervals1: list[float],
-                               intervals2: list[float]) -> float:
+def timing_pattern_similarity(intervals1: list[float], intervals2: list[float]) -> float:
     """
     Calculate advertising/probing interval similarity.
 
@@ -649,6 +654,7 @@ def name_similarity(name1: str | None, name2: str | None) -> float:
 # =============================================================================
 # Device Identity Engine
 # =============================================================================
+
 
 class DeviceIdentityEngine:
     """
@@ -720,8 +726,8 @@ class DeviceIdentityEngine:
     def _create_ble_session(self, obs: BLEObservation) -> DeviceSession:
         """Create a new BLE session from initial observation."""
         session = DeviceSession(
-            session_id=self._generate_session_id('ble'),
-            protocol='ble',
+            session_id=self._generate_session_id("ble"),
+            protocol="ble",
             first_seen=obs.timestamp,
             last_seen=obs.timestamp,
         )
@@ -762,8 +768,8 @@ class DeviceIdentityEngine:
     def _create_wifi_session(self, obs: WifiObservation) -> DeviceSession:
         """Create a new WiFi session from initial observation."""
         session = DeviceSession(
-            session_id=self._generate_session_id('wifi'),
-            protocol='wifi',
+            session_id=self._generate_session_id("wifi"),
+            protocol="wifi",
             first_seen=obs.timestamp,
             last_seen=obs.timestamp,
         )
@@ -778,11 +784,7 @@ class DeviceIdentityEngine:
         if cluster:
             # Add to existing cluster
             similarity = self._calculate_cluster_similarity(cluster, session)
-            cluster.add_session(
-                session,
-                link_reason="Fingerprint/behavioral match",
-                link_confidence=similarity
-            )
+            cluster.add_session(session, link_reason="Fingerprint/behavioral match", link_confidence=similarity)
         else:
             # Create new cluster
             cluster = self._create_cluster_from_session(session)
@@ -811,8 +813,7 @@ class DeviceIdentityEngine:
 
         return best_match
 
-    def _calculate_cluster_similarity(self, cluster: DeviceCluster,
-                                       session: DeviceSession) -> float:
+    def _calculate_cluster_similarity(self, cluster: DeviceCluster, session: DeviceSession) -> float:
         """
         Calculate similarity between a cluster and a session.
 
@@ -823,48 +824,35 @@ class DeviceIdentityEngine:
         # 1. Fingerprint hash matching (strongest signal)
         fp_overlap = cluster.fingerprint_hashes & session.fingerprint_hashes
         if fp_overlap:
-            fp_score = len(fp_overlap) / max(
-                len(cluster.fingerprint_hashes),
-                len(session.fingerprint_hashes)
-            )
-            scores['fingerprint'] = min(1.0, fp_score * 1.5)  # Boost for exact match
+            fp_score = len(fp_overlap) / max(len(cluster.fingerprint_hashes), len(session.fingerprint_hashes))
+            scores["fingerprint"] = min(1.0, fp_score * 1.5)  # Boost for exact match
 
         # 2. Manufacturer data similarity
         cluster_mfg_data = self._get_cluster_manufacturer_data(cluster)
         session_mfg_data = self._get_session_manufacturer_data(session)
         if cluster_mfg_data and session_mfg_data:
-            scores['manufacturer_data'] = manufacturer_data_similarity(
-                cluster_mfg_data, session_mfg_data
-            )
+            scores["manufacturer_data"] = manufacturer_data_similarity(cluster_mfg_data, session_mfg_data)
 
         # 3. Service UUID overlap
         cluster_uuids = self._get_cluster_service_uuids(cluster)
         session_uuids = self._get_session_service_uuids(session)
         if cluster_uuids or session_uuids:
-            scores['service_uuids'] = jaccard_similarity(
-                cluster_uuids, session_uuids
-            )
+            scores["service_uuids"] = jaccard_similarity(cluster_uuids, session_uuids)
 
         # 4. RSSI trajectory similarity
         cluster_rssi = cluster.get_all_rssi_samples()
         if cluster_rssi and session.rssi_samples:
-            scores['rssi_trajectory'] = rssi_trajectory_similarity(
-                cluster_rssi, session.rssi_samples
-            )
+            scores["rssi_trajectory"] = rssi_trajectory_similarity(cluster_rssi, session.rssi_samples)
 
         # 5. Timing pattern similarity
         cluster_intervals = self._get_cluster_intervals(cluster)
         if cluster_intervals and session.observation_intervals:
-            scores['timing_pattern'] = timing_pattern_similarity(
-                cluster_intervals, session.observation_intervals
-            )
+            scores["timing_pattern"] = timing_pattern_similarity(cluster_intervals, session.observation_intervals)
 
         # 6. Name similarity
         session_name = self._get_session_name(session)
         if cluster.best_name and session_name:
-            scores['name_similarity'] = name_similarity(
-                cluster.best_name, session_name
-            )
+            scores["name_similarity"] = name_similarity(cluster.best_name, session_name)
 
         if not scores:
             return 0.0
@@ -884,14 +872,14 @@ class DeviceIdentityEngine:
         """Get representative manufacturer data from cluster."""
         for session in cluster.sessions:
             for obs in session.observations:
-                if hasattr(obs, 'manufacturer_data') and obs.manufacturer_data:
+                if hasattr(obs, "manufacturer_data") and obs.manufacturer_data:
                     return obs.manufacturer_data
         return None
 
     def _get_session_manufacturer_data(self, session: DeviceSession) -> bytes | None:
         """Get manufacturer data from session."""
         for obs in session.observations:
-            if hasattr(obs, 'manufacturer_data') and obs.manufacturer_data:
+            if hasattr(obs, "manufacturer_data") and obs.manufacturer_data:
                 return obs.manufacturer_data
         return None
 
@@ -900,7 +888,7 @@ class DeviceIdentityEngine:
         uuids = set()
         for session in cluster.sessions:
             for obs in session.observations:
-                if hasattr(obs, 'service_uuids') and obs.service_uuids:
+                if hasattr(obs, "service_uuids") and obs.service_uuids:
                     uuids.update(obs.service_uuids)
         return uuids
 
@@ -908,7 +896,7 @@ class DeviceIdentityEngine:
         """Get service UUIDs from session."""
         uuids = set()
         for obs in session.observations:
-            if hasattr(obs, 'service_uuids') and obs.service_uuids:
+            if hasattr(obs, "service_uuids") and obs.service_uuids:
                 uuids.update(obs.service_uuids)
         return uuids
 
@@ -922,7 +910,7 @@ class DeviceIdentityEngine:
     def _get_session_name(self, session: DeviceSession) -> str | None:
         """Get device name from session."""
         for obs in session.observations:
-            if hasattr(obs, 'local_name') and obs.local_name:
+            if hasattr(obs, "local_name") and obs.local_name:
                 return obs.local_name
         return None
 
@@ -933,17 +921,13 @@ class DeviceIdentityEngine:
             protocol=session.protocol,
         )
 
-        cluster.add_session(
-            session,
-            link_reason="Initial session",
-            link_confidence=1.0
-        )
+        cluster.add_session(session, link_reason="Initial session", link_confidence=1.0)
 
         # Extract identifying information
         for obs in session.observations:
-            if hasattr(obs, 'local_name') and obs.local_name:
+            if hasattr(obs, "local_name") and obs.local_name:
                 cluster.best_name = obs.local_name
-            if hasattr(obs, 'manufacturer_id') and obs.manufacturer_id:
+            if hasattr(obs, "manufacturer_id") and obs.manufacturer_id:
                 cluster.manufacturer_id = obs.manufacturer_id
 
         return cluster
@@ -969,12 +953,14 @@ class DeviceIdentityEngine:
 
         # Risk: High presence ratio (device always present)
         if cluster.presence_ratio > 0.8:
-            cluster.add_risk_indicator(RiskIndicator(
-                indicator_type='high_presence',
-                description='Device present for >80% of monitoring period',
-                score=2,
-                evidence={'presence_ratio': round(cluster.presence_ratio, 2)}
-            ))
+            cluster.add_risk_indicator(
+                RiskIndicator(
+                    indicator_type="high_presence",
+                    description="Device present for >80% of monitoring period",
+                    score=2,
+                    evidence={"presence_ratio": round(cluster.presence_ratio, 2)},
+                )
+            )
 
         # Risk: Very stable RSSI (stationary device)
         rssi_samples = cluster.get_all_rssi_samples()
@@ -982,65 +968,69 @@ class DeviceIdentityEngine:
             try:
                 stdev = statistics.stdev(rssi_samples)
                 if stdev < 3:
-                    cluster.add_risk_indicator(RiskIndicator(
-                        indicator_type='stable_rssi',
-                        description='Very stable signal suggests fixed placement',
-                        score=2,
-                        evidence={
-                            'rssi_stdev': round(stdev, 2),
-                            'sample_count': len(rssi_samples)
-                        }
-                    ))
+                    cluster.add_risk_indicator(
+                        RiskIndicator(
+                            indicator_type="stable_rssi",
+                            description="Very stable signal suggests fixed placement",
+                            score=2,
+                            evidence={"rssi_stdev": round(stdev, 2), "sample_count": len(rssi_samples)},
+                        )
+                    )
             except statistics.StatisticsError:
                 pass
 
         # Risk: Multiple MAC addresses observed (MAC rotation)
         if len(cluster.linked_macs) > 1:
-            cluster.add_risk_indicator(RiskIndicator(
-                indicator_type='mac_rotation',
-                description=f'Multiple MACs ({len(cluster.linked_macs)}) linked to same device',
-                score=1,
-                evidence={'mac_count': len(cluster.linked_macs)}
-            ))
+            cluster.add_risk_indicator(
+                RiskIndicator(
+                    indicator_type="mac_rotation",
+                    description=f"Multiple MACs ({len(cluster.linked_macs)}) linked to same device",
+                    score=1,
+                    evidence={"mac_count": len(cluster.linked_macs)},
+                )
+            )
 
         # Risk: Check for suspicious manufacturer IDs
         if cluster.manufacturer_id:
             suspicious_mfg = {
-                0x02E5: ('Espressif', 3, 'Programmable ESP32/ESP8266 device'),
+                0x02E5: ("Espressif", 3, "Programmable ESP32/ESP8266 device"),
             }
             if cluster.manufacturer_id in suspicious_mfg:
                 name, score, desc = suspicious_mfg[cluster.manufacturer_id]
-                cluster.add_risk_indicator(RiskIndicator(
-                    indicator_type='suspicious_chipset',
-                    description=desc,
-                    score=score,
-                    evidence={'manufacturer': name, 'id': hex(cluster.manufacturer_id)}
-                ))
+                cluster.add_risk_indicator(
+                    RiskIndicator(
+                        indicator_type="suspicious_chipset",
+                        description=desc,
+                        score=score,
+                        evidence={"manufacturer": name, "id": hex(cluster.manufacturer_id)},
+                    )
+                )
 
         # Risk: Check for audio-capable services (BLE)
-        audio_service_prefixes = ['0000110', '00001108', '00001203']  # A2DP, Headset, Audio
+        audio_service_prefixes = ["0000110", "00001108", "00001203"]  # A2DP, Headset, Audio
         cluster_uuids = set()
         for session in cluster.sessions:
             cluster_uuids.update(self._get_session_service_uuids(session))
 
         for uuid in cluster_uuids:
             if any(uuid.lower().startswith(prefix) for prefix in audio_service_prefixes):
-                cluster.add_risk_indicator(RiskIndicator(
-                    indicator_type='audio_capable',
-                    description='Audio-capable BLE services detected',
-                    score=2,
-                    evidence={'service_uuid': uuid}
-                ))
+                cluster.add_risk_indicator(
+                    RiskIndicator(
+                        indicator_type="audio_capable",
+                        description="Audio-capable BLE services detected",
+                        score=2,
+                        evidence={"service_uuid": uuid},
+                    )
+                )
                 break
 
         # Risk: No name advertised (hidden identity)
         if not cluster.best_name:
-            cluster.add_risk_indicator(RiskIndicator(
-                indicator_type='no_name',
-                description='Device does not advertise a name',
-                score=1,
-                evidence={}
-            ))
+            cluster.add_risk_indicator(
+                RiskIndicator(
+                    indicator_type="no_name", description="Device does not advertise a name", score=1, evidence={}
+                )
+            )
 
         # Risk: High observation count relative to duration (aggressive advertising)
         if cluster.first_seen and cluster.last_seen:
@@ -1048,16 +1038,18 @@ class DeviceIdentityEngine:
             if duration > 60 and cluster.total_observations > 0:
                 obs_rate = cluster.total_observations / duration
                 if obs_rate > 2.0:  # More than 2 observations per second
-                    cluster.add_risk_indicator(RiskIndicator(
-                        indicator_type='high_ad_rate',
-                        description='Unusually high advertising rate',
-                        score=2,
-                        evidence={
-                            'rate': round(obs_rate, 2),
-                            'observations': cluster.total_observations,
-                            'duration': round(duration, 1)
-                        }
-                    ))
+                    cluster.add_risk_indicator(
+                        RiskIndicator(
+                            indicator_type="high_ad_rate",
+                            description="Unusually high advertising rate",
+                            score=2,
+                            evidence={
+                                "rate": round(obs_rate, 2),
+                                "observations": cluster.total_observations,
+                                "duration": round(duration, 1),
+                            },
+                        )
+                    )
 
     def finalize_all_sessions(self) -> None:
         """Finalize all active sessions (call at end of monitoring)."""
@@ -1068,50 +1060,40 @@ class DeviceIdentityEngine:
 
     def get_clusters(self, min_confidence: float = 0.0) -> list[DeviceCluster]:
         """Get all clusters above minimum confidence."""
-        return [
-            c for c in self.clusters.values()
-            if c.confidence >= min_confidence
-        ]
+        return [c for c in self.clusters.values() if c.confidence >= min_confidence]
 
     def get_high_risk_clusters(self) -> list[DeviceCluster]:
         """Get clusters with HIGH risk level."""
-        return [
-            c for c in self.clusters.values()
-            if c.risk_level == RiskLevel.HIGH
-        ]
+        return [c for c in self.clusters.values() if c.risk_level == RiskLevel.HIGH]
 
     def get_summary(self) -> dict:
         """Get summary of all clusters and sessions."""
-        clusters_by_risk = {
-            'high': [],
-            'medium': [],
-            'low': [],
-            'informational': []
-        }
+        clusters_by_risk = {"high": [], "medium": [], "low": [], "informational": []}
 
         for cluster in self.clusters.values():
             clusters_by_risk[cluster.risk_level.value].append(cluster.to_dict())
 
         return {
-            'monitoring_period': {
-                'start': self.monitoring_start.isoformat() if self.monitoring_start else None,
-                'end': self.monitoring_end.isoformat() if self.monitoring_end else None,
-                'duration_seconds': (
+            "monitoring_period": {
+                "start": self.monitoring_start.isoformat() if self.monitoring_start else None,
+                "end": self.monitoring_end.isoformat() if self.monitoring_end else None,
+                "duration_seconds": (
                     (self.monitoring_end - self.monitoring_start).total_seconds()
-                    if self.monitoring_start and self.monitoring_end else 0
-                )
+                    if self.monitoring_start and self.monitoring_end
+                    else 0
+                ),
             },
-            'statistics': {
-                'total_clusters': len(self.clusters),
-                'ble_sessions': len(self.ble_sessions),
-                'wifi_sessions': len(self.wifi_sessions),
-                'high_risk_count': len(clusters_by_risk['high']),
-                'medium_risk_count': len(clusters_by_risk['medium']),
-                'low_risk_count': len(clusters_by_risk['low']),
-                'unique_fingerprints': len(self._fingerprint_to_sessions),
+            "statistics": {
+                "total_clusters": len(self.clusters),
+                "ble_sessions": len(self.ble_sessions),
+                "wifi_sessions": len(self.wifi_sessions),
+                "high_risk_count": len(clusters_by_risk["high"]),
+                "medium_risk_count": len(clusters_by_risk["medium"]),
+                "low_risk_count": len(clusters_by_risk["low"]),
+                "unique_fingerprints": len(self._fingerprint_to_sessions),
             },
-            'clusters_by_risk': clusters_by_risk,
-            'disclaimer': (
+            "clusters_by_risk": clusters_by_risk,
+            "disclaimer": (
                 "Device clustering uses passive fingerprinting and statistical correlation. "
                 "Results indicate probable device identities, NOT confirmed matches. "
                 "Confidence scores reflect similarity measures, not certainty. "
@@ -1167,7 +1149,7 @@ def _convert_to_bytes(value) -> bytes | None:
             return bytes.fromhex(value)
         except ValueError:
             # Not a valid hex string, encode as UTF-8
-            return value.encode('utf-8')
+            return value.encode("utf-8")
     if isinstance(value, (list, tuple)):
         # Array of integers (like dbus.Array)
         try:
@@ -1184,22 +1166,23 @@ def ingest_ble_dict(data: dict) -> DeviceSession:
     Convenience function for API integration.
     """
     obs = BLEObservation(
-        timestamp=datetime.fromisoformat(data['timestamp']) if isinstance(data.get('timestamp'), str)
-                  else data.get('timestamp', datetime.now()),
-        addr=data.get('addr', data.get('mac', '')).upper(),
-        addr_type=data.get('addr_type', 'unknown'),
-        rssi=data.get('rssi'),
-        tx_power=data.get('tx_power'),
-        adv_type=data.get('adv_type', 'unknown'),
-        adv_flags=data.get('adv_flags'),
-        manufacturer_id=data.get('manufacturer_id'),
-        manufacturer_data=_convert_to_bytes(data.get('manufacturer_data')),
-        service_uuids=data.get('service_uuids', []),
-        service_data=_convert_to_bytes(data.get('service_data')),
-        local_name=data.get('local_name', data.get('name')),
-        appearance=data.get('appearance'),
-        packet_length=data.get('packet_length'),
-        phy=data.get('phy'),
+        timestamp=datetime.fromisoformat(data["timestamp"])
+        if isinstance(data.get("timestamp"), str)
+        else data.get("timestamp", datetime.now()),
+        addr=data.get("addr", data.get("mac", "")).upper(),
+        addr_type=data.get("addr_type", "unknown"),
+        rssi=data.get("rssi"),
+        tx_power=data.get("tx_power"),
+        adv_type=data.get("adv_type", "unknown"),
+        adv_flags=data.get("adv_flags"),
+        manufacturer_id=data.get("manufacturer_id"),
+        manufacturer_data=_convert_to_bytes(data.get("manufacturer_data")),
+        service_uuids=data.get("service_uuids", []),
+        service_data=_convert_to_bytes(data.get("service_data")),
+        local_name=data.get("local_name", data.get("name")),
+        appearance=data.get("appearance"),
+        packet_length=data.get("packet_length"),
+        phy=data.get("phy"),
     )
     return get_identity_engine().ingest_ble_observation(obs)
 
@@ -1211,29 +1194,30 @@ def ingest_wifi_dict(data: dict) -> DeviceSession:
     Convenience function for API integration.
     """
     obs = WifiObservation(
-        timestamp=datetime.fromisoformat(data['timestamp']) if isinstance(data.get('timestamp'), str)
-                  else data.get('timestamp', datetime.now()),
-        src_mac=data.get('src_mac', data.get('mac', '')).upper(),
-        dst_mac=data.get('dst_mac'),
-        bssid=data.get('bssid'),
-        ssid=data.get('ssid'),
-        frame_type=data.get('frame_type', 'unknown'),
-        rssi=data.get('rssi'),
-        channel=data.get('channel'),
-        bandwidth=data.get('bandwidth'),
-        encryption=data.get('encryption'),
-        beacon_interval=data.get('beacon_interval'),
-        capabilities=data.get('capabilities'),
-        supported_rates=data.get('supported_rates', []),
-        extended_rates=data.get('extended_rates', []),
-        ht_capable=data.get('ht_capable', False),
-        vht_capable=data.get('vht_capable', False),
-        he_capable=data.get('he_capable', False),
-        ht_capabilities=data.get('ht_capabilities'),
-        vht_capabilities=data.get('vht_capabilities'),
-        vendor_ies=data.get('vendor_ies', []),
-        wps_present=data.get('wps_present', False),
-        sequence_number=data.get('sequence_number'),
-        probed_ssids=data.get('probed_ssids', []),
+        timestamp=datetime.fromisoformat(data["timestamp"])
+        if isinstance(data.get("timestamp"), str)
+        else data.get("timestamp", datetime.now()),
+        src_mac=data.get("src_mac", data.get("mac", "")).upper(),
+        dst_mac=data.get("dst_mac"),
+        bssid=data.get("bssid"),
+        ssid=data.get("ssid"),
+        frame_type=data.get("frame_type", "unknown"),
+        rssi=data.get("rssi"),
+        channel=data.get("channel"),
+        bandwidth=data.get("bandwidth"),
+        encryption=data.get("encryption"),
+        beacon_interval=data.get("beacon_interval"),
+        capabilities=data.get("capabilities"),
+        supported_rates=data.get("supported_rates", []),
+        extended_rates=data.get("extended_rates", []),
+        ht_capable=data.get("ht_capable", False),
+        vht_capable=data.get("vht_capable", False),
+        he_capable=data.get("he_capable", False),
+        ht_capabilities=data.get("ht_capabilities"),
+        vht_capabilities=data.get("vht_capabilities"),
+        vendor_ies=data.get("vendor_ies", []),
+        wps_present=data.get("wps_present", False),
+        sequence_number=data.get("sequence_number"),
+        probed_ssids=data.get("probed_ssids", []),
     )
     return get_identity_engine().ingest_wifi_observation(obs)

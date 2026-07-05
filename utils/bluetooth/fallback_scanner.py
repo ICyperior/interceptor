@@ -26,7 +26,7 @@ from .constants import (
 )
 
 # CoreBluetooth UUID pattern: 8-4-4-4-12 hex digits
-_CB_UUID_RE = re.compile(r'^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$')
+_CB_UUID_RE = re.compile(r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$")
 import contextlib
 
 from .models import BTObservation
@@ -60,11 +60,7 @@ class BleakScanner:
                 return True
 
             self._stop_event.clear()
-            self._scan_thread = threading.Thread(
-                target=self._scan_loop,
-                args=(duration,),
-                daemon=True
-            )
+            self._scan_thread = threading.Thread(target=self._scan_loop, args=(duration,), daemon=True)
             self._scan_thread.start()
             self._is_scanning = True
             logger.info("Bleak scanner started")
@@ -138,9 +134,9 @@ class BleakScanner:
         if device.address and _CB_UUID_RE.match(device.address):
             # macOS CoreBluetooth returns a platform UUID instead of a real MAC
             address_type = ADDRESS_TYPE_UUID
-        elif device.address and ':' in device.address:
+        elif device.address and ":" in device.address:
             # Check if first byte indicates random address
-            first_byte = int(device.address.split(':')[0], 16)
+            first_byte = int(device.address.split(":")[0], 16)
             if (first_byte & 0xC0) == 0xC0:  # Random static
                 address_type = ADDRESS_TYPE_RANDOM
 
@@ -178,7 +174,7 @@ class BleakScanner:
 
         return BTObservation(
             timestamp=datetime.now(),
-            address=device.address.upper() if device.address else '',
+            address=device.address.upper() if device.address else "",
             address_type=address_type,
             rssi=adv_data.rssi,
             tx_power=adv_data.tx_power,
@@ -187,7 +183,7 @@ class BleakScanner:
             manufacturer_data=manufacturer_data,
             service_uuids=list(adv_data.service_uuids) if adv_data.service_uuids else [],
             service_data=service_data,
-            is_connectable=getattr(adv_data, 'connectable', True) if adv_data else True,
+            is_connectable=getattr(adv_data, "connectable", True) if adv_data else True,
         )
 
 
@@ -200,7 +196,7 @@ class HcitoolScanner:
 
     def __init__(
         self,
-        adapter: str = 'hci0',
+        adapter: str = "hci0",
         on_observation: Callable[[BTObservation], None] | None = None,
     ):
         self._adapter = adapter
@@ -218,17 +214,14 @@ class HcitoolScanner:
 
             # Start hcitool lescan with duplicate reporting
             self._process = subprocess.Popen(
-                ['hcitool', '-i', self._adapter, 'lescan', '--duplicates'],
+                ["hcitool", "-i", self._adapter, "lescan", "--duplicates"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
             )
 
             self._stop_event.clear()
-            self._reader_thread = threading.Thread(
-                target=self._read_output,
-                daemon=True
-            )
+            self._reader_thread = threading.Thread(target=self._read_output, daemon=True)
             self._reader_thread.start()
             self._is_scanning = True
             logger.info(f"hcitool scanner started on {self._adapter}")
@@ -272,7 +265,7 @@ class HcitoolScanner:
             dump_process = None
             with contextlib.suppress(Exception):
                 dump_process = subprocess.Popen(
-                    ['hcidump', '-i', self._adapter, '--raw'],
+                    ["hcidump", "-i", self._adapter, "--raw"],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                 )
@@ -283,7 +276,7 @@ class HcitoolScanner:
                     break
 
                 # Parse hcitool output: "AA:BB:CC:DD:EE:FF DeviceName"
-                match = re.match(r'^([0-9A-Fa-f:]{17})\s*(.*)$', line.strip())
+                match = re.match(r"^([0-9A-Fa-f:]{17})\s*(.*)$", line.strip())
                 if match:
                     address = match.group(1).upper()
                     name = match.group(2).strip() or None
@@ -292,7 +285,7 @@ class HcitoolScanner:
                         timestamp=datetime.now(),
                         address=address,
                         address_type=ADDRESS_TYPE_PUBLIC,
-                        name=name if name and name != '(unknown)' else None,
+                        name=name if name and name != "(unknown)" else None,
                     )
 
                     if self._on_observation:
@@ -332,22 +325,15 @@ class BluetoothctlScanner:
                 return True
 
             self._process = subprocess.Popen(
-                ['bluetoothctl'],
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
+                ["bluetoothctl"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
 
             self._stop_event.clear()
-            self._reader_thread = threading.Thread(
-                target=self._read_output,
-                daemon=True
-            )
+            self._reader_thread = threading.Thread(target=self._read_output, daemon=True)
             self._reader_thread.start()
 
             # Send scan on command
-            self._process.stdin.write('scan on\n')
+            self._process.stdin.write("scan on\n")
             self._process.stdin.flush()
 
             self._is_scanning = True
@@ -367,8 +353,8 @@ class BluetoothctlScanner:
 
         if self._process:
             try:
-                self._process.stdin.write('scan off\n')
-                self._process.stdin.write('quit\n')
+                self._process.stdin.write("scan off\n")
+                self._process.stdin.write("quit\n")
                 self._process.stdin.flush()
                 self._process.wait(timeout=2.0)
             except Exception:
@@ -401,18 +387,15 @@ class BluetoothctlScanner:
                 # [CHG] Device AA:BB:CC:DD:EE:FF RSSI: -65
                 # [CHG] Device AA:BB:CC:DD:EE:FF Name: DeviceName
 
-                new_match = re.search(
-                    r'\[NEW\]\s+Device\s+([0-9A-Fa-f:]{17})\s*(.*)',
-                    line
-                )
+                new_match = re.search(r"\[NEW\]\s+Device\s+([0-9A-Fa-f:]{17})\s*(.*)", line)
                 if new_match:
                     address = new_match.group(1).upper()
                     name = new_match.group(2).strip() or None
 
                     self._devices[address] = {
-                        'address': address,
-                        'name': name,
-                        'rssi': None,
+                        "address": address,
+                        "name": name,
+                        "rssi": None,
                     }
 
                     observation = BTObservation(
@@ -427,23 +410,20 @@ class BluetoothctlScanner:
                     continue
 
                 # RSSI change
-                rssi_match = re.search(
-                    r'\[CHG\]\s+Device\s+([0-9A-Fa-f:]{17})\s+RSSI:\s*(-?\d+)',
-                    line
-                )
+                rssi_match = re.search(r"\[CHG\]\s+Device\s+([0-9A-Fa-f:]{17})\s+RSSI:\s*(-?\d+)", line)
                 if rssi_match:
                     address = rssi_match.group(1).upper()
                     rssi = int(rssi_match.group(2))
 
-                    device_data = self._devices.get(address, {'address': address})
-                    device_data['rssi'] = rssi
+                    device_data = self._devices.get(address, {"address": address})
+                    device_data["rssi"] = rssi
                     self._devices[address] = device_data
 
                     observation = BTObservation(
                         timestamp=datetime.now(),
                         address=address,
                         address_type=ADDRESS_TYPE_PUBLIC,
-                        name=device_data.get('name'),
+                        name=device_data.get("name"),
                         rssi=rssi,
                     )
 
@@ -452,16 +432,13 @@ class BluetoothctlScanner:
                     continue
 
                 # Name change
-                name_match = re.search(
-                    r'\[CHG\]\s+Device\s+([0-9A-Fa-f:]{17})\s+Name:\s*(.+)',
-                    line
-                )
+                name_match = re.search(r"\[CHG\]\s+Device\s+([0-9A-Fa-f:]{17})\s+Name:\s*(.+)", line)
                 if name_match:
                     address = name_match.group(1).upper()
                     name = name_match.group(2).strip()
 
-                    device_data = self._devices.get(address, {'address': address})
-                    device_data['name'] = name
+                    device_data = self._devices.get(address, {"address": address})
+                    device_data["name"] = name
                     self._devices[address] = device_data
 
                     observation = BTObservation(
@@ -469,7 +446,7 @@ class BluetoothctlScanner:
                         address=address,
                         address_type=ADDRESS_TYPE_PUBLIC,
                         name=name,
-                        rssi=device_data.get('rssi'),
+                        rssi=device_data.get("rssi"),
                     )
 
                     if self._on_observation:
@@ -488,7 +465,7 @@ class FallbackScanner:
 
     def __init__(
         self,
-        adapter: str = 'hci0',
+        adapter: str = "hci0",
         on_observation: Callable[[BTObservation], None] | None = None,
     ):
         self._adapter = adapter
@@ -501,21 +478,19 @@ class FallbackScanner:
         # Try bleak first (cross-platform)
         try:
             import bleak
+
             self._active_scanner = BleakScanner(on_observation=self._on_observation)
             if self._active_scanner.start():
-                self._backend = 'bleak'
+                self._backend = "bleak"
                 return True
         except ImportError:
             pass
 
         # Try hcitool (requires root)
         try:
-            self._active_scanner = HcitoolScanner(
-                adapter=self._adapter,
-                on_observation=self._on_observation
-            )
+            self._active_scanner = HcitoolScanner(adapter=self._adapter, on_observation=self._on_observation)
             if self._active_scanner.start():
-                self._backend = 'hcitool'
+                self._backend = "hcitool"
                 return True
         except Exception:
             pass
@@ -524,7 +499,7 @@ class FallbackScanner:
         try:
             self._active_scanner = BluetoothctlScanner(on_observation=self._on_observation)
             if self._active_scanner.start():
-                self._backend = 'bluetoothctl'
+                self._backend = "bluetoothctl"
                 return True
         except Exception:
             pass
@@ -532,9 +507,10 @@ class FallbackScanner:
         # Try ubertooth (raw packet capture with Ubertooth One hardware)
         try:
             from .ubertooth_scanner import UbertoothScanner
+
             self._active_scanner = UbertoothScanner(on_observation=self._on_observation)
             if self._active_scanner.start():
-                self._backend = 'ubertooth'
+                self._backend = "ubertooth"
                 return True
         except Exception:
             pass

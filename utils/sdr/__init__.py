@@ -133,25 +133,20 @@ class SDRFactory:
         for sdr_type in cls._builders:
             caps = cls.get_capabilities(sdr_type)
             capabilities[sdr_type.value] = {
-                'name': sdr_type.name.replace('_', ' '),
-                'freq_min_mhz': caps.freq_min_mhz,
-                'freq_max_mhz': caps.freq_max_mhz,
-                'gain_min': caps.gain_min,
-                'gain_max': caps.gain_max,
-                'sample_rates': caps.sample_rates,
-                'supports_bias_t': caps.supports_bias_t,
-                'supports_ppm': caps.supports_ppm,
-                'tx_capable': caps.tx_capable,
+                "name": sdr_type.name.replace("_", " "),
+                "freq_min_mhz": caps.freq_min_mhz,
+                "freq_max_mhz": caps.freq_max_mhz,
+                "gain_min": caps.gain_min,
+                "gain_max": caps.gain_max,
+                "sample_rates": caps.sample_rates,
+                "supports_bias_t": caps.supports_bias_t,
+                "supports_ppm": caps.supports_ppm,
+                "tx_capable": caps.tx_capable,
             }
         return capabilities
 
     @classmethod
-    def create_default_device(
-        cls,
-        sdr_type: SDRType,
-        index: int = 0,
-        serial: str = 'N/A'
-    ) -> SDRDevice:
+    def create_default_device(cls, sdr_type: SDRType, index: int = 0, serial: str = "N/A") -> SDRDevice:
         """
         Create a default device object for a given SDR type.
 
@@ -170,18 +165,14 @@ class SDRFactory:
         return SDRDevice(
             sdr_type=sdr_type,
             index=index,
-            name=f'{sdr_type.name.replace("_", " ")} Device {index}',
+            name=f"{sdr_type.name.replace('_', ' ')} Device {index}",
             serial=serial,
             driver=sdr_type.value,
-            capabilities=caps
+            capabilities=caps,
         )
 
     @classmethod
-    def create_network_device(
-        cls,
-        host: str,
-        port: int = 1234
-    ) -> SDRDevice:
+    def create_network_device(cls, host: str, port: int = 1234) -> SDRDevice:
         """
         Create a network device for rtl_tcp connection.
 
@@ -196,40 +187,40 @@ class SDRFactory:
         return SDRDevice(
             sdr_type=SDRType.RTL_SDR,
             index=0,
-            name=f'{host}:{port}',
-            serial='rtl_tcp',
-            driver='rtl_tcp',
+            name=f"{host}:{port}",
+            serial="rtl_tcp",
+            driver="rtl_tcp",
             capabilities=caps,
             rtl_tcp_host=host,
-            rtl_tcp_port=port
+            rtl_tcp_port=port,
         )
 
 
 # Export commonly used items at package level
 __all__ = [
     # Factory
-    'SDRFactory',
+    "SDRFactory",
     # Types and classes
-    'SDRType',
-    'SDRDevice',
-    'SDRCapabilities',
-    'CommandBuilder',
+    "SDRType",
+    "SDRDevice",
+    "SDRCapabilities",
+    "CommandBuilder",
     # Builders
-    'RTLSDRCommandBuilder',
-    'LimeSDRCommandBuilder',
-    'HackRFCommandBuilder',
-    'AirspyCommandBuilder',
-    'SDRPlayCommandBuilder',
+    "RTLSDRCommandBuilder",
+    "LimeSDRCommandBuilder",
+    "HackRFCommandBuilder",
+    "AirspyCommandBuilder",
+    "SDRPlayCommandBuilder",
     # Validation
-    'SDRValidationError',
-    'validate_frequency',
-    'validate_gain',
-    'validate_sample_rate',
-    'validate_ppm',
-    'validate_device_index',
-    'validate_squelch',
-    'get_capabilities_for_type',
+    "SDRValidationError",
+    "validate_frequency",
+    "validate_gain",
+    "validate_sample_rate",
+    "validate_ppm",
+    "validate_device_index",
+    "validate_squelch",
+    "get_capabilities_for_type",
     # Device probing
-    'probe_rtlsdr_device',
-    'invalidate_device_cache',
+    "probe_rtlsdr_device",
+    "invalidate_device_cache",
 ]

@@ -26,43 +26,43 @@ class TestScheduledPass:
     def test_scheduled_pass_initialization(self):
         """ScheduledPass should initialize from pass data."""
         pass_data = {
-            'id': 'NOAA-18_202401011200',
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "id": "NOAA-18_202401011200",
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
 
         sp = ScheduledPass(pass_data)
 
-        assert sp.id == 'NOAA-18_202401011200'
-        assert sp.satellite == 'NOAA-18'
-        assert sp.name == 'NOAA 18'
+        assert sp.id == "NOAA-18_202401011200"
+        assert sp.satellite == "NOAA-18"
+        assert sp.name == "NOAA 18"
         assert sp.frequency == 137.9125
-        assert sp.mode == 'APT'
+        assert sp.mode == "APT"
         assert sp.max_el == 45.0
         assert sp.duration == 15.0
-        assert sp.quality == 'good'
-        assert sp.status == 'scheduled'
+        assert sp.quality == "good"
+        assert sp.status == "scheduled"
         assert sp.skipped is False
 
     def test_scheduled_pass_start_dt(self):
         """ScheduledPass.start_dt should parse ISO datetime."""
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
 
         sp = ScheduledPass(pass_data)
@@ -76,15 +76,15 @@ class TestScheduledPass:
     def test_scheduled_pass_end_dt(self):
         """ScheduledPass.end_dt should parse ISO datetime."""
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
 
         sp = ScheduledPass(pass_data)
@@ -95,27 +95,27 @@ class TestScheduledPass:
     def test_scheduled_pass_to_dict(self):
         """ScheduledPass.to_dict() should serialize correctly."""
         pass_data = {
-            'id': 'NOAA-18_202401011200',
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "id": "NOAA-18_202401011200",
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
 
         sp = ScheduledPass(pass_data)
-        sp.status = 'complete'
+        sp.status = "complete"
 
         data = sp.to_dict()
 
-        assert data['id'] == 'NOAA-18_202401011200'
-        assert data['satellite'] == 'NOAA-18'
-        assert data['status'] == 'complete'
-        assert data['skipped'] is False
+        assert data["id"] == "NOAA-18_202401011200"
+        assert data["satellite"] == "NOAA-18"
+        assert data["status"] == "complete"
+        assert data["skipped"] is False
 
 
 class TestWeatherSatScheduler:
@@ -145,7 +145,7 @@ class TestWeatherSatScheduler:
         assert scheduler._progress_callback == progress_cb
         assert scheduler._event_callback == event_cb
 
-    @patch('utils.weather_sat_scheduler.WeatherSatScheduler._refresh_passes')
+    @patch("utils.weather_sat_scheduler.WeatherSatScheduler._refresh_passes")
     def test_enable(self, mock_refresh):
         """enable() should start scheduler."""
         scheduler = WeatherSatScheduler()
@@ -167,7 +167,7 @@ class TestWeatherSatScheduler:
         assert scheduler._gain == 35.0
         assert scheduler._bias_t is True
         mock_refresh.assert_called_once()
-        assert 'enabled' in result
+        assert "enabled" in result
 
     def test_disable(self):
         """disable() should stop scheduler and cancel timers."""
@@ -180,15 +180,15 @@ class TestWeatherSatScheduler:
 
         # Add pass with timer
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
         mock_pass_timer = MagicMock()
@@ -204,7 +204,7 @@ class TestWeatherSatScheduler:
         mock_timer.cancel.assert_called_once()
         mock_pass_timer.cancel.assert_called_once()
         mock_stop_timer.cancel.assert_called_once()
-        assert result['status'] == 'disabled'
+        assert result["status"] == "disabled"
 
     def test_skip_pass_success(self):
         """skip_pass() should skip a scheduled pass."""
@@ -213,26 +213,26 @@ class TestWeatherSatScheduler:
         scheduler.set_callbacks(MagicMock(), event_cb)
 
         pass_data = {
-            'id': 'NOAA-18_202401011200',
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "id": "NOAA-18_202401011200",
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
         mock_pass_timer = MagicMock()
         sp._timer = mock_pass_timer
         scheduler._passes = [sp]
 
-        result = scheduler.skip_pass('NOAA-18_202401011200')
+        result = scheduler.skip_pass("NOAA-18_202401011200")
 
         assert result is True
-        assert sp.status == 'skipped'
+        assert sp.status == "skipped"
         assert sp.skipped is True
         mock_pass_timer.cancel.assert_called_once()
         event_cb.assert_called_once()
@@ -241,7 +241,7 @@ class TestWeatherSatScheduler:
         """skip_pass() should return False for non-existent pass."""
         scheduler = WeatherSatScheduler()
 
-        result = scheduler.skip_pass('NONEXISTENT')
+        result = scheduler.skip_pass("NONEXISTENT")
 
         assert result is False
 
@@ -250,25 +250,25 @@ class TestWeatherSatScheduler:
         scheduler = WeatherSatScheduler()
 
         pass_data = {
-            'id': 'NOAA-18_202401011200',
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "id": "NOAA-18_202401011200",
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
-        sp.status = 'complete'
+        sp.status = "complete"
         scheduler._passes = [sp]
 
-        result = scheduler.skip_pass('NOAA-18_202401011200')
+        result = scheduler.skip_pass("NOAA-18_202401011200")
 
         assert result is False
-        assert sp.status == 'complete'
+        assert sp.status == "complete"
 
     def test_get_status(self):
         """get_status() should return scheduler state."""
@@ -282,46 +282,46 @@ class TestWeatherSatScheduler:
         scheduler._min_elevation = 15.0
 
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
         scheduler._passes = [sp]
 
         status = scheduler.get_status()
 
-        assert status['enabled'] is True
-        assert status['observer']['latitude'] == 51.5
-        assert status['observer']['longitude'] == -0.1
-        assert status['device'] == 0
-        assert status['gain'] == 40.0
-        assert status['bias_t'] is False
-        assert status['min_elevation'] == 15.0
-        assert status['scheduled_count'] == 1
-        assert status['total_passes'] == 1
+        assert status["enabled"] is True
+        assert status["observer"]["latitude"] == 51.5
+        assert status["observer"]["longitude"] == -0.1
+        assert status["device"] == 0
+        assert status["gain"] == 40.0
+        assert status["bias_t"] is False
+        assert status["min_elevation"] == 15.0
+        assert status["scheduled_count"] == 1
+        assert status["total_passes"] == 1
 
     def test_get_passes(self):
         """get_passes() should return list of scheduled passes."""
         scheduler = WeatherSatScheduler()
 
         pass_data = {
-            'id': 'NOAA-18_202401011200',
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "id": "NOAA-18_202401011200",
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
         scheduler._passes = [sp]
@@ -329,24 +329,24 @@ class TestWeatherSatScheduler:
         passes = scheduler.get_passes()
 
         assert len(passes) == 1
-        assert passes[0]['id'] == 'NOAA-18_202401011200'
+        assert passes[0]["id"] == "NOAA-18_202401011200"
 
-    @patch('utils.weather_sat_predict.predict_passes')
-    @patch('threading.Timer')
+    @patch("utils.weather_sat_predict.predict_passes")
+    @patch("threading.Timer")
     def test_refresh_passes(self, mock_timer, mock_predict):
         """_refresh_passes() should schedule future passes."""
         now = datetime.now(timezone.utc)
         future_pass = {
-            'id': 'NOAA-18_202401011200',
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': (now + timedelta(hours=2)).isoformat(),
-            'endTimeISO': (now + timedelta(hours=2, minutes=15)).isoformat(),
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "id": "NOAA-18_202401011200",
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": (now + timedelta(hours=2)).isoformat(),
+            "endTimeISO": (now + timedelta(hours=2, minutes=15)).isoformat(),
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         mock_predict.return_value = [future_pass]
 
@@ -362,24 +362,24 @@ class TestWeatherSatScheduler:
 
         mock_predict.assert_called_once()
         assert len(scheduler._passes) == 1
-        assert scheduler._passes[0].satellite == 'NOAA-18'
+        assert scheduler._passes[0].satellite == "NOAA-18"
         mock_timer_instance.start.assert_called()
 
-    @patch('utils.weather_sat_predict.predict_passes')
+    @patch("utils.weather_sat_predict.predict_passes")
     def test_refresh_passes_skip_past(self, mock_predict):
         """_refresh_passes() should skip passes that already started."""
         now = datetime.now(timezone.utc)
         past_pass = {
-            'id': 'NOAA-18_202401011200',
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': (now - timedelta(hours=1)).isoformat(),
-            'endTimeISO': (now - timedelta(hours=1) + timedelta(minutes=15)).isoformat(),
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "id": "NOAA-18_202401011200",
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": (now - timedelta(hours=1)).isoformat(),
+            "endTimeISO": (now - timedelta(hours=1) + timedelta(minutes=15)).isoformat(),
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         mock_predict.return_value = [past_pass]
 
@@ -393,22 +393,22 @@ class TestWeatherSatScheduler:
         # Should not schedule past passes
         assert len(scheduler._passes) == 0
 
-    @patch('utils.weather_sat_predict.predict_passes')
-    @patch('threading.Timer')
+    @patch("utils.weather_sat_predict.predict_passes")
+    @patch("threading.Timer")
     def test_refresh_passes_active_window_triggers_immediately(self, mock_timer, mock_predict):
         """_refresh_passes() should trigger immediately during an active pass window."""
         now = datetime.now(timezone.utc)
         active_pass = {
-            'id': 'NOAA-18_ACTIVE',
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': (now - timedelta(minutes=2)).isoformat(),
-            'endTimeISO': (now + timedelta(minutes=8)).isoformat(),
-            'maxEl': 45.0,
-            'duration': 10.0,
-            'quality': 'good',
+            "id": "NOAA-18_ACTIVE",
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": (now - timedelta(minutes=2)).isoformat(),
+            "endTimeISO": (now + timedelta(minutes=8)).isoformat(),
+            "maxEl": 45.0,
+            "duration": 10.0,
+            "quality": "good",
         }
         mock_predict.return_value = [active_pass]
 
@@ -428,7 +428,7 @@ class TestWeatherSatScheduler:
         assert first_delay == pytest.approx(0.0, abs=0.01)
         pass_timer.start.assert_called_once()
 
-    @patch('utils.weather_sat_predict.predict_passes')
+    @patch("utils.weather_sat_predict.predict_passes")
     def test_refresh_passes_disabled(self, mock_predict):
         """_refresh_passes() should do nothing when disabled."""
         scheduler = WeatherSatScheduler()
@@ -438,10 +438,10 @@ class TestWeatherSatScheduler:
 
         mock_predict.assert_not_called()
 
-    @patch('utils.weather_sat_predict.predict_passes')
+    @patch("utils.weather_sat_predict.predict_passes")
     def test_refresh_passes_error_handling(self, mock_predict):
         """_refresh_passes() should handle prediction errors."""
-        mock_predict.side_effect = Exception('TLE error')
+        mock_predict.side_effect = Exception("TLE error")
 
         scheduler = WeatherSatScheduler()
         scheduler._enabled = True
@@ -453,22 +453,22 @@ class TestWeatherSatScheduler:
 
         assert len(scheduler._passes) == 0
 
-    @patch('utils.weather_sat_scheduler.get_weather_sat_decoder')
+    @patch("utils.weather_sat_scheduler.get_weather_sat_decoder")
     def test_execute_capture_disabled(self, mock_get):
         """_execute_capture() should do nothing when disabled."""
         scheduler = WeatherSatScheduler()
         scheduler._enabled = False
 
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
 
@@ -476,22 +476,22 @@ class TestWeatherSatScheduler:
 
         mock_get.assert_not_called()
 
-    @patch('utils.weather_sat_scheduler.get_weather_sat_decoder')
+    @patch("utils.weather_sat_scheduler.get_weather_sat_decoder")
     def test_execute_capture_skipped(self, mock_get):
         """_execute_capture() should do nothing for skipped passes."""
         scheduler = WeatherSatScheduler()
         scheduler._enabled = True
 
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
         sp.skipped = True
@@ -500,7 +500,7 @@ class TestWeatherSatScheduler:
 
         mock_get.assert_not_called()
 
-    @patch('utils.weather_sat_scheduler.get_weather_sat_decoder')
+    @patch("utils.weather_sat_scheduler.get_weather_sat_decoder")
     def test_execute_capture_decoder_busy(self, mock_get):
         """_execute_capture() should skip when decoder is busy."""
         scheduler = WeatherSatScheduler()
@@ -513,30 +513,30 @@ class TestWeatherSatScheduler:
         mock_get.return_value = mock_decoder
 
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
 
         scheduler._execute_capture(sp)
 
-        assert sp.status == 'skipped'
+        assert sp.status == "skipped"
         assert sp.skipped is True
         event_cb.assert_called_once()
         event_data = event_cb.call_args[0][0]
-        assert event_data['type'] == 'schedule_capture_skipped'
-        assert event_data['reason'] == 'sdr_busy'
+        assert event_data["type"] == "schedule_capture_skipped"
+        assert event_data["reason"] == "sdr_busy"
 
-    @patch('app.claim_sdr_device', return_value=None)
-    @patch('utils.weather_sat_scheduler.get_weather_sat_decoder')
-    @patch('threading.Timer')
+    @patch("app.claim_sdr_device", return_value=None)
+    @patch("utils.weather_sat_scheduler.get_weather_sat_decoder")
+    @patch("threading.Timer")
     def test_execute_capture_success(self, mock_timer, mock_get, mock_claim):
         """_execute_capture() should start capture."""
         scheduler = WeatherSatScheduler()
@@ -558,33 +558,33 @@ class TestWeatherSatScheduler:
 
         now = datetime.now(timezone.utc)
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': (now + timedelta(seconds=10)).isoformat(),
-            'endTimeISO': (now + timedelta(minutes=15)).isoformat(),
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": (now + timedelta(seconds=10)).isoformat(),
+            "endTimeISO": (now + timedelta(minutes=15)).isoformat(),
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
 
         scheduler._execute_capture(sp)
 
-        assert sp.status == 'capturing'
+        assert sp.status == "capturing"
         mock_decoder.set_callback.assert_called_once_with(progress_cb)
         call_kwargs = mock_decoder.start.call_args[1]
-        assert call_kwargs['satellite'] == 'NOAA-18'
-        assert call_kwargs['device_index'] == 0
-        assert call_kwargs['gain'] == 40.0
-        assert call_kwargs['bias_t'] is False
+        assert call_kwargs["satellite"] == "NOAA-18"
+        assert call_kwargs["device_index"] == 0
+        assert call_kwargs["gain"] == 40.0
+        assert call_kwargs["bias_t"] is False
         event_cb.assert_called_once()
         event_data = event_cb.call_args[0][0]
-        assert event_data['type'] == 'schedule_capture_start'
+        assert event_data["type"] == "schedule_capture_start"
 
-    @patch('app.claim_sdr_device', return_value=None)
-    @patch('utils.weather_sat_scheduler.get_weather_sat_decoder')
+    @patch("app.claim_sdr_device", return_value=None)
+    @patch("utils.weather_sat_scheduler.get_weather_sat_decoder")
     def test_execute_capture_start_failed(self, mock_get, mock_claim):
         """_execute_capture() should handle start failure."""
         scheduler = WeatherSatScheduler()
@@ -594,30 +594,30 @@ class TestWeatherSatScheduler:
 
         mock_decoder = MagicMock()
         mock_decoder.is_running = False
-        mock_decoder.start.return_value = (False, 'Start failed')
+        mock_decoder.start.return_value = (False, "Start failed")
         mock_get.return_value = mock_decoder
 
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
 
         scheduler._execute_capture(sp)
 
-        assert sp.status == 'skipped'
+        assert sp.status == "skipped"
         event_cb.assert_called_once()
         event_data = event_cb.call_args[0][0]
-        assert event_data['reason'] == 'start_failed'
+        assert event_data["reason"] == "start_failed"
 
-    @patch('utils.weather_sat_scheduler.get_weather_sat_decoder')
+    @patch("utils.weather_sat_scheduler.get_weather_sat_decoder")
     def test_stop_capture(self, mock_get):
         """_stop_capture() should stop decoder."""
         scheduler = WeatherSatScheduler()
@@ -627,15 +627,15 @@ class TestWeatherSatScheduler:
         mock_get.return_value = mock_decoder
 
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
 
@@ -651,25 +651,25 @@ class TestWeatherSatScheduler:
         release_fn = MagicMock()
 
         pass_data = {
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': '2024-01-01T12:00:00+00:00',
-            'endTimeISO': '2024-01-01T12:15:00+00:00',
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": "2024-01-01T12:00:00+00:00",
+            "endTimeISO": "2024-01-01T12:15:00+00:00",
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         sp = ScheduledPass(pass_data)
 
         scheduler._on_capture_complete(sp, release_fn)
 
-        assert sp.status == 'complete'
+        assert sp.status == "complete"
         release_fn.assert_called_once()
         event_cb.assert_called_once()
         event_data = event_cb.call_args[0][0]
-        assert event_data['type'] == 'schedule_capture_complete'
+        assert event_data["type"] == "schedule_capture_complete"
 
     def test_emit_event(self):
         """_emit_event() should call event callback."""
@@ -677,7 +677,7 @@ class TestWeatherSatScheduler:
         event_cb = MagicMock()
         scheduler.set_callbacks(MagicMock(), event_cb)
 
-        event = {'type': 'test_event', 'data': 'test'}
+        event = {"type": "test_event", "data": "test"}
         scheduler._emit_event(event)
 
         event_cb.assert_called_once_with(event)
@@ -686,16 +686,16 @@ class TestWeatherSatScheduler:
         """_emit_event() should handle missing callback."""
         scheduler = WeatherSatScheduler()
 
-        event = {'type': 'test_event'}
+        event = {"type": "test_event"}
         scheduler._emit_event(event)  # Should not raise
 
     def test_emit_event_callback_exception(self):
         """_emit_event() should handle callback exceptions."""
         scheduler = WeatherSatScheduler()
-        event_cb = MagicMock(side_effect=Exception('Callback error'))
+        event_cb = MagicMock(side_effect=Exception("Callback error"))
         scheduler.set_callbacks(MagicMock(), event_cb)
 
-        event = {'type': 'test_event'}
+        event = {"type": "test_event"}
         scheduler._emit_event(event)  # Should not raise
 
 
@@ -705,6 +705,7 @@ class TestGlobalScheduler:
     def test_get_weather_sat_scheduler_singleton(self):
         """get_weather_sat_scheduler() should return singleton."""
         import utils.weather_sat_scheduler as mod
+
         old = mod._scheduler
         mod._scheduler = None
 
@@ -719,6 +720,7 @@ class TestGlobalScheduler:
     def test_get_weather_sat_scheduler_thread_safe(self):
         """get_weather_sat_scheduler() should be thread-safe."""
         import utils.weather_sat_scheduler as mod
+
         old = mod._scheduler
         mod._scheduler = None
 
@@ -761,7 +763,7 @@ class TestUtcIsoParsing:
 
     def test_parse_utc_iso_with_z_suffix(self):
         """_parse_utc_iso should handle Z timestamps."""
-        dt = _parse_utc_iso('2026-02-19T12:34:56Z')
+        dt = _parse_utc_iso("2026-02-19T12:34:56Z")
         assert dt.tzinfo == timezone.utc
         assert dt.hour == 12
         assert dt.minute == 34
@@ -769,7 +771,7 @@ class TestUtcIsoParsing:
 
     def test_parse_utc_iso_with_legacy_suffix(self):
         """_parse_utc_iso should handle legacy +00:00Z timestamps."""
-        dt = _parse_utc_iso('2026-02-19T12:34:56+00:00Z')
+        dt = _parse_utc_iso("2026-02-19T12:34:56+00:00Z")
         assert dt.tzinfo == timezone.utc
         assert dt.hour == 12
 
@@ -777,24 +779,24 @@ class TestUtcIsoParsing:
 class TestSchedulerIntegration:
     """Integration tests for scheduler."""
 
-    @patch('app.claim_sdr_device', return_value=None)
-    @patch('utils.weather_sat_predict.predict_passes')
-    @patch('utils.weather_sat_scheduler.get_weather_sat_decoder')
-    @patch('threading.Timer')
+    @patch("app.claim_sdr_device", return_value=None)
+    @patch("utils.weather_sat_predict.predict_passes")
+    @patch("utils.weather_sat_scheduler.get_weather_sat_decoder")
+    @patch("threading.Timer")
     def test_full_scheduling_cycle(self, mock_timer, mock_get_decoder, mock_predict, mock_claim):
         """Test complete scheduling cycle from enable to execute."""
         now = datetime.now(timezone.utc)
         future_pass = {
-            'id': 'NOAA-18_202401011200',
-            'satellite': 'NOAA-18',
-            'name': 'NOAA 18',
-            'frequency': 137.9125,
-            'mode': 'APT',
-            'startTimeISO': (now + timedelta(hours=2)).isoformat(),
-            'endTimeISO': (now + timedelta(hours=2, minutes=15)).isoformat(),
-            'maxEl': 45.0,
-            'duration': 15.0,
-            'quality': 'good',
+            "id": "NOAA-18_202401011200",
+            "satellite": "NOAA-18",
+            "name": "NOAA 18",
+            "frequency": 137.9125,
+            "mode": "APT",
+            "startTimeISO": (now + timedelta(hours=2)).isoformat(),
+            "endTimeISO": (now + timedelta(hours=2, minutes=15)).isoformat(),
+            "maxEl": 45.0,
+            "duration": 15.0,
+            "quality": "good",
         }
         mock_predict.return_value = [future_pass]
 
@@ -814,21 +816,21 @@ class TestSchedulerIntegration:
         # Enable scheduler
         result = scheduler.enable(lat=51.5, lon=-0.1)
 
-        assert result['enabled'] is True
+        assert result["enabled"] is True
         assert len(scheduler._passes) == 1
-        assert scheduler._passes[0].satellite == 'NOAA-18'
+        assert scheduler._passes[0].satellite == "NOAA-18"
 
         # Simulate timer firing (capture start)
         scheduler._execute_capture(scheduler._passes[0])
 
-        assert scheduler._passes[0].status == 'capturing'
+        assert scheduler._passes[0].status == "capturing"
         mock_decoder.start.assert_called_once()
 
         # Simulate completion
         release_fn = MagicMock()
         scheduler._on_capture_complete(scheduler._passes[0], release_fn)
 
-        assert scheduler._passes[0].status == 'complete'
+        assert scheduler._passes[0].status == "complete"
         release_fn.assert_called_once()
 
         # Disable scheduler

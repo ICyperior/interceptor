@@ -23,9 +23,9 @@ import numpy as np
 from utils.logging import get_logger
 from utils.process import register_process, safe_terminate, unregister_process
 
-logger = get_logger('intercept.ground_station.gr_satellites')
+logger = get_logger("intercept.ground_station.gr_satellites")
 
-GR_SATELLITES_BIN = 'gr_satellites'
+GR_SATELLITES_BIN = "gr_satellites"
 
 
 class GrSatConsumer:
@@ -106,10 +106,11 @@ class GrSatConsumer:
         cmd = [
             GR_SATELLITES_BIN,
             self._satellite_name,
-            '--samplerate', str(sample_rate),
-            '--iq',
-            '--json',
-            '-',
+            "--samplerate",
+            str(sample_rate),
+            "--iq",
+            "--json",
+            "-",
         ]
         try:
             self._proc = subprocess.Popen(
@@ -124,7 +125,7 @@ class GrSatConsumer:
                 target=self._read_stdout,
                 args=(_json,),
                 daemon=True,
-                name='gr-sat-stdout',
+                name="gr-sat-stdout",
             )
             self._stdout_thread.start()
             logger.info(f"GrSatConsumer started for '{self._satellite_name}'")
@@ -138,14 +139,14 @@ class GrSatConsumer:
         assert self._proc.stdout is not None
         try:
             for line in self._proc.stdout:
-                text = line.decode('utf-8', errors='replace').rstrip()
+                text = line.decode("utf-8", errors="replace").rstrip()
                 if not text:
                     continue
                 if self._on_decoded:
                     try:
                         data = _json.loads(text)
                     except _json.JSONDecodeError:
-                        data = {'raw': text}
+                        data = {"raw": text}
                     try:
                         self._on_decoded(data)
                     except Exception as e:

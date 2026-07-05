@@ -72,9 +72,9 @@ class BluetoothScanner:
 
     def start_scan(
         self,
-        mode: str = 'auto',
+        mode: str = "auto",
         duration_s: int | None = None,
-        transport: str = 'auto',
+        transport: str = "auto",
         rssi_threshold: int = -100,
     ) -> bool:
         """
@@ -98,7 +98,7 @@ class BluetoothScanner:
 
             # Determine adapter
             adapter = self._adapter_id or self._capabilities.default_adapter
-            if not adapter and mode == 'dbus':
+            if not adapter and mode == "dbus":
                 self._status.error = "No Bluetooth adapter found"
                 return False
 
@@ -107,16 +107,16 @@ class BluetoothScanner:
             backend_used = None
             original_mode = mode
 
-            if mode == 'auto':
-                mode = self._capabilities.recommended_backend or 'bleak'
+            if mode == "auto":
+                mode = self._capabilities.recommended_backend or "bleak"
 
-            if mode == 'dbus':
+            if mode == "dbus":
                 started, backend_used = self._start_dbus(adapter, transport, rssi_threshold)
-            elif mode == 'ubertooth':
+            elif mode == "ubertooth":
                 started, backend_used = self._start_ubertooth()
 
             # Fallback: try non-DBus methods if DBus failed or wasn't requested
-            if not started and (original_mode == 'auto' or mode in ('bleak', 'hcitool', 'bluetoothctl')):
+            if not started and (original_mode == "auto" or mode in ("bleak", "hcitool", "bluetoothctl")):
                 started, backend_used = self._start_fallback(adapter, original_mode)
 
             if not started:
@@ -135,12 +135,14 @@ class BluetoothScanner:
             )
 
             # Queue status event
-            self._queue_event({
-                'type': 'status',
-                'status': 'started',
-                'backend': backend_used,
-                'mode': mode,
-            })
+            self._queue_event(
+                {
+                    "type": "status",
+                    "status": "started",
+                    "backend": backend_used,
+                    "mode": mode,
+                }
+            )
 
             # Set up timer for duration-based scanning
             if duration_s:
@@ -151,12 +153,7 @@ class BluetoothScanner:
             logger.info(f"Bluetooth scan started: mode={mode}, backend={backend_used}")
             return True
 
-    def _start_dbus(
-        self,
-        adapter: str,
-        transport: str,
-        rssi_threshold: int
-    ) -> tuple[bool, str | None]:
+    def _start_dbus(self, adapter: str, transport: str, rssi_threshold: int) -> tuple[bool, str | None]:
         """Start DBus scanner."""
         try:
             self._dbus_scanner = DBusScanner(
@@ -164,7 +161,7 @@ class BluetoothScanner:
                 on_observation=self._handle_observation,
             )
             if self._dbus_scanner.start(transport=transport, rssi_threshold=rssi_threshold):
-                return True, 'dbus'
+                return True, "dbus"
         except Exception as e:
             logger.warning(f"DBus scanner failed: {e}")
         return False, None
@@ -176,7 +173,7 @@ class BluetoothScanner:
                 on_observation=self._handle_observation,
             )
             if self._ubertooth_scanner.start():
-                return True, 'ubertooth'
+                return True, "ubertooth"
         except Exception as e:
             logger.warning(f"Ubertooth scanner failed: {e}")
         return False, None
@@ -185,7 +182,7 @@ class BluetoothScanner:
         """Start fallback scanner."""
         try:
             # Extract adapter name from path if needed
-            adapter_name = adapter.split('/')[-1] if adapter else 'hci0'
+            adapter_name = adapter.split("/")[-1] if adapter else "hci0"
 
             self._fallback_scanner = FallbackScanner(
                 adapter=adapter_name,
@@ -226,10 +223,12 @@ class BluetoothScanner:
             self._active_backend = None
 
             # Queue status event
-            self._queue_event({
-                'type': 'status',
-                'status': 'stopped',
-            })
+            self._queue_event(
+                {
+                    "type": "status",
+                    "status": "stopped",
+                }
+            )
 
             logger.info("Bluetooth scan stopped")
 
@@ -239,11 +238,11 @@ class BluetoothScanner:
             return  # Already matched
 
         address = device.address
-        if not address or len(address.replace(':', '').replace('-', '')) not in (12, 32):
+        if not address or len(address.replace(":", "").replace("-", "")) not in (12, 32):
             return
 
         # Only attempt RPA resolution on 6-byte addresses
-        addr_clean = address.replace(':', '').replace('-', '')
+        addr_clean = address.replace(":", "").replace("-", "")
         if len(addr_clean) != 12:
             return
 
@@ -261,14 +260,14 @@ class BluetoothScanner:
             return
 
         for entry in paired:
-            irk_hex = entry.get('irk_hex', '')
+            irk_hex = entry.get("irk_hex", "")
             if not irk_hex or len(irk_hex) != 32:
                 continue
             try:
                 irk = bytes.fromhex(irk_hex)
                 if resolve_rpa(irk, address):
                     device.irk_hex = irk_hex
-                    device.irk_source_name = entry.get('name')
+                    device.irk_source_name = entry.get("name")
                     logger.debug(f"IRK match for {address}: {entry.get('name', 'unnamed')}")
                     return
             except Exception:
@@ -293,18 +292,18 @@ class BluetoothScanner:
             # Build summary with MAC cluster count
             summary = device.to_summary_dict()
             if device.payload_fingerprint_id:
-                summary['mac_cluster_count'] = self._aggregator.get_fingerprint_mac_count(
-                    device.payload_fingerprint_id
-                )
+                summary["mac_cluster_count"] = self._aggregator.get_fingerprint_mac_count(device.payload_fingerprint_id)
             else:
-                summary['mac_cluster_count'] = 0
+                summary["mac_cluster_count"] = 0
 
             # Queue event
-            self._queue_event({
-                'type': 'device',
-                'action': 'update',
-                'device': summary,
-            })
+            self._queue_event(
+                {
+                    "type": "device",
+                    "action": "update",
+                    "device": summary,
+                }
+            )
 
             # Callbacks
             for cb in self._on_device_updated_callbacks:
@@ -336,7 +335,7 @@ class BluetoothScanner:
 
     def get_devices(
         self,
-        sort_by: str = 'last_seen',
+        sort_by: str = "last_seen",
         sort_desc: bool = True,
         min_rssi: int | None = None,
         protocol: str | None = None,
@@ -367,11 +366,11 @@ class BluetoothScanner:
 
         # Sort
         sort_key = {
-            'last_seen': lambda d: d.last_seen,
-            'rssi_current': lambda d: d.rssi_current or -999,
-            'name': lambda d: (d.name or '').lower(),
-            'seen_count': lambda d: d.seen_count,
-            'first_seen': lambda d: d.first_seen,
+            "last_seen": lambda d: d.last_seen,
+            "rssi_current": lambda d: d.rssi_current or -999,
+            "name": lambda d: (d.name or "").lower(),
+            "seen_count": lambda d: d.seen_count,
+            "first_seen": lambda d: d.first_seen,
         }.get(sort_by, lambda d: d.last_seen)
 
         devices.sort(key=sort_key, reverse=sort_desc)
@@ -402,33 +401,39 @@ class BluetoothScanner:
                 event = self._event_queue.get(timeout=timeout)
                 yield event
             except queue.Empty:
-                yield {'type': 'ping'}
+                yield {"type": "ping"}
 
     def set_baseline(self) -> int:
         """Set current devices as baseline."""
         count = self._aggregator.set_baseline()
-        self._queue_event({
-            'type': 'baseline',
-            'action': 'set',
-            'device_count': count,
-        })
+        self._queue_event(
+            {
+                "type": "baseline",
+                "action": "set",
+                "device_count": count,
+            }
+        )
         return count
 
     def clear_baseline(self) -> None:
         """Clear the baseline."""
         self._aggregator.clear_baseline()
-        self._queue_event({
-            'type': 'baseline',
-            'action': 'cleared',
-        })
+        self._queue_event(
+            {
+                "type": "baseline",
+                "action": "cleared",
+            }
+        )
 
     def clear_devices(self) -> None:
         """Clear all tracked devices."""
         self._aggregator.clear()
-        self._queue_event({
-            'type': 'devices',
-            'action': 'cleared',
-        })
+        self._queue_event(
+            {
+                "type": "devices",
+                "action": "cleared",
+            }
+        )
 
     def prune_stale(self, max_age_seconds: float = DEVICE_STALE_TIMEOUT) -> int:
         """Prune stale devices."""

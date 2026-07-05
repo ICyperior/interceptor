@@ -21,13 +21,13 @@ from .parser import (
 )
 
 __all__ = [
-    'FORMAT_CODES',
-    'DISTRESS_NATURE_CODES',
-    'TELECOMMAND_CODES',
-    'CATEGORY_PRIORITY',
-    'MID_COUNTRY_MAP',
-    'parse_dsc_message',
-    'get_country_from_mmsi',
-    'get_distress_nature_text',
-    'get_format_text',
+    "FORMAT_CODES",
+    "DISTRESS_NATURE_CODES",
+    "TELECOMMAND_CODES",
+    "CATEGORY_PRIORITY",
+    "MID_COUNTRY_MAP",
+    "parse_dsc_message",
+    "get_country_from_mmsi",
+    "get_distress_nature_text",
+    "get_format_text",
 ]

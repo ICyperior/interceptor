@@ -15,13 +15,13 @@ from utils.dependencies import get_tool_path
 
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType
 
-logger = logging.getLogger('intercept.sdr.rtlsdr')
+logger = logging.getLogger("intercept.sdr.rtlsdr")
 
 
 def _rtl_fm_demod_mode(modulation: str) -> str:
     """Map app/UI modulation names to rtl_fm demod tokens."""
-    mod = str(modulation or '').lower().strip()
-    return 'wbfm' if mod == 'wfm' else mod
+    mod = str(modulation or "").lower().strip()
+    return "wbfm" if mod == "wfm" else mod
 
 
 def _rtl_tool_supports_bias_t(tool_path: str) -> bool:
@@ -31,16 +31,11 @@ def _rtl_tool_supports_bias_t(tool_path: str) -> bool:
     rtl-sdr packages shipped by most distros.
     """
     try:
-        result = subprocess.run(
-            [tool_path, '--help'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        result = subprocess.run([tool_path, "--help"], capture_output=True, text=True, timeout=5)
         help_text = result.stdout + result.stderr
         # Match "-T" as a CLI flag (e.g. "[-T]" or "-T enable bias"),
         # not as part of "DVB-T" or similar text.
-        return bool(re.search(r'(?<!\w)-T\b', help_text))
+        return bool(re.search(r"(?<!\w)-T\b", help_text))
     except Exception as e:
         logger.warning(f"Could not detect bias-t support for {tool_path}: {e}")
         return False
@@ -54,13 +49,10 @@ def enable_bias_t_via_rtl_biast(device_index: int = 0) -> bool:
 
     Returns True if bias-t was enabled successfully.
     """
-    rtl_biast_path = get_tool_path('rtl_biast') or 'rtl_biast'
+    rtl_biast_path = get_tool_path("rtl_biast") or "rtl_biast"
     try:
         result = subprocess.run(
-            [rtl_biast_path, '-b', '1', '-d', str(device_index)],
-            capture_output=True,
-            text=True,
-            timeout=5
+            [rtl_biast_path, "-b", "1", "-d", str(device_index)], capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             logger.info(f"Bias-t enabled via rtl_biast on device {device_index}")
@@ -83,13 +75,10 @@ def disable_bias_t_via_rtl_biast(device_index: int = 0) -> bool:
 
     Returns True if bias-t was disabled successfully.
     """
-    rtl_biast_path = get_tool_path('rtl_biast') or 'rtl_biast'
+    rtl_biast_path = get_tool_path("rtl_biast") or "rtl_biast"
     try:
         result = subprocess.run(
-            [rtl_biast_path, '-b', '0', '-d', str(device_index)],
-            capture_output=True,
-            text=True,
-            timeout=5
+            [rtl_biast_path, "-b", "0", "-d", str(device_index)], capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
             logger.info(f"Bias-t disabled via rtl_biast on device {device_index}")
@@ -114,17 +103,12 @@ def _get_dump1090_bias_t_flag(dump1090_path: str) -> str | None:
     Returns the correct flag string or None if bias-t is not supported.
     """
     try:
-        result = subprocess.run(
-            [dump1090_path, '--help'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        result = subprocess.run([dump1090_path, "--help"], capture_output=True, text=True, timeout=5)
         help_text = result.stdout + result.stderr
 
         # Check for dump1090-fa/readsb style flag (no hyphen)
-        if '--enable-biast' in help_text:
-            return '--enable-biast'
+        if "--enable-biast" in help_text:
+            return "--enable-biast"
 
         # No bias-t support found
         return None
@@ -146,7 +130,7 @@ class RTLSDRCommandBuilder(CommandBuilder):
         supports_bias_t=True,
         supports_ppm=True,
         tx_capable=False,
-        supports_iq_capture=True
+        supports_iq_capture=True,
     )
 
     def _get_device_arg(self, device: SDRDevice) -> str:
@@ -180,50 +164,49 @@ class RTLSDRCommandBuilder(CommandBuilder):
             direct_sampling: Enable direct sampling mode (0=off, 1=I-branch,
                 2=Q-branch). Use 2 for HF reception below 24 MHz.
         """
-        rtl_fm_path = get_tool_path('rtl_fm') or 'rtl_fm'
+        rtl_fm_path = get_tool_path("rtl_fm") or "rtl_fm"
         demod_mode = _rtl_fm_demod_mode(modulation)
         cmd = [
             rtl_fm_path,
-            '-d', self._get_device_arg(device),
-            '-f', f'{frequency_mhz}M',
-            '-M', demod_mode,
-            '-s', str(sample_rate),
+            "-d",
+            self._get_device_arg(device),
+            "-f",
+            f"{frequency_mhz}M",
+            "-M",
+            demod_mode,
+            "-s",
+            str(sample_rate),
         ]
 
         if gain is not None and gain > 0:
-            cmd.extend(['-g', str(gain)])
+            cmd.extend(["-g", str(gain)])
 
         if ppm is not None and ppm != 0:
-            cmd.extend(['-p', str(ppm)])
+            cmd.extend(["-p", str(ppm)])
 
         if squelch is not None and squelch > 0:
-            cmd.extend(['-l', str(squelch)])
+            cmd.extend(["-l", str(squelch)])
 
         if direct_sampling is not None:
             # Older rtl_fm builds (common in Docker/distro packages) don't
             # support -D; they use -E direct / -E direct2 instead.
             if direct_sampling == 1:
-                cmd.extend(['-E', 'direct'])
+                cmd.extend(["-E", "direct"])
             elif direct_sampling == 2:
-                cmd.extend(['-E', 'direct2'])
+                cmd.extend(["-E", "direct2"])
 
         if bias_t:
             if _rtl_tool_supports_bias_t(rtl_fm_path):
-                cmd.append('-T')
+                cmd.append("-T")
             else:
                 logger.warning("Bias-t requested but rtl_fm does not support -T (RTL-SDR Blog drivers required).")
 
         # Output to stdout for piping
-        cmd.append('-')
+        cmd.append("-")
 
         return cmd
 
-    def build_adsb_command(
-        self,
-        device: SDRDevice,
-        gain: float | None = None,
-        bias_t: bool = False
-    ) -> list[str]:
+    def build_adsb_command(self, device: SDRDevice, gain: float | None = None, bias_t: bool = False) -> list[str]:
         """
         Build dump1090 command for ADS-B decoding.
 
@@ -239,16 +222,11 @@ class RTLSDRCommandBuilder(CommandBuilder):
                 "connect to its SBS output (port 30003)."
             )
 
-        dump1090_path = get_tool_path('dump1090') or 'dump1090'
-        cmd = [
-            dump1090_path,
-            '--net',
-            '--device-index', str(device.index),
-            '--quiet'
-        ]
+        dump1090_path = get_tool_path("dump1090") or "dump1090"
+        cmd = [dump1090_path, "--net", "--device-index", str(device.index), "--quiet"]
 
         if gain is not None:
-            cmd.extend(['--gain', str(int(gain))])
+            cmd.extend(["--gain", str(int(gain))])
 
         if bias_t:
             bias_t_flag = _get_dump1090_bias_t_flag(dump1090_path)
@@ -271,7 +249,7 @@ class RTLSDRCommandBuilder(CommandBuilder):
         frequency_mhz: float = 433.92,
         gain: float | None = None,
         ppm: int | None = None,
-        bias_t: bool = False
+        bias_t: bool = False,
     ) -> list[str]:
         """
         Build rtl_433 command for ISM band sensor decoding.
@@ -281,27 +259,22 @@ class RTLSDRCommandBuilder(CommandBuilder):
         Note: rtl_433's -T flag is for timeout, NOT bias-t.
         Bias-t is enabled via the device string suffix :biast=1
         """
-        rtl_433_path = get_tool_path('rtl_433') or 'rtl_433'
+        rtl_433_path = get_tool_path("rtl_433") or "rtl_433"
 
         # Build device argument with optional bias-t suffix
         # rtl_433 uses :biast=1 suffix on device string, not -T flag
         # (-T is timeout in rtl_433)
         device_arg = self._get_device_arg(device)
         if bias_t:
-            device_arg = f'{device_arg}:biast=1'
+            device_arg = f"{device_arg}:biast=1"
 
-        cmd = [
-            rtl_433_path,
-            '-d', device_arg,
-            '-f', f'{frequency_mhz}M',
-            '-F', 'json'
-        ]
+        cmd = [rtl_433_path, "-d", device_arg, "-f", f"{frequency_mhz}M", "-F", "json"]
 
         if gain is not None and gain > 0:
-            cmd.extend(['-g', str(int(gain))])
+            cmd.extend(["-g", str(int(gain))])
 
         if ppm is not None and ppm != 0:
-            cmd.extend(['-p', str(ppm)])
+            cmd.extend(["-p", str(ppm)])
 
         return cmd
 
@@ -322,25 +295,27 @@ class RTLSDRCommandBuilder(CommandBuilder):
         """
         if device.is_network:
             raise ValueError(
-                "AIS-catcher does not support rtl_tcp. "
-                "For remote AIS, run AIS-catcher on the remote machine."
+                "AIS-catcher does not support rtl_tcp. For remote AIS, run AIS-catcher on the remote machine."
             )
 
         cmd = [
-            'AIS-catcher',
-            f'-d:{device.index}',  # Device index (colon format required)
-            '-S', str(tcp_port), 'JSON_FULL', 'on',  # TCP server with full JSON output
-            '-q',  # Quiet mode (less console output)
+            "AIS-catcher",
+            f"-d:{device.index}",  # Device index (colon format required)
+            "-S",
+            str(tcp_port),
+            "JSON_FULL",
+            "on",  # TCP server with full JSON output
+            "-q",  # Quiet mode (less console output)
         ]
 
         if gain is not None and gain > 0:
-            cmd.extend(['-gr', 'TUNER', str(int(gain))])
+            cmd.extend(["-gr", "TUNER", str(int(gain))])
 
         if bias_t:
-            cmd.extend(['-gr', 'BIASTEE', 'on'])
+            cmd.extend(["-gr", "BIASTEE", "on"])
 
         if udp_host and udp_port:
-            cmd.extend(['-u', udp_host, str(udp_port)])
+            cmd.extend(["-u", udp_host, str(udp_port)])
 
         return cmd
 
@@ -352,37 +327,40 @@ class RTLSDRCommandBuilder(CommandBuilder):
         gain: float | None = None,
         ppm: int | None = None,
         bias_t: bool = False,
-        output_format: str = 'cu8',
+        output_format: str = "cu8",
     ) -> list[str]:
         """
         Build rtl_sdr command for raw I/Q capture.
 
         Outputs unsigned 8-bit I/Q pairs to stdout for waterfall display.
         """
-        rtl_sdr_path = get_tool_path('rtl_sdr') or 'rtl_sdr'
+        rtl_sdr_path = get_tool_path("rtl_sdr") or "rtl_sdr"
         freq_hz = int(frequency_mhz * 1e6)
 
         cmd = [
             rtl_sdr_path,
-            '-d', self._get_device_arg(device),
-            '-f', str(freq_hz),
-            '-s', str(sample_rate),
+            "-d",
+            self._get_device_arg(device),
+            "-f",
+            str(freq_hz),
+            "-s",
+            str(sample_rate),
         ]
 
         if gain is not None and gain > 0:
-            cmd.extend(['-g', str(gain)])
+            cmd.extend(["-g", str(gain)])
 
         if ppm is not None and ppm != 0:
-            cmd.extend(['-p', str(ppm)])
+            cmd.extend(["-p", str(ppm)])
 
         if bias_t:
             if _rtl_tool_supports_bias_t(rtl_sdr_path):
-                cmd.append('-T')
+                cmd.append("-T")
             else:
                 logger.warning("Bias-t requested but rtl_sdr does not support -T (RTL-SDR Blog drivers required).")
 
         # Output to stdout
-        cmd.append('-')
+        cmd.append("-")
 
         return cmd
 
@@ -394,4 +372,3 @@ class RTLSDRCommandBuilder(CommandBuilder):
     def get_sdr_type(cls) -> SDRType:
         """Return SDR type."""
         return SDRType.RTL_SDR
-

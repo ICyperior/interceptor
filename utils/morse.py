@@ -35,22 +35,64 @@ except Exception:  # pragma: no cover - fallback path
 
 # International Morse Code table
 MORSE_TABLE: dict[str, str] = {
-    '.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E',
-    '..-.': 'F', '--.': 'G', '....': 'H', '..': 'I', '.---': 'J',
-    '-.-': 'K', '.-..': 'L', '--': 'M', '-.': 'N', '---': 'O',
-    '.--.': 'P', '--.-': 'Q', '.-.': 'R', '...': 'S', '-': 'T',
-    '..-': 'U', '...-': 'V', '.--': 'W', '-..-': 'X', '-.--': 'Y',
-    '--..': 'Z',
-    '-----': '0', '.----': '1', '..---': '2', '...--': '3',
-    '....-': '4', '.....': '5', '-....': '6', '--...': '7',
-    '---..': '8', '----.': '9',
-    '.-.-.-': '.', '--..--': ',', '..--..': '?', '.----.': "'",
-    '-.-.--': '!', '-..-.': '/', '-.--.': '(', '-.--.-': ')',
-    '.-...': '&', '---...': ':', '-.-.-.': ';', '-...-': '=',
-    '.-.-.': '+', '-....-': '-', '..--.-': '_', '.-..-.': '"',
-    '...-..-': '$', '.--.-.': '@',
+    ".-": "A",
+    "-...": "B",
+    "-.-.": "C",
+    "-..": "D",
+    ".": "E",
+    "..-.": "F",
+    "--.": "G",
+    "....": "H",
+    "..": "I",
+    ".---": "J",
+    "-.-": "K",
+    ".-..": "L",
+    "--": "M",
+    "-.": "N",
+    "---": "O",
+    ".--.": "P",
+    "--.-": "Q",
+    ".-.": "R",
+    "...": "S",
+    "-": "T",
+    "..-": "U",
+    "...-": "V",
+    ".--": "W",
+    "-..-": "X",
+    "-.--": "Y",
+    "--..": "Z",
+    "-----": "0",
+    ".----": "1",
+    "..---": "2",
+    "...--": "3",
+    "....-": "4",
+    ".....": "5",
+    "-....": "6",
+    "--...": "7",
+    "---..": "8",
+    "----.": "9",
+    ".-.-.-": ".",
+    "--..--": ",",
+    "..--..": "?",
+    ".----.": "'",
+    "-.-.--": "!",
+    "-..-.": "/",
+    "-.--.": "(",
+    "-.--.-": ")",
+    ".-...": "&",
+    "---...": ":",
+    "-.-.-.": ";",
+    "-...-": "=",
+    ".-.-.": "+",
+    "-....-": "-",
+    "..--.-": "_",
+    ".-..-.": '"',
+    "...-..-": "$",
+    ".--.-.": "@",
     # Prosigns (unique codes only; -...- and -.--.- already mapped above)
-    '-.-.-': '<CT>', '.-.-': '<AA>', '...-.-': '<SK>',
+    "-.-.-": "<CT>",
+    ".-.-": "<AA>",
+    "...-.-": "<SK>",
 }
 
 # Reverse lookup: character -> morse notation
@@ -119,21 +161,21 @@ def _coerce_bool(value: Any, default: bool = False) -> bool:
     if value is None:
         return default
     text = str(value).strip().lower()
-    if text in {'1', 'true', 'yes', 'on'}:
+    if text in {"1", "true", "yes", "on"}:
         return True
-    if text in {'0', 'false', 'no', 'off'}:
+    if text in {"0", "false", "no", "off"}:
         return False
     return default
 
 
 def _normalize_threshold_mode(value: Any) -> str:
-    mode = str(value or 'auto').strip().lower()
-    return mode if mode in {'auto', 'manual'} else 'auto'
+    mode = str(value or "auto").strip().lower()
+    return mode if mode in {"auto", "manual"} else "auto"
 
 
 def _normalize_wpm_mode(value: Any) -> str:
-    mode = str(value or 'auto').strip().lower()
-    return mode if mode in {'auto', 'manual'} else 'auto'
+    mode = str(value or "auto").strip().lower()
+    return mode if mode in {"auto", "manual"} else "auto"
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -151,19 +193,19 @@ class MorseDecoder:
         bandwidth_hz: int = 200,
         auto_tone_track: bool = True,
         tone_lock: bool = False,
-        threshold_mode: str = 'auto',
+        threshold_mode: str = "auto",
         manual_threshold: float = 0.0,
         threshold_multiplier: float = 2.8,
         threshold_offset: float = 0.0,
-        wpm_mode: str = 'auto',
+        wpm_mode: str = "auto",
         wpm_lock: bool = False,
         min_signal_gate: float = 0.0,
-        detect_mode: str = 'goertzel',
+        detect_mode: str = "goertzel",
     ):
         self.sample_rate = int(sample_rate)
         self.tone_freq = float(tone_freq)
         self.wpm = int(wpm)
-        self.detect_mode = detect_mode if detect_mode in ('goertzel', 'envelope') else 'goertzel'
+        self.detect_mode = detect_mode if detect_mode in ("goertzel", "envelope") else "goertzel"
 
         self.bandwidth_hz = int(_clamp(float(bandwidth_hz), 50, 400))
         self.auto_tone_track = bool(auto_tone_track)
@@ -186,7 +228,7 @@ class MorseDecoder:
         self._tone_scan_step_hz = 10.0
         self._tone_scan_interval_blocks = 8
 
-        if self.detect_mode == 'envelope':
+        if self.detect_mode == "envelope":
             self._detector = EnvelopeDetector(self._block_size)
             self._noise_detector_low = None
             self._noise_detector_high = None
@@ -211,7 +253,7 @@ class MorseDecoder:
         # Envelope smoothing.
         # OOK has clean binary transitions; use symmetric fast alpha.
         # HF CW has gradual fading (QSB); use asymmetric slower release.
-        if self.detect_mode == 'envelope':
+        if self.detect_mode == "envelope":
             self._attack_alpha = 0.55
             self._release_alpha = 0.55
         else:
@@ -228,7 +270,7 @@ class MorseDecoder:
         # Warm-up bootstrap.
         self._WARMUP_BLOCKS = 16
         self._SETTLE_BLOCKS = 140
-        self._mag_min = float('inf')
+        self._mag_min = float("inf")
         self._mag_max = 0.0
         self._blocks_processed = 0
 
@@ -237,7 +279,7 @@ class MorseDecoder:
         dit_blocks = max(1.0, dit_sec / self._block_duration)
         self._dah_threshold = 2.2 * dit_blocks
         self._dit_min = 0.38 * dit_blocks
-        if self.detect_mode == 'envelope':
+        if self.detect_mode == "envelope":
             # Tighter gaps for OOK — clean binary transitions tolerate this.
             self._char_gap = 2.0 * dit_blocks
             self._word_gap = 5.0 * dit_blocks
@@ -251,7 +293,7 @@ class MorseDecoder:
         self._tone_on = False
         self._tone_blocks = 0.0
         self._silence_blocks = 0.0
-        self._current_symbol = ''
+        self._current_symbol = ""
         self._pending_buffer: list[int] = []
 
         # Dropout tolerance: bridge brief signal dropouts mid-element (~40ms).
@@ -267,7 +309,7 @@ class MorseDecoder:
         self._noise_floor = 0.0
         self._signal_peak = 0.0
         self._threshold = 0.0
-        self._mag_min = float('inf')
+        self._mag_min = float("inf")
         self._mag_max = 0.0
         self._blocks_processed = 0
         self._dit_observations.clear()
@@ -275,38 +317,38 @@ class MorseDecoder:
         self._tone_on = False
         self._tone_blocks = 0.0
         self._silence_blocks = 0.0
-        self._current_symbol = ''
+        self._current_symbol = ""
 
     def get_metrics(self) -> dict[str, float | bool]:
         """Return latest decoder metrics for UI/status messages."""
         metrics: dict[str, Any] = {
-            'wpm': float(self._estimated_wpm),
-            'tone_freq': float(self._active_tone_freq),
-            'level': float(self._last_level),
-            'noise_floor': float(self._noise_floor),
-            'threshold': float(self._threshold),
-            'tone_on': bool(self._tone_on),
-            'dit_ms': float((self._effective_dit_blocks() * self._block_duration) * 1000.0),
-            'detect_mode': self.detect_mode,
+            "wpm": float(self._estimated_wpm),
+            "tone_freq": float(self._active_tone_freq),
+            "level": float(self._last_level),
+            "noise_floor": float(self._noise_floor),
+            "threshold": float(self._threshold),
+            "tone_on": bool(self._tone_on),
+            "dit_ms": float((self._effective_dit_blocks() * self._block_duration) * 1000.0),
+            "detect_mode": self.detect_mode,
         }
-        if self.detect_mode == 'envelope':
-            metrics['snr'] = 0.0
-            metrics['noise_ref'] = 0.0
-            metrics['snr_on'] = 0.0
-            metrics['snr_off'] = 0.0
+        if self.detect_mode == "envelope":
+            metrics["snr"] = 0.0
+            metrics["noise_ref"] = 0.0
+            metrics["snr_on"] = 0.0
+            metrics["snr_off"] = 0.0
         else:
             snr_mult = max(1.15, self.threshold_multiplier * 0.5)
             snr_on = snr_mult * (1.0 + self._hysteresis)
             snr_off = snr_mult * (1.0 - self._hysteresis)
-            metrics['snr'] = float(self._last_level / max(self._noise_floor, 1e-6))
-            metrics['noise_ref'] = float(self._noise_floor)
-            metrics['snr_on'] = float(snr_on)
-            metrics['snr_off'] = float(snr_off)
+            metrics["snr"] = float(self._last_level / max(self._noise_floor, 1e-6))
+            metrics["noise_ref"] = float(self._noise_floor)
+            metrics["snr_on"] = float(snr_on)
+            metrics["snr_off"] = float(snr_off)
         return metrics
 
     def _rebuild_detectors(self) -> None:
         """Rebuild target/noise Goertzel filters after tone updates."""
-        if self.detect_mode == 'envelope':
+        if self.detect_mode == "envelope":
             return  # Envelope detector is frequency-agnostic
         self._detector = GoertzelFilter(self._active_tone_freq, self.sample_rate, self._block_size)
         ref_offset = max(150.0, self.bandwidth_hz)
@@ -376,7 +418,7 @@ class MorseDecoder:
 
     def _effective_dit_blocks(self) -> float:
         """Return current dit estimate in block units."""
-        if self.wpm_mode == 'manual' or self.wpm_lock:
+        if self.wpm_mode == "manual" or self.wpm_lock:
             wpm = max(5.0, min(50.0, float(self.wpm)))
             dit_blocks = max(1.0, (1.2 / wpm) / self._block_duration)
             self._estimated_wpm = wpm
@@ -397,7 +439,7 @@ class MorseDecoder:
         """Feed a possible dit duration into the estimator."""
         if blocks <= 0:
             return
-        if self.wpm_mode == 'manual' or self.wpm_lock:
+        if self.wpm_mode == "manual" or self.wpm_lock:
             return
         if blocks > 20:
             return
@@ -408,10 +450,10 @@ class MorseDecoder:
         if char is None:
             return None
         return {
-            'type': 'morse_char',
-            'char': char,
-            'morse': symbol,
-            'timestamp': timestamp,
+            "type": "morse_char",
+            "char": char,
+            "morse": symbol,
+            "timestamp": timestamp,
         }
 
     def process_block(self, pcm_bytes: bytes) -> list[dict[str, Any]]:
@@ -422,14 +464,14 @@ class MorseDecoder:
         if n_samples <= 0:
             return events
 
-        samples = struct.unpack(f'<{n_samples}h', pcm_bytes[:n_samples * 2])
+        samples = struct.unpack(f"<{n_samples}h", pcm_bytes[: n_samples * 2])
         self._pending_buffer.extend(samples)
 
         amplitudes: list[float] = []
 
         while len(self._pending_buffer) >= self._block_size:
-            block = np.array(self._pending_buffer[:self._block_size], dtype=np.float64)
-            del self._pending_buffer[:self._block_size]
+            block = np.array(self._pending_buffer[: self._block_size], dtype=np.float64)
+            del self._pending_buffer[: self._block_size]
 
             normalized = block / 32768.0
 
@@ -445,7 +487,7 @@ class MorseDecoder:
 
             mag = self._detector.magnitude(normalized)
 
-            if self.detect_mode == 'envelope':
+            if self.detect_mode == "envelope":
                 # Envelope mode: direct magnitude threshold, no noise detectors
                 noise_ref = 0.0
                 level = float(mag)
@@ -464,24 +506,23 @@ class MorseDecoder:
                             self._signal_peak = max(self._noise_floor + 0.5, self._noise_floor * 2.5)
                         else:
                             self._signal_peak = max(self._mag_max, self._noise_floor * 1.8)
-                        self._threshold = self._noise_floor + 0.22 * (
-                            self._signal_peak - self._noise_floor
-                        )
+                        self._threshold = self._noise_floor + 0.22 * (self._signal_peak - self._noise_floor)
                     tone_detected = False
                 else:
-                    settle_alpha = 0.30 if self._blocks_processed < (self._WARMUP_BLOCKS + self._SETTLE_BLOCKS) else 0.06
+                    settle_alpha = (
+                        0.30 if self._blocks_processed < (self._WARMUP_BLOCKS + self._SETTLE_BLOCKS) else 0.06
+                    )
                     if level <= self._threshold:
                         self._noise_floor += settle_alpha * (level - self._noise_floor)
                     else:
                         self._signal_peak += settle_alpha * (level - self._signal_peak)
                     self._signal_peak = max(self._signal_peak, self._noise_floor * 1.05)
 
-                    if self.threshold_mode == 'manual':
+                    if self.threshold_mode == "manual":
                         self._threshold = max(0.0, self.manual_threshold)
                     else:
                         self._threshold = (
-                            max(0.0, self._noise_floor * self.threshold_multiplier)
-                            + self.threshold_offset
+                            max(0.0, self._noise_floor * self.threshold_multiplier) + self.threshold_offset
                         )
                         self._threshold = max(self._threshold, self._noise_floor + 0.35)
 
@@ -529,12 +570,12 @@ class MorseDecoder:
                             self._signal_peak = max(self._noise_floor + 0.5, self._noise_floor * 2.5)
                         else:
                             self._signal_peak = max(self._mag_max, self._noise_floor * 1.8)
-                        self._threshold = self._noise_floor + 0.22 * (
-                            self._signal_peak - self._noise_floor
-                        )
+                        self._threshold = self._noise_floor + 0.22 * (self._signal_peak - self._noise_floor)
                     tone_detected = False
                 else:
-                    settle_alpha = 0.30 if self._blocks_processed < (self._WARMUP_BLOCKS + self._SETTLE_BLOCKS) else 0.06
+                    settle_alpha = (
+                        0.30 if self._blocks_processed < (self._WARMUP_BLOCKS + self._SETTLE_BLOCKS) else 0.06
+                    )
 
                     detector_level = level
 
@@ -548,12 +589,11 @@ class MorseDecoder:
                     # Blend adjacent-band noise reference into noise floor.
                     self._noise_floor += (settle_alpha * 0.25) * (noise_ref - self._noise_floor)
 
-                    if self.threshold_mode == 'manual':
+                    if self.threshold_mode == "manual":
                         self._threshold = max(0.0, self.manual_threshold)
                     else:
                         self._threshold = (
-                            max(0.0, self._noise_floor * self.threshold_multiplier)
-                            + self.threshold_offset
+                            max(0.0, self._noise_floor * self.threshold_multiplier) + self.threshold_offset
                         )
                         self._threshold = max(self._threshold, self._noise_floor + 0.35)
 
@@ -575,7 +615,7 @@ class MorseDecoder:
             dit_blocks = self._effective_dit_blocks()
             self._dah_threshold = 2.2 * dit_blocks
             self._dit_min = max(1.0, 0.38 * dit_blocks)
-            if self.detect_mode == 'envelope':
+            if self.detect_mode == "envelope":
                 self._char_gap = 2.0 * dit_blocks
                 self._word_gap = 5.0 * dit_blocks
             else:
@@ -591,29 +631,35 @@ class MorseDecoder:
                 self._tone_blocks = 0.0
 
                 if self._current_symbol and silence_count >= self._char_gap:
-                    timestamp = datetime.now().strftime('%H:%M:%S')
+                    timestamp = datetime.now().strftime("%H:%M:%S")
                     decoded = self._decode_symbol(self._current_symbol, timestamp)
                     if decoded is not None:
                         events.append(decoded)
 
                     if silence_count >= self._word_gap:
-                        events.append({
-                            'type': 'morse_space',
-                            'timestamp': timestamp,
-                        })
-                        events.append({
-                            'type': 'morse_gap',
-                            'gap': 'word',
-                            'duration_ms': round(silence_count * self._block_duration * 1000.0, 1),
-                        })
+                        events.append(
+                            {
+                                "type": "morse_space",
+                                "timestamp": timestamp,
+                            }
+                        )
+                        events.append(
+                            {
+                                "type": "morse_gap",
+                                "gap": "word",
+                                "duration_ms": round(silence_count * self._block_duration * 1000.0, 1),
+                            }
+                        )
                     else:
-                        events.append({
-                            'type': 'morse_gap',
-                            'gap': 'char',
-                            'duration_ms': round(silence_count * self._block_duration * 1000.0, 1),
-                        })
+                        events.append(
+                            {
+                                "type": "morse_gap",
+                                "gap": "char",
+                                "duration_ms": round(silence_count * self._block_duration * 1000.0, 1),
+                            }
+                        )
 
-                    self._current_symbol = ''
+                    self._current_symbol = ""
                 elif silence_count >= 1.0:
                     # Intra-symbol gap candidate improves dit estimate for Farnsworth-style spacing.
                     if silence_count <= (self._char_gap * 0.95):
@@ -632,20 +678,22 @@ class MorseDecoder:
                 self._tone_blocks = 0.0
                 self._dropout_blocks = 0.0
 
-                element = ''
+                element = ""
                 if tone_count >= self._dah_threshold:
-                    element = '-'
+                    element = "-"
                 elif tone_count >= self._dit_min:
-                    element = '.'
+                    element = "."
 
                 if element:
                     self._current_symbol += element
-                    events.append({
-                        'type': 'morse_element',
-                        'element': element,
-                        'duration_ms': round(tone_count * self._block_duration * 1000.0, 1),
-                    })
-                    if element == '.':
+                    events.append(
+                        {
+                            "type": "morse_element",
+                            "element": element,
+                            "duration_ms": round(tone_count * self._block_duration * 1000.0, 1),
+                        }
+                    )
+                    if element == ".":
                         self._record_dit_candidate(tone_count)
                     elif tone_count <= (self._dah_threshold * 1.6):
                         # Some operators send short-ish dahs; still useful for tracking.
@@ -661,30 +709,30 @@ class MorseDecoder:
 
         if amplitudes:
             scope_event: dict[str, Any] = {
-                'type': 'scope',
-                'amplitudes': amplitudes,
-                'threshold': self._threshold,
-                'tone_on': self._tone_on,
-                'tone_freq': round(self._active_tone_freq, 1),
-                'level': self._last_level,
-                'noise_floor': self._noise_floor,
-                'wpm': round(self._estimated_wpm, 1),
-                'dit_ms': round(self._effective_dit_blocks() * self._block_duration * 1000.0, 1),
-                'detect_mode': self.detect_mode,
+                "type": "scope",
+                "amplitudes": amplitudes,
+                "threshold": self._threshold,
+                "tone_on": self._tone_on,
+                "tone_freq": round(self._active_tone_freq, 1),
+                "level": self._last_level,
+                "noise_floor": self._noise_floor,
+                "wpm": round(self._estimated_wpm, 1),
+                "dit_ms": round(self._effective_dit_blocks() * self._block_duration * 1000.0, 1),
+                "detect_mode": self.detect_mode,
             }
-            if self.detect_mode == 'envelope':
-                scope_event['snr'] = 0.0
-                scope_event['noise_ref'] = 0.0
-                scope_event['snr_on'] = 0.0
-                scope_event['snr_off'] = 0.0
+            if self.detect_mode == "envelope":
+                scope_event["snr"] = 0.0
+                scope_event["noise_ref"] = 0.0
+                scope_event["snr_on"] = 0.0
+                scope_event["snr_off"] = 0.0
             else:
                 snr_mult = max(1.15, self.threshold_multiplier * 0.5)
                 snr_on = snr_mult * (1.0 + self._hysteresis)
                 snr_off = snr_mult * (1.0 - self._hysteresis)
-                scope_event['snr'] = round(self._last_level / max(self._last_noise_ref, 1e-6), 2)
-                scope_event['noise_ref'] = round(self._last_noise_ref, 4)
-                scope_event['snr_on'] = round(snr_on, 2)
-                scope_event['snr_off'] = round(snr_off, 2)
+                scope_event["snr"] = round(self._last_level / max(self._last_noise_ref, 1e-6), 2)
+                scope_event["noise_ref"] = round(self._last_noise_ref, 4)
+                scope_event["snr_on"] = round(snr_on, 2)
+                scope_event["snr_off"] = round(snr_off, 2)
             events.append(scope_event)
 
         return events
@@ -695,19 +743,21 @@ class MorseDecoder:
 
         if self._tone_on and (self._tone_blocks + self._dropout_blocks) >= self._dit_min:
             tone_count = self._tone_blocks + self._dropout_blocks
-            element = '-' if tone_count >= self._dah_threshold else '.'
+            element = "-" if tone_count >= self._dah_threshold else "."
             self._current_symbol += element
-            events.append({
-                'type': 'morse_element',
-                'element': element,
-                'duration_ms': round(tone_count * self._block_duration * 1000.0, 1),
-            })
+            events.append(
+                {
+                    "type": "morse_element",
+                    "element": element,
+                    "duration_ms": round(tone_count * self._block_duration * 1000.0, 1),
+                }
+            )
 
         if self._current_symbol:
-            decoded = self._decode_symbol(self._current_symbol, datetime.now().strftime('%H:%M:%S'))
+            decoded = self._decode_symbol(self._current_symbol, datetime.now().strftime("%H:%M:%S"))
             if decoded is not None:
                 events.append(decoded)
-            self._current_symbol = ''
+            self._current_symbol = ""
 
         self._tone_on = False
         self._tone_blocks = 0.0
@@ -718,7 +768,7 @@ class MorseDecoder:
 
 def _wav_to_mono_float(path: Path) -> tuple[np.ndarray, int]:
     """Load WAV file and return mono float32 samples in [-1, 1]."""
-    with wave.open(str(path), 'rb') as wf:
+    with wave.open(str(path), "rb") as wf:
         n_channels = wf.getnchannels()
         sampwidth = wf.getsampwidth()
         sample_rate = wf.getframerate()
@@ -733,7 +783,7 @@ def _wav_to_mono_float(path: Path) -> tuple[np.ndarray, int]:
     elif sampwidth == 4:
         pcm = np.frombuffer(raw, dtype=np.int32).astype(np.float64) / 2147483648.0
     else:
-        raise ValueError(f'Unsupported WAV sample width: {sampwidth * 8} bits')
+        raise ValueError(f"Unsupported WAV sample width: {sampwidth * 8} bits")
 
     if n_channels > 1:
         pcm = pcm.reshape(-1, n_channels).mean(axis=1)
@@ -762,18 +812,18 @@ def decode_morse_wav_file(
     bandwidth_hz: int = 200,
     auto_tone_track: bool = True,
     tone_lock: bool = False,
-    threshold_mode: str = 'auto',
+    threshold_mode: str = "auto",
     manual_threshold: float = 0.0,
     threshold_multiplier: float = 2.8,
     threshold_offset: float = 0.0,
-    wpm_mode: str = 'auto',
+    wpm_mode: str = "auto",
     wpm_lock: bool = False,
     min_signal_gate: float = 0.0,
 ) -> dict[str, Any]:
     """Decode Morse from a WAV file and return text/events/metrics."""
     path = Path(wav_path)
     if not path.is_file():
-        raise FileNotFoundError(f'WAV file not found: {path}')
+        raise FileNotFoundError(f"WAV file not found: {path}")
 
     audio, file_rate = _wav_to_mono_float(path)
     if file_rate != sample_rate:
@@ -802,7 +852,7 @@ def decode_morse_wav_file(
     chunk_samples = 2048
     idx = 0
     while idx < len(pcm16):
-        chunk = pcm16[idx:idx + chunk_samples]
+        chunk = pcm16[idx : idx + chunk_samples]
         if len(chunk) == 0:
             break
         events.extend(decoder.process_block(chunk.tobytes()))
@@ -813,28 +863,28 @@ def decode_morse_wav_file(
     text_parts: list[str] = []
     raw_parts: list[str] = []
     for event in events:
-        et = event.get('type')
-        if et == 'morse_char':
-            text_parts.append(str(event.get('char', '')))
-        elif et == 'morse_space':
-            text_parts.append(' ')
-        elif et == 'morse_element':
-            raw_parts.append(str(event.get('element', '')))
-        elif et == 'morse_gap':
-            gap = str(event.get('gap', ''))
-            if gap == 'char':
-                raw_parts.append(' / ')
-            elif gap == 'word':
-                raw_parts.append(' // ')
+        et = event.get("type")
+        if et == "morse_char":
+            text_parts.append(str(event.get("char", "")))
+        elif et == "morse_space":
+            text_parts.append(" ")
+        elif et == "morse_element":
+            raw_parts.append(str(event.get("element", "")))
+        elif et == "morse_gap":
+            gap = str(event.get("gap", ""))
+            if gap == "char":
+                raw_parts.append(" / ")
+            elif gap == "word":
+                raw_parts.append(" // ")
 
-    text = ''.join(text_parts)
-    raw = ''.join(raw_parts).strip()
+    text = "".join(text_parts)
+    raw = "".join(raw_parts).strip()
 
     return {
-        'text': text,
-        'raw': raw,
-        'events': events,
-        'metrics': decoder.get_metrics(),
+        "text": text,
+        "raw": raw,
+        "events": events,
+        "metrics": decoder.get_metrics(),
     }
 
 
@@ -852,10 +902,10 @@ def _drain_control_queue(control_queue: queue.Queue | None, decoder: MorseDecode
 
         if not isinstance(cmd, dict):
             continue
-        action = str(cmd.get('cmd', '')).strip().lower()
-        if action == 'reset':
+        action = str(cmd.get("cmd", "")).strip().lower()
+        if action == "reset":
             decoder.reset_calibration()
-        elif action in {'shutdown', 'stop'}:
+        elif action in {"shutdown", "stop"}:
             keep_running = False
 
     return keep_running
@@ -864,14 +914,16 @@ def _drain_control_queue(control_queue: queue.Queue | None, decoder: MorseDecode
 def _emit_waiting_scope(output_queue: queue.Queue, waiting_since: float) -> None:
     """Emit waiting heartbeat while no PCM arrives."""
     with contextlib.suppress(queue.Full):
-        output_queue.put_nowait({
-            'type': 'scope',
-            'amplitudes': [],
-            'threshold': 0,
-            'tone_on': False,
-            'waiting': True,
-            'waiting_seconds': round(max(0.0, time.monotonic() - waiting_since), 1),
-        })
+        output_queue.put_nowait(
+            {
+                "type": "scope",
+                "amplitudes": [],
+                "threshold": 0,
+                "tone_on": False,
+                "waiting": True,
+                "waiting_seconds": round(max(0.0, time.monotonic() - waiting_since), 1),
+            }
+        )
 
 
 def _is_probably_rtl_log_text(data: bytes) -> bool:
@@ -879,7 +931,7 @@ def _is_probably_rtl_log_text(data: bytes) -> bool:
     if not data:
         return False
     # PCM usually contains NULLs/non-printables; plain log lines do not.
-    if b'\x00' in data:
+    if b"\x00" in data:
         return False
     printable = sum(1 for b in data if (32 <= b <= 126) or b in (9, 10, 13))
     ratio = printable / max(1, len(data))
@@ -887,17 +939,17 @@ def _is_probably_rtl_log_text(data: bytes) -> bool:
         return False
     lower = data.lower()
     keywords = (
-        b'rtl_fm',
-        b'found ',
-        b'using device',
-        b'tuned to',
-        b'sampling at',
-        b'output at',
-        b'buffer size',
-        b'gain',
-        b'direct sampling',
-        b'oversampling',
-        b'exact sample rate',
+        b"rtl_fm",
+        b"found ",
+        b"using device",
+        b"tuned to",
+        b"sampling at",
+        b"output at",
+        b"buffer size",
+        b"gain",
+        b"direct sampling",
+        b"oversampling",
+        b"exact sample rate",
     )
     return any(token in lower for token in keywords)
 
@@ -917,7 +969,8 @@ def morse_decoder_thread(
 ) -> None:
     """Decode Morse from live PCM stream and push events to *output_queue*."""
     import logging
-    logger = logging.getLogger('intercept.morse')
+
+    logger = logging.getLogger("intercept.morse")
 
     CHUNK = 4096
     SCOPE_INTERVAL = 0.10
@@ -926,20 +979,20 @@ def morse_decoder_thread(
 
     cfg = dict(decoder_config or {})
     decoder = MorseDecoder(
-        sample_rate=int(cfg.get('sample_rate', sample_rate)),
-        tone_freq=float(cfg.get('tone_freq', tone_freq)),
-        wpm=int(cfg.get('wpm', wpm)),
-        bandwidth_hz=int(cfg.get('bandwidth_hz', 200)),
-        auto_tone_track=_coerce_bool(cfg.get('auto_tone_track', True), True),
-        tone_lock=_coerce_bool(cfg.get('tone_lock', False), False),
-        threshold_mode=_normalize_threshold_mode(cfg.get('threshold_mode', 'auto')),
-        manual_threshold=float(cfg.get('manual_threshold', 0.0) or 0.0),
-        threshold_multiplier=float(cfg.get('threshold_multiplier', 2.8) or 2.8),
-        threshold_offset=float(cfg.get('threshold_offset', 0.0) or 0.0),
-        wpm_mode=_normalize_wpm_mode(cfg.get('wpm_mode', 'auto')),
-        wpm_lock=_coerce_bool(cfg.get('wpm_lock', False), False),
-        min_signal_gate=float(cfg.get('min_signal_gate', 0.0) or 0.0),
-        detect_mode=str(cfg.get('detect_mode', 'goertzel')),
+        sample_rate=int(cfg.get("sample_rate", sample_rate)),
+        tone_freq=float(cfg.get("tone_freq", tone_freq)),
+        wpm=int(cfg.get("wpm", wpm)),
+        bandwidth_hz=int(cfg.get("bandwidth_hz", 200)),
+        auto_tone_track=_coerce_bool(cfg.get("auto_tone_track", True), True),
+        tone_lock=_coerce_bool(cfg.get("tone_lock", False), False),
+        threshold_mode=_normalize_threshold_mode(cfg.get("threshold_mode", "auto")),
+        manual_threshold=float(cfg.get("manual_threshold", 0.0) or 0.0),
+        threshold_multiplier=float(cfg.get("threshold_multiplier", 2.8) or 2.8),
+        threshold_offset=float(cfg.get("threshold_offset", 0.0) or 0.0),
+        wpm_mode=_normalize_wpm_mode(cfg.get("wpm_mode", "auto")),
+        wpm_lock=_coerce_bool(cfg.get("wpm_lock", False), False),
+        min_signal_gate=float(cfg.get("min_signal_gate", 0.0) or 0.0),
+        detect_mode=str(cfg.get("detect_mode", "goertzel")),
     )
 
     last_scope = time.monotonic()
@@ -956,6 +1009,7 @@ def morse_decoder_thread(
     raw_queue: queue.Queue[bytes] = queue.Queue(maxsize=96)
 
     try:
+
         def _reader_loop() -> None:
             """Blocking PCM reader isolated from decode/control loop."""
             nonlocal first_raw_logged
@@ -970,16 +1024,18 @@ def morse_decoder_thread(
                             if not ready:
                                 continue
                             data = os.read(fd, CHUNK)
-                        elif hasattr(rtl_stdout, 'read1'):
+                        elif hasattr(rtl_stdout, "read1"):
                             data = rtl_stdout.read1(CHUNK)
                         else:
                             data = rtl_stdout.read(CHUNK)
                     except Exception as e:
                         with contextlib.suppress(queue.Full):
-                            output_queue.put_nowait({
-                                'type': 'info',
-                                'text': f'[pcm] reader error: {e}',
-                            })
+                            output_queue.put_nowait(
+                                {
+                                    "type": "info",
+                                    "text": f"[pcm] reader error: {e}",
+                                }
+                            )
                         break
 
                     if data is None:
@@ -993,26 +1049,30 @@ def morse_decoder_thread(
                         if stream_ready_event is not None:
                             stream_ready_event.set()
                         with contextlib.suppress(queue.Full):
-                            output_queue.put_nowait({
-                                'type': 'info',
-                                'text': f'[pcm] first raw chunk: {len(data)} bytes',
-                            })
+                            output_queue.put_nowait(
+                                {
+                                    "type": "info",
+                                    "text": f"[pcm] first raw chunk: {len(data)} bytes",
+                                }
+                            )
 
                     if strip_text_chunks and _is_probably_rtl_log_text(data):
                         try:
-                            text = data.decode('utf-8', errors='replace')
+                            text = data.decode("utf-8", errors="replace")
                         except Exception:
-                            text = ''
+                            text = ""
                         if text:
                             for line in text.splitlines():
                                 clean = line.strip()
                                 if not clean:
                                     continue
                                 with contextlib.suppress(queue.Full):
-                                    output_queue.put_nowait({
-                                        'type': 'info',
-                                        'text': f'[rtl_fm] {clean}',
-                                    })
+                                    output_queue.put_nowait(
+                                        {
+                                            "type": "info",
+                                            "text": f"[rtl_fm] {clean}",
+                                        }
+                                    )
                         continue
 
                     try:
@@ -1026,12 +1086,12 @@ def morse_decoder_thread(
             finally:
                 reader_done.set()
                 with contextlib.suppress(queue.Full):
-                    raw_queue.put_nowait(b'')
+                    raw_queue.put_nowait(b"")
 
         reader_thread = threading.Thread(
             target=_reader_loop,
             daemon=True,
-            name='morse-pcm-reader',
+            name="morse-pcm-reader",
         )
         reader_thread.start()
 
@@ -1060,10 +1120,12 @@ def morse_decoder_thread(
             if not data:
                 if reader_done.is_set() and last_pcm_at is None:
                     with contextlib.suppress(queue.Full):
-                        output_queue.put_nowait({
-                            'type': 'info',
-                            'text': '[pcm] stream ended before samples were received',
-                        })
+                        output_queue.put_nowait(
+                            {
+                                "type": "info",
+                                "text": "[pcm] stream ended before samples were received",
+                            }
+                        )
                 break
 
             waiting_since = None
@@ -1075,14 +1137,16 @@ def morse_decoder_thread(
                 if pcm_ready_event is not None:
                     pcm_ready_event.set()
                 with contextlib.suppress(queue.Full):
-                    output_queue.put_nowait({
-                        'type': 'info',
-                        'text': f'[pcm] first chunk: {len(data)} bytes',
-                    })
+                    output_queue.put_nowait(
+                        {
+                            "type": "info",
+                            "text": f"[pcm] first chunk: {len(data)} bytes",
+                        }
+                    )
 
             events = decoder.process_block(data)
             for event in events:
-                if event.get('type') == 'scope':
+                if event.get("type") == "scope":
                     now = time.monotonic()
                     if now - last_scope >= SCOPE_INTERVAL:
                         last_scope = now
@@ -1096,20 +1160,24 @@ def morse_decoder_thread(
             if (now - pcm_report_at) >= 1.0:
                 kbps = (pcm_bytes * 8.0) / max(1e-6, (now - pcm_report_at)) / 1000.0
                 with contextlib.suppress(queue.Full):
-                    output_queue.put_nowait({
-                        'type': 'info',
-                        'text': f'[pcm] {pcm_bytes} B in {now - pcm_report_at:.1f}s ({kbps:.1f} kbps)',
-                    })
+                    output_queue.put_nowait(
+                        {
+                            "type": "info",
+                            "text": f"[pcm] {pcm_bytes} B in {now - pcm_report_at:.1f}s ({kbps:.1f} kbps)",
+                        }
+                    )
                 pcm_bytes = 0
                 pcm_report_at = now
 
     except Exception as e:  # pragma: no cover - defensive runtime guard
-        logger.debug(f'Morse decoder thread error: {e}')
+        logger.debug(f"Morse decoder thread error: {e}")
         with contextlib.suppress(queue.Full):
-            output_queue.put_nowait({
-                'type': 'info',
-                'text': f'[pcm] decoder thread error: {e}',
-            })
+            output_queue.put_nowait(
+                {
+                    "type": "info",
+                    "text": f"[pcm] decoder thread error: {e}",
+                }
+            )
     finally:
         stop_event.set()
         if reader_thread is not None:
@@ -1120,11 +1188,13 @@ def morse_decoder_thread(
                 output_queue.put_nowait(event)
 
         with contextlib.suppress(queue.Full):
-            output_queue.put_nowait({
-                'type': 'status',
-                'status': 'stopped',
-                'metrics': decoder.get_metrics(),
-            })
+            output_queue.put_nowait(
+                {
+                    "type": "status",
+                    "status": "stopped",
+                    "metrics": decoder.get_metrics(),
+                }
+            )
 
 
 def _cu8_to_complex(raw: bytes) -> np.ndarray:
@@ -1147,7 +1217,7 @@ def _iq_usb_to_pcm16(
 ) -> bytes:
     """Minimal USB demod from complex IQ to 16-bit PCM."""
     if iq_samples.size < 16 or iq_sample_rate <= 0 or audio_sample_rate <= 0:
-        return b''
+        return b""
 
     audio = np.real(iq_samples).astype(np.float64)
     audio -= float(np.mean(audio))
@@ -1157,21 +1227,21 @@ def _iq_usb_to_pcm16(
     if decim > 1:
         usable = (audio.size // decim) * decim
         if usable < decim:
-            return b''
+            return b""
         audio = audio[:usable].reshape(-1, decim).mean(axis=1)
     fs1 = float(iq_sample_rate) / float(decim)
     if audio.size < 8:
-        return b''
+        return b""
 
     taps = int(max(1, min(31, fs1 / 12000.0)))
     if taps > 1:
         kernel = np.ones(taps, dtype=np.float64) / float(taps)
-        audio = np.convolve(audio, kernel, mode='same')
+        audio = np.convolve(audio, kernel, mode="same")
 
     if abs(fs1 - float(audio_sample_rate)) > 1.0:
         out_len = int(audio.size * float(audio_sample_rate) / fs1)
         if out_len < 8:
-            return b''
+            return b""
         x_old = np.linspace(0.0, 1.0, audio.size, endpoint=False, dtype=np.float64)
         x_new = np.linspace(0.0, 1.0, out_len, endpoint=False, dtype=np.float64)
         audio = np.interp(x_new, x_old, audio)
@@ -1199,7 +1269,8 @@ def morse_iq_decoder_thread(
 ) -> None:
     """Decode Morse from raw IQ (cu8) by in-process USB demodulation."""
     import logging
-    logger = logging.getLogger('intercept.morse')
+
+    logger = logging.getLogger("intercept.morse")
 
     CHUNK = 65536
     SCOPE_INTERVAL = 0.10
@@ -1208,20 +1279,20 @@ def morse_iq_decoder_thread(
 
     cfg = dict(decoder_config or {})
     decoder = MorseDecoder(
-        sample_rate=int(cfg.get('sample_rate', sample_rate)),
-        tone_freq=float(cfg.get('tone_freq', tone_freq)),
-        wpm=int(cfg.get('wpm', wpm)),
-        bandwidth_hz=int(cfg.get('bandwidth_hz', 200)),
-        auto_tone_track=_coerce_bool(cfg.get('auto_tone_track', True), True),
-        tone_lock=_coerce_bool(cfg.get('tone_lock', False), False),
-        threshold_mode=_normalize_threshold_mode(cfg.get('threshold_mode', 'auto')),
-        manual_threshold=float(cfg.get('manual_threshold', 0.0) or 0.0),
-        threshold_multiplier=float(cfg.get('threshold_multiplier', 2.8) or 2.8),
-        threshold_offset=float(cfg.get('threshold_offset', 0.0) or 0.0),
-        wpm_mode=_normalize_wpm_mode(cfg.get('wpm_mode', 'auto')),
-        wpm_lock=_coerce_bool(cfg.get('wpm_lock', False), False),
-        min_signal_gate=float(cfg.get('min_signal_gate', 0.0) or 0.0),
-        detect_mode=str(cfg.get('detect_mode', 'goertzel')),
+        sample_rate=int(cfg.get("sample_rate", sample_rate)),
+        tone_freq=float(cfg.get("tone_freq", tone_freq)),
+        wpm=int(cfg.get("wpm", wpm)),
+        bandwidth_hz=int(cfg.get("bandwidth_hz", 200)),
+        auto_tone_track=_coerce_bool(cfg.get("auto_tone_track", True), True),
+        tone_lock=_coerce_bool(cfg.get("tone_lock", False), False),
+        threshold_mode=_normalize_threshold_mode(cfg.get("threshold_mode", "auto")),
+        manual_threshold=float(cfg.get("manual_threshold", 0.0) or 0.0),
+        threshold_multiplier=float(cfg.get("threshold_multiplier", 2.8) or 2.8),
+        threshold_offset=float(cfg.get("threshold_offset", 0.0) or 0.0),
+        wpm_mode=_normalize_wpm_mode(cfg.get("wpm_mode", "auto")),
+        wpm_lock=_coerce_bool(cfg.get("wpm_lock", False), False),
+        min_signal_gate=float(cfg.get("min_signal_gate", 0.0) or 0.0),
+        detect_mode=str(cfg.get("detect_mode", "goertzel")),
     )
 
     last_scope = time.monotonic()
@@ -1238,6 +1309,7 @@ def morse_iq_decoder_thread(
     raw_queue: queue.Queue[bytes] = queue.Queue(maxsize=96)
 
     try:
+
         def _reader_loop() -> None:
             nonlocal first_raw_logged
             try:
@@ -1251,16 +1323,18 @@ def morse_iq_decoder_thread(
                             if not ready:
                                 continue
                             data = os.read(fd, CHUNK)
-                        elif hasattr(iq_stdout, 'read1'):
+                        elif hasattr(iq_stdout, "read1"):
                             data = iq_stdout.read1(CHUNK)
                         else:
                             data = iq_stdout.read(CHUNK)
                     except Exception as e:
                         with contextlib.suppress(queue.Full):
-                            output_queue.put_nowait({
-                                'type': 'info',
-                                'text': f'[iq] reader error: {e}',
-                            })
+                            output_queue.put_nowait(
+                                {
+                                    "type": "info",
+                                    "text": f"[iq] reader error: {e}",
+                                }
+                            )
                         break
 
                     if data is None:
@@ -1273,10 +1347,12 @@ def morse_iq_decoder_thread(
                         if stream_ready_event is not None:
                             stream_ready_event.set()
                         with contextlib.suppress(queue.Full):
-                            output_queue.put_nowait({
-                                'type': 'info',
-                                'text': f'[iq] first raw chunk: {len(data)} bytes',
-                            })
+                            output_queue.put_nowait(
+                                {
+                                    "type": "info",
+                                    "text": f"[iq] first raw chunk: {len(data)} bytes",
+                                }
+                            )
 
                     try:
                         raw_queue.put(data, timeout=0.2)
@@ -1288,12 +1364,12 @@ def morse_iq_decoder_thread(
             finally:
                 reader_done.set()
                 with contextlib.suppress(queue.Full):
-                    raw_queue.put_nowait(b'')
+                    raw_queue.put_nowait(b"")
 
         reader_thread = threading.Thread(
             target=_reader_loop,
             daemon=True,
-            name='morse-iq-reader',
+            name="morse-iq-reader",
         )
         reader_thread.start()
 
@@ -1322,10 +1398,12 @@ def morse_iq_decoder_thread(
             if not raw:
                 if reader_done.is_set() and last_pcm_at is None:
                     with contextlib.suppress(queue.Full):
-                        output_queue.put_nowait({
-                            'type': 'info',
-                            'text': '[iq] stream ended before samples were received',
-                        })
+                        output_queue.put_nowait(
+                            {
+                                "type": "info",
+                                "text": "[iq] stream ended before samples were received",
+                            }
+                        )
                 break
 
             iq = _cu8_to_complex(raw)
@@ -1346,14 +1424,16 @@ def morse_iq_decoder_thread(
                 if pcm_ready_event is not None:
                     pcm_ready_event.set()
                 with contextlib.suppress(queue.Full):
-                    output_queue.put_nowait({
-                        'type': 'info',
-                        'text': f'[pcm] first IQ demod chunk: {len(pcm)} bytes',
-                    })
+                    output_queue.put_nowait(
+                        {
+                            "type": "info",
+                            "text": f"[pcm] first IQ demod chunk: {len(pcm)} bytes",
+                        }
+                    )
 
             events = decoder.process_block(pcm)
             for event in events:
-                if event.get('type') == 'scope':
+                if event.get("type") == "scope":
                     now = time.monotonic()
                     if now - last_scope >= SCOPE_INTERVAL:
                         last_scope = now
@@ -1367,20 +1447,24 @@ def morse_iq_decoder_thread(
             if (now - pcm_report_at) >= 1.0:
                 kbps = (pcm_bytes * 8.0) / max(1e-6, (now - pcm_report_at)) / 1000.0
                 with contextlib.suppress(queue.Full):
-                    output_queue.put_nowait({
-                        'type': 'info',
-                        'text': f'[pcm] {pcm_bytes} B in {now - pcm_report_at:.1f}s ({kbps:.1f} kbps)',
-                    })
+                    output_queue.put_nowait(
+                        {
+                            "type": "info",
+                            "text": f"[pcm] {pcm_bytes} B in {now - pcm_report_at:.1f}s ({kbps:.1f} kbps)",
+                        }
+                    )
                 pcm_bytes = 0
                 pcm_report_at = now
 
     except Exception as e:  # pragma: no cover - runtime safety
-        logger.debug(f'Morse IQ decoder thread error: {e}')
+        logger.debug(f"Morse IQ decoder thread error: {e}")
         with contextlib.suppress(queue.Full):
-            output_queue.put_nowait({
-                'type': 'info',
-                'text': f'[iq] decoder thread error: {e}',
-            })
+            output_queue.put_nowait(
+                {
+                    "type": "info",
+                    "text": f"[iq] decoder thread error: {e}",
+                }
+            )
     finally:
         stop_event.set()
         if reader_thread is not None:
@@ -1391,8 +1475,10 @@ def morse_iq_decoder_thread(
                 output_queue.put_nowait(event)
 
         with contextlib.suppress(queue.Full):
-            output_queue.put_nowait({
-                'type': 'status',
-                'status': 'stopped',
-                'metrics': decoder.get_metrics(),
-            })
+            output_queue.put_nowait(
+                {
+                    "type": "status",
+                    "status": "stopped",
+                    "metrics": decoder.get_metrics(),
+                }
+            )

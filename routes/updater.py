@@ -14,12 +14,12 @@ from utils.updater import (
     restart_application,
 )
 
-logger = get_logger('intercept.routes.updater')
+logger = get_logger("intercept.routes.updater")
 
-updater_bp = Blueprint('updater', __name__, url_prefix='/updater')
+updater_bp = Blueprint("updater", __name__, url_prefix="/updater")
 
 
-@updater_bp.route('/check', methods=['GET'])
+@updater_bp.route("/check", methods=["GET"])
 def check_updates() -> Response:
     """
     Check for updates from GitHub.
@@ -33,7 +33,7 @@ def check_updates() -> Response:
     Returns:
         JSON with update status information
     """
-    force = request.args.get('force', '').lower() == 'true'
+    force = request.args.get("force", "").lower() == "true"
 
     try:
         result = check_for_updates(force=force)
@@ -43,7 +43,7 @@ def check_updates() -> Response:
         return api_error(str(e), 500)
 
 
-@updater_bp.route('/status', methods=['GET'])
+@updater_bp.route("/status", methods=["GET"])
 def update_status() -> Response:
     """
     Get current update status from cache.
@@ -62,7 +62,7 @@ def update_status() -> Response:
         return api_error(str(e), 500)
 
 
-@updater_bp.route('/update', methods=['POST'])
+@updater_bp.route("/update", methods=["POST"])
 def do_update() -> Response:
     """
     Perform a git pull to update the application.
@@ -74,21 +74,21 @@ def do_update() -> Response:
         JSON with update result information
     """
     data = request.json or {}
-    stash_changes = data.get('stash_changes', False)
+    stash_changes = data.get("stash_changes", False)
 
     try:
         result = perform_update(stash_changes=stash_changes)
 
-        if result.get('success'):
+        if result.get("success"):
             return jsonify(result)
         else:
             # Return appropriate status code based on error type
-            error = result.get('error', '')
-            if error == 'local_changes':
+            error = result.get("error", "")
+            if error == "local_changes":
                 return jsonify(result), 409  # Conflict
-            elif error == 'merge_conflict':
+            elif error == "merge_conflict":
                 return jsonify(result), 409
-            elif result.get('manual_update'):
+            elif result.get("manual_update"):
                 return jsonify(result), 400
             else:
                 return jsonify(result), 500
@@ -98,7 +98,7 @@ def do_update() -> Response:
         return api_error(str(e), 500)
 
 
-@updater_bp.route('/dismiss', methods=['POST'])
+@updater_bp.route("/dismiss", methods=["POST"])
 def dismiss_notification() -> Response:
     """
     Dismiss update notification for a specific version.
@@ -113,10 +113,10 @@ def dismiss_notification() -> Response:
         JSON with success status
     """
     data = request.json or {}
-    version = data.get('version')
+    version = data.get("version")
 
     if not version:
-        return api_error('Version is required', 400)
+        return api_error("Version is required", 400)
 
     try:
         result = dismiss_update(version)
@@ -126,7 +126,7 @@ def dismiss_notification() -> Response:
         return api_error(str(e), 500)
 
 
-@updater_bp.route('/restart', methods=['POST'])
+@updater_bp.route("/restart", methods=["POST"])
 def restart_app() -> Response:
     """
     Restart the application.
@@ -151,6 +151,7 @@ def restart_app() -> Response:
     # Use a short delay to allow the response to be sent
     def delayed_restart():
         import time
+
         time.sleep(0.5)  # Allow response to be sent
         restart_application()
 
@@ -158,8 +159,4 @@ def restart_app() -> Response:
     restart_thread = threading.Thread(target=delayed_restart, daemon=False)
     restart_thread.start()
 
-    return jsonify({
-        'success': True,
-        'message': 'Application is restarting. Please wait...',
-        'action': 'restart'
-    })
+    return jsonify({"success": True, "message": "Application is restarting. Please wait...", "action": "restart"})

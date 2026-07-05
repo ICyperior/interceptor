@@ -44,14 +44,14 @@ RTL_433_SAMPLES = [
 
 # Sample SBS (BaseStation) format lines from dump1090
 SBS_SAMPLES = [
-    'MSG,1,1,1,A1B2C3,1,2024/01/15,10:30:00.000,2024/01/15,10:30:00.000,UAL123,,,,,,,,,,0',
-    'MSG,3,1,1,A1B2C3,1,2024/01/15,10:30:01.000,2024/01/15,10:30:01.000,,35000,,,40.7128,-74.0060,,,0,0,0,0',
-    'MSG,4,1,1,A1B2C3,1,2024/01/15,10:30:02.000,2024/01/15,10:30:02.000,,,450,180,,,1500,,,,,',
-    'MSG,5,1,1,A1B2C3,1,2024/01/15,10:30:03.000,2024/01/15,10:30:03.000,UAL123,35000,,,,,,,,,',
-    'MSG,6,1,1,A1B2C3,1,2024/01/15,10:30:04.000,2024/01/15,10:30:04.000,,,,,,,,,,1200',
+    "MSG,1,1,1,A1B2C3,1,2024/01/15,10:30:00.000,2024/01/15,10:30:00.000,UAL123,,,,,,,,,,0",
+    "MSG,3,1,1,A1B2C3,1,2024/01/15,10:30:01.000,2024/01/15,10:30:01.000,,35000,,,40.7128,-74.0060,,,0,0,0,0",
+    "MSG,4,1,1,A1B2C3,1,2024/01/15,10:30:02.000,2024/01/15,10:30:02.000,,,450,180,,,1500,,,,,",
+    "MSG,5,1,1,A1B2C3,1,2024/01/15,10:30:03.000,2024/01/15,10:30:03.000,UAL123,35000,,,,,,,,,",
+    "MSG,6,1,1,A1B2C3,1,2024/01/15,10:30:04.000,2024/01/15,10:30:04.000,,,,,,,,,,1200",
     # Second aircraft
-    'MSG,1,1,1,D4E5F6,1,2024/01/15,10:30:05.000,2024/01/15,10:30:05.000,DAL456,,,,,,,,,,0',
-    'MSG,3,1,1,D4E5F6,1,2024/01/15,10:30:06.000,2024/01/15,10:30:06.000,,28000,,,40.8000,-73.9500,,,0,0,0,0',
+    "MSG,1,1,1,D4E5F6,1,2024/01/15,10:30:05.000,2024/01/15,10:30:05.000,DAL456,,,,,,,,,,0",
+    "MSG,3,1,1,D4E5F6,1,2024/01/15,10:30:06.000,2024/01/15,10:30:06.000,,28000,,,40.8000,-73.9500,,,0,0,0,0",
 ]
 
 # Sample airodump-ng CSV output (matches real airodump format - no blank line between header and data)
@@ -70,17 +70,19 @@ DE:AD:BE:EF:00:02, 2024-01-15 10:20:00, 2024-01-15 10:30:00, -75,       25, AA:B
 # Fixtures
 # =============================================================================
 
+
 @pytest.fixture
 def agent():
     """Create a ModeManager instance for testing."""
     from intercept_agent import ModeManager
+
     return ModeManager()
 
 
 @pytest.fixture
 def temp_csv_file():
     """Create a temp airodump CSV file."""
-    with tempfile.NamedTemporaryFile(mode='w', suffix='-01.csv', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix="-01.csv", delete=False) as f:
         f.write(AIRODUMP_CSV_SAMPLE)
         path = f.name
     yield path[:-7]  # Return base path without -01.csv suffix
@@ -93,38 +95,41 @@ def temp_csv_file():
 # Tool Detection Tests
 # =============================================================================
 
+
 class TestToolDetection:
     """Tests for tool availability detection."""
 
     def test_rtl_433_available(self):
         """rtl_433 should be installed."""
-        assert shutil.which('rtl_433') is not None
+        assert shutil.which("rtl_433") is not None
 
     def test_dump1090_available(self):
         """dump1090 should be installed."""
-        assert shutil.which('dump1090') is not None or \
-               shutil.which('dump1090-fa') is not None or \
-               shutil.which('readsb') is not None
+        assert (
+            shutil.which("dump1090") is not None
+            or shutil.which("dump1090-fa") is not None
+            or shutil.which("readsb") is not None
+        )
 
     def test_airodump_available(self):
         """airodump-ng should be installed."""
-        assert shutil.which('airodump-ng') is not None
+        assert shutil.which("airodump-ng") is not None
 
     def test_multimon_available(self):
         """multimon-ng should be installed."""
-        assert shutil.which('multimon-ng') is not None
+        assert shutil.which("multimon-ng") is not None
 
     def test_acarsdec_available(self):
         """acarsdec should be installed."""
-        assert shutil.which('acarsdec') is not None
+        assert shutil.which("acarsdec") is not None
 
     def test_agent_detects_tools(self, agent):
         """Agent should detect available tools."""
         caps = agent.detect_capabilities()
 
         # These should all be True given the tools are installed
-        assert caps['modes']['sensor'] is True
-        assert caps['modes']['adsb'] is True
+        assert caps["modes"]["sensor"] is True
+        assert caps["modes"]["adsb"] is True
         # wifi requires airmon-ng too
         # bluetooth requires bluetoothctl
 
@@ -134,11 +139,7 @@ class TestRTLSDRDetection:
 
     def test_rtl_test_runs(self):
         """rtl_test should run (even if no device)."""
-        result = subprocess.run(
-            ['rtl_test', '-t'],
-            capture_output=True,
-            timeout=5
-        )
+        result = subprocess.run(["rtl_test", "-t"], capture_output=True, timeout=5)
         # Will return 0 if device found, non-zero if not
         # We just verify it runs without crashing
         assert result.returncode in [0, 1, 255]
@@ -149,24 +150,21 @@ class TestRTLSDRDetection:
 
         # If RTL-SDR is connected, devices list should be non-empty
         # This is hardware-dependent, so we just verify the key exists
-        assert 'devices' in caps
+        assert "devices" in caps
 
     @pytest.mark.live
     def test_rtl_sdr_present(self):
         """Verify RTL-SDR device is present (for live tests)."""
-        result = subprocess.run(
-            ['rtl_test', '-t'],
-            capture_output=True,
-            timeout=5
-        )
-        if b'Found 0 device' in result.stdout or b'No supported devices found' in result.stderr:
+        result = subprocess.run(["rtl_test", "-t"], capture_output=True, timeout=5)
+        if b"Found 0 device" in result.stdout or b"No supported devices found" in result.stderr:
             pytest.skip("No RTL-SDR device connected")
-        assert b'Found' in result.stdout
+        assert b"Found" in result.stdout
 
 
 # =============================================================================
 # Parsing Tests (No Hardware Required)
 # =============================================================================
+
 
 class TestRTL433Parsing:
     """Tests for rtl_433 JSON output parsing."""
@@ -175,37 +173,37 @@ class TestRTL433Parsing:
         """Parse Acurite temperature sensor data."""
         data = json.loads(RTL_433_SAMPLES[0])
 
-        assert data['model'] == 'Acurite-Tower'
-        assert data['id'] == 12345
-        assert data['temperature_C'] == 22.5
-        assert data['humidity'] == 45
-        assert data['battery_ok'] == 1
+        assert data["model"] == "Acurite-Tower"
+        assert data["id"] == 12345
+        assert data["temperature_C"] == 22.5
+        assert data["humidity"] == 45
+        assert data["battery_ok"] == 1
 
     def test_parse_oregon_sensor(self):
         """Parse Oregon Scientific sensor data."""
         data = json.loads(RTL_433_SAMPLES[1])
 
-        assert data['model'] == 'Oregon-THGR122N'
-        assert data['temperature_C'] == 18.3
+        assert data["model"] == "Oregon-THGR122N"
+        assert data["temperature_C"] == 18.3
 
     def test_parse_negative_temperature(self):
         """Parse sensor with negative temperature."""
         data = json.loads(RTL_433_SAMPLES[2])
 
-        assert data['model'] == 'LaCrosse-TX141W'
-        assert data['temperature_C'] == -5.2
+        assert data["model"] == "LaCrosse-TX141W"
+        assert data["temperature_C"] == -5.2
 
     def test_agent_sensor_data_format(self, agent):
         """Agent should format sensor data correctly for controller."""
         # Simulate processing
         sample = json.loads(RTL_433_SAMPLES[0])
-        sample['type'] = 'sensor'
-        sample['received_at'] = '2024-01-15T10:30:00Z'
+        sample["type"] = "sensor"
+        sample["received_at"] = "2024-01-15T10:30:00Z"
 
         # Verify required fields for controller
-        assert 'model' in sample
-        assert 'temperature_C' in sample or 'temperature_F' in sample
-        assert 'received_at' in sample
+        assert "model" in sample
+        assert "temperature_C" in sample or "temperature_F" in sample
+        assert "received_at" in sample
 
 
 class TestSBSParsing:
@@ -216,63 +214,63 @@ class TestSBSParsing:
         line = SBS_SAMPLES[0]
         agent._parse_sbs_line(line)
 
-        aircraft = agent.adsb_aircraft.get('A1B2C3')
+        aircraft = agent.adsb_aircraft.get("A1B2C3")
         assert aircraft is not None
-        assert aircraft['callsign'] == 'UAL123'
+        assert aircraft["callsign"] == "UAL123"
 
     def test_parse_msg3_position(self, agent):
         """MSG,3 should extract altitude and position."""
         agent._parse_sbs_line(SBS_SAMPLES[0])  # First need MSG,1 for ICAO
         agent._parse_sbs_line(SBS_SAMPLES[1])
 
-        aircraft = agent.adsb_aircraft.get('A1B2C3')
+        aircraft = agent.adsb_aircraft.get("A1B2C3")
         assert aircraft is not None
-        assert aircraft['altitude'] == 35000
-        assert abs(aircraft['lat'] - 40.7128) < 0.0001
-        assert abs(aircraft['lon'] - (-74.0060)) < 0.0001
+        assert aircraft["altitude"] == 35000
+        assert abs(aircraft["lat"] - 40.7128) < 0.0001
+        assert abs(aircraft["lon"] - (-74.0060)) < 0.0001
 
     def test_parse_msg4_velocity(self, agent):
         """MSG,4 should extract speed and heading."""
         agent._parse_sbs_line(SBS_SAMPLES[0])
         agent._parse_sbs_line(SBS_SAMPLES[2])
 
-        aircraft = agent.adsb_aircraft.get('A1B2C3')
+        aircraft = agent.adsb_aircraft.get("A1B2C3")
         assert aircraft is not None
-        assert aircraft['speed'] == 450
-        assert aircraft['heading'] == 180
-        assert aircraft['vertical_rate'] == 1500
+        assert aircraft["speed"] == 450
+        assert aircraft["heading"] == 180
+        assert aircraft["vertical_rate"] == 1500
 
     def test_parse_msg6_squawk(self, agent):
         """MSG,6 should extract squawk code."""
         agent._parse_sbs_line(SBS_SAMPLES[0])
         agent._parse_sbs_line(SBS_SAMPLES[4])
 
-        aircraft = agent.adsb_aircraft.get('A1B2C3')
+        aircraft = agent.adsb_aircraft.get("A1B2C3")
         assert aircraft is not None
         # Squawk may not be present if MSG,6 format doesn't have enough fields
         # The sample line may need adjustment - check if squawk was parsed
-        if 'squawk' in aircraft:
-            assert aircraft['squawk'] == '1200'
+        if "squawk" in aircraft:
+            assert aircraft["squawk"] == "1200"
 
     def test_parse_multiple_aircraft(self, agent):
         """Should track multiple aircraft simultaneously."""
         for line in SBS_SAMPLES:
             agent._parse_sbs_line(line)
 
-        assert 'A1B2C3' in agent.adsb_aircraft
-        assert 'D4E5F6' in agent.adsb_aircraft
-        assert agent.adsb_aircraft['D4E5F6']['callsign'] == 'DAL456'
+        assert "A1B2C3" in agent.adsb_aircraft
+        assert "D4E5F6" in agent.adsb_aircraft
+        assert agent.adsb_aircraft["D4E5F6"]["callsign"] == "DAL456"
 
     def test_parse_malformed_sbs(self, agent):
         """Should handle malformed SBS lines gracefully."""
         # Too few fields
-        agent._parse_sbs_line('MSG,1,1')
+        agent._parse_sbs_line("MSG,1,1")
         # Not MSG type
-        agent._parse_sbs_line('SEL,1,1,1,ABC123,1')
+        agent._parse_sbs_line("SEL,1,1,1,ABC123,1")
         # Empty line
-        agent._parse_sbs_line('')
+        agent._parse_sbs_line("")
         # Garbage
-        agent._parse_sbs_line('not,valid,sbs,data')
+        agent._parse_sbs_line("not,valid,sbs,data")
 
         # Should not crash, aircraft dict should be empty
         assert len(agent.adsb_aircraft) == 0
@@ -284,51 +282,52 @@ class TestAirodumpParsing:
     def test_intercept_parser_available(self):
         """Intercept's airodump parser should be importable."""
         from utils.wifi.parsers.airodump import parse_airodump_csv
+
         assert callable(parse_airodump_csv)
 
     def test_parse_csv_networks_with_intercept_parser(self, temp_csv_file):
         """Intercept parser should parse network section of CSV."""
         from utils.wifi.parsers.airodump import parse_airodump_csv
 
-        networks, clients = parse_airodump_csv(temp_csv_file + '-01.csv')
+        networks, clients = parse_airodump_csv(temp_csv_file + "-01.csv")
 
         assert len(networks) >= 3
 
         # Find HomeWiFi network by BSSID
-        home_wifi = next((n for n in networks if n.bssid == '00:11:22:33:44:55'), None)
+        home_wifi = next((n for n in networks if n.bssid == "00:11:22:33:44:55"), None)
         assert home_wifi is not None
-        assert home_wifi.essid == 'HomeWiFi'
+        assert home_wifi.essid == "HomeWiFi"
         assert home_wifi.channel == 6
         assert home_wifi.rssi == -55
-        assert 'WPA2' in home_wifi.security  # Could be 'WPA2' or 'WPA/WPA2'
+        assert "WPA2" in home_wifi.security  # Could be 'WPA2' or 'WPA/WPA2'
 
     def test_parse_csv_clients_with_intercept_parser(self, temp_csv_file):
         """Intercept parser should parse client section of CSV."""
         from utils.wifi.parsers.airodump import parse_airodump_csv
 
-        networks, clients = parse_airodump_csv(temp_csv_file + '-01.csv')
+        networks, clients = parse_airodump_csv(temp_csv_file + "-01.csv")
 
         assert len(clients) >= 2
         # Client should have MAC and associated BSSID
-        assert any(c.get('mac') == 'CA:FE:BA:BE:00:01' for c in clients)
+        assert any(c.get("mac") == "CA:FE:BA:BE:00:01" for c in clients)
 
     def test_agent_uses_intercept_parser(self, agent, temp_csv_file):
         """Agent should use Intercept's parser when available."""
-        networks, clients = agent._parse_airodump_csv(temp_csv_file + '-01.csv', None)
+        networks, clients = agent._parse_airodump_csv(temp_csv_file + "-01.csv", None)
 
         # Should return dict format
         assert isinstance(networks, dict)
         assert len(networks) >= 3
 
         # Check a network entry
-        home_wifi = networks.get('00:11:22:33:44:55')
+        home_wifi = networks.get("00:11:22:33:44:55")
         assert home_wifi is not None
-        assert home_wifi['essid'] == 'HomeWiFi'
-        assert home_wifi['channel'] == 6
+        assert home_wifi["essid"] == "HomeWiFi"
+        assert home_wifi["channel"] == 6
 
     def test_parse_csv_clients(self, agent, temp_csv_file):
         """Agent should parse clients correctly."""
-        networks, clients = agent._parse_airodump_csv(temp_csv_file + '-01.csv', None)
+        networks, clients = agent._parse_airodump_csv(temp_csv_file + "-01.csv", None)
 
         assert len(clients) >= 2
 
@@ -337,6 +336,7 @@ class TestAirodumpParsing:
 # Live Tool Tests (Require Hardware)
 # =============================================================================
 
+
 @pytest.mark.live
 class TestLiveRTL433:
     """Live tests with rtl_433 (requires RTL-SDR)."""
@@ -344,9 +344,9 @@ class TestLiveRTL433:
     def test_rtl_433_runs(self):
         """rtl_433 should start and produce output."""
         proc = subprocess.Popen(
-            ['rtl_433', '-F', 'json', '-T', '3'],  # Run for 3 seconds
+            ["rtl_433", "-F", "json", "-T", "3"],  # Run for 3 seconds
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
         )
 
         try:
@@ -360,21 +360,17 @@ class TestLiveRTL433:
 
     def test_rtl_433_json_output(self):
         """rtl_433 JSON output should be parseable."""
-        proc = subprocess.Popen(
-            ['rtl_433', '-F', 'json', '-T', '5'],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
+        proc = subprocess.Popen(["rtl_433", "-F", "json", "-T", "5"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         try:
             stdout, _ = proc.communicate(timeout=10)
             # If we got any output, verify it's valid JSON
-            for line in stdout.decode('utf-8', errors='ignore').split('\n'):
+            for line in stdout.decode("utf-8", errors="ignore").split("\n"):
                 line = line.strip()
                 if line:
                     try:
                         data = json.loads(line)
-                        assert 'model' in data or 'time' in data
+                        assert "model" in data or "time" in data
                     except json.JSONDecodeError:
                         pass  # May be startup messages
         except subprocess.TimeoutExpired:
@@ -387,28 +383,25 @@ class TestLiveDump1090:
 
     def test_dump1090_starts(self):
         """dump1090 should start successfully."""
-        dump1090_path = shutil.which('dump1090') or shutil.which('dump1090-fa')
+        dump1090_path = shutil.which("dump1090") or shutil.which("dump1090-fa")
         if not dump1090_path:
             pytest.skip("dump1090 not installed")
 
-        proc = subprocess.Popen(
-            [dump1090_path, '--net', '--quiet'],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE
-        )
+        proc = subprocess.Popen([dump1090_path, "--net", "--quiet"], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
         try:
             time.sleep(2)
             if proc.poll() is not None:
                 stderr = proc.stderr.read().decode()
-                if 'No supported RTLSDR devices found' in stderr:
+                if "No supported RTLSDR devices found" in stderr:
                     pytest.skip("No RTL-SDR for ADS-B")
                 pytest.fail(f"dump1090 exited: {stderr}")
 
             # Verify SBS port is open
             import socket
+
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            result = sock.connect_ex(('localhost', 30003))
+            result = sock.connect_ex(("localhost", 30003))
             sock.close()
 
             assert result == 0, "SBS port 30003 not open"
@@ -424,55 +417,56 @@ class TestLiveAgentModes:
 
     def test_agent_sensor_mode(self, agent):
         """Agent should start and stop sensor mode."""
-        result = agent.start_mode('sensor', {})
+        result = agent.start_mode("sensor", {})
 
-        if result.get('status') == 'error':
-            if 'not found' in result.get('message', ''):
+        if result.get("status") == "error":
+            if "not found" in result.get("message", ""):
                 pytest.skip("rtl_433 not found")
-            if 'device' in result.get('message', '').lower():
+            if "device" in result.get("message", "").lower():
                 pytest.skip("No RTL-SDR device")
 
-        assert result['status'] == 'started'
-        assert 'sensor' in agent.running_modes
+        assert result["status"] == "started"
+        assert "sensor" in agent.running_modes
 
         # Let it run briefly
         time.sleep(2)
 
         # Check status
-        status = agent.get_mode_status('sensor')
-        assert status['running'] is True
+        status = agent.get_mode_status("sensor")
+        assert status["running"] is True
 
         # Stop
-        stop_result = agent.stop_mode('sensor')
-        assert stop_result['status'] == 'stopped'
-        assert 'sensor' not in agent.running_modes
+        stop_result = agent.stop_mode("sensor")
+        assert stop_result["status"] == "stopped"
+        assert "sensor" not in agent.running_modes
 
     def test_agent_adsb_mode(self, agent):
         """Agent should start and stop ADS-B mode."""
-        result = agent.start_mode('adsb', {})
+        result = agent.start_mode("adsb", {})
 
-        if result.get('status') == 'error':
-            if 'not found' in result.get('message', ''):
+        if result.get("status") == "error":
+            if "not found" in result.get("message", ""):
                 pytest.skip("dump1090 not found")
-            if 'device' in result.get('message', '').lower():
+            if "device" in result.get("message", "").lower():
                 pytest.skip("No RTL-SDR device")
 
-        assert result['status'] == 'started'
+        assert result["status"] == "started"
 
         # Let it run briefly
         time.sleep(3)
 
         # Get data (may be empty if no aircraft)
-        data = agent.get_mode_data('adsb')
-        assert 'data' in data
+        data = agent.get_mode_data("adsb")
+        assert "data" in data
 
         # Stop
-        agent.stop_mode('adsb')
+        agent.stop_mode("adsb")
 
 
 # =============================================================================
 # Controller Integration Tests
 # =============================================================================
+
 
 class TestAgentControllerFormat:
     """Tests that agent output matches controller expectations."""
@@ -481,18 +475,18 @@ class TestAgentControllerFormat:
         """Sensor data should have required fields for controller."""
         # Simulate parsed data
         sample = {
-            'model': 'Acurite-Tower',
-            'id': 12345,
-            'temperature_C': 22.5,
-            'humidity': 45,
-            'type': 'sensor',
-            'received_at': '2024-01-15T10:30:00Z'
+            "model": "Acurite-Tower",
+            "id": 12345,
+            "temperature_C": 22.5,
+            "humidity": 45,
+            "type": "sensor",
+            "received_at": "2024-01-15T10:30:00Z",
         }
 
         # Should be serializable
         json_str = json.dumps(sample)
         restored = json.loads(json_str)
-        assert restored['model'] == 'Acurite-Tower'
+        assert restored["model"] == "Acurite-Tower"
 
     def test_adsb_data_format(self, agent):
         """ADS-B data should have required fields for controller."""
@@ -501,35 +495,31 @@ class TestAgentControllerFormat:
         agent._parse_sbs_line(SBS_SAMPLES[1])
         agent._parse_sbs_line(SBS_SAMPLES[2])
 
-        data = agent.get_mode_data('adsb')
+        data = agent.get_mode_data("adsb")
 
         # Should be list format
-        assert isinstance(data['data'], list)
+        assert isinstance(data["data"], list)
 
-        if data['data']:
-            aircraft = data['data'][0]
-            assert 'icao' in aircraft
-            assert 'last_seen' in aircraft
+        if data["data"]:
+            aircraft = data["data"][0]
+            assert "icao" in aircraft
+            assert "last_seen" in aircraft
 
     def test_push_payload_format(self, agent):
         """Push payload should match controller ingest format."""
         # Simulate what agent sends to controller
         payload = {
-            'agent_name': 'test-sensor',
-            'scan_type': 'adsb',
-            'interface': 'rtlsdr0',
-            'payload': {
-                'aircraft': [
-                    {'icao': 'A1B2C3', 'callsign': 'UAL123', 'altitude': 35000}
-                ]
-            },
-            'received_at': '2024-01-15T10:30:00Z'
+            "agent_name": "test-sensor",
+            "scan_type": "adsb",
+            "interface": "rtlsdr0",
+            "payload": {"aircraft": [{"icao": "A1B2C3", "callsign": "UAL123", "altitude": 35000}]},
+            "received_at": "2024-01-15T10:30:00Z",
         }
 
         # Verify structure
-        assert 'agent_name' in payload
-        assert 'scan_type' in payload
-        assert 'payload' in payload
+        assert "agent_name" in payload
+        assert "scan_type" in payload
+        assert "payload" in payload
 
         # Should be JSON serializable
         json_str = json.dumps(payload)
@@ -540,15 +530,16 @@ class TestAgentControllerFormat:
 # GPS Integration Tests
 # =============================================================================
 
+
 class TestGPSIntegration:
     """Tests for GPS data in agent output."""
 
     def test_data_includes_gps_field(self, agent):
         """Data should include GPS position if available."""
-        data = agent.get_mode_data('sensor')
+        data = agent.get_mode_data("sensor")
 
         # agent_gps field should exist (may be None if no GPS)
-        assert 'agent_gps' in data or data.get('agent_gps') is None
+        assert "agent_gps" in data or data.get("agent_gps") is None
 
     def test_gps_position_format(self):
         """GPS position should have lat/lon fields."""
@@ -569,15 +560,15 @@ class TestGPSIntegration:
         pos = gps.position
 
         assert pos is not None
-        assert 'lat' in pos
-        assert 'lon' in pos
-        assert pos['lat'] == 40.7128
-        assert pos['lon'] == -74.0060
+        assert "lat" in pos
+        assert "lon" in pos
+        assert pos["lat"] == 40.7128
+        assert pos["lon"] == -74.0060
 
 
 # =============================================================================
 # Run Tests
 # =============================================================================
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v', '-m', 'not live'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v", "-m", "not live"])

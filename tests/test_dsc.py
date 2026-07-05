@@ -13,97 +13,97 @@ class TestDSCParser:
         from utils.dsc.parser import get_country_from_mmsi
 
         # UK ships start with 232-235
-        assert get_country_from_mmsi('232123456') == 'United Kingdom'
-        assert get_country_from_mmsi('235987654') == 'United Kingdom'
+        assert get_country_from_mmsi("232123456") == "United Kingdom"
+        assert get_country_from_mmsi("235987654") == "United Kingdom"
 
         # US ships start with 303, 338, 366-369
-        assert get_country_from_mmsi('366123456') == 'USA'
-        assert get_country_from_mmsi('369000001') == 'USA'
+        assert get_country_from_mmsi("366123456") == "USA"
+        assert get_country_from_mmsi("369000001") == "USA"
 
         # Panama (common flag of convenience)
-        assert get_country_from_mmsi('351234567') == 'Panama'
-        assert get_country_from_mmsi('370000001') == 'Panama'
+        assert get_country_from_mmsi("351234567") == "Panama"
+        assert get_country_from_mmsi("370000001") == "Panama"
 
         # Norway
-        assert get_country_from_mmsi('257123456') == 'Norway'
+        assert get_country_from_mmsi("257123456") == "Norway"
 
         # Germany
-        assert get_country_from_mmsi('211000001') == 'Germany'
+        assert get_country_from_mmsi("211000001") == "Germany"
 
     def test_get_country_from_mmsi_coast_station(self):
         """Test country lookup for coast station MMSI (starts with 00)."""
         from utils.dsc.parser import get_country_from_mmsi
 
         # Coast stations: 00 + MID
-        assert get_country_from_mmsi('002320001') == 'United Kingdom'
-        assert get_country_from_mmsi('003660001') == 'USA'
+        assert get_country_from_mmsi("002320001") == "United Kingdom"
+        assert get_country_from_mmsi("003660001") == "USA"
 
     def test_get_country_from_mmsi_group_station(self):
         """Test country lookup for group station MMSI (starts with 0)."""
         from utils.dsc.parser import get_country_from_mmsi
 
         # Group call: 0 + MID
-        assert get_country_from_mmsi('023200001') == 'United Kingdom'
-        assert get_country_from_mmsi('036600001') == 'USA'
+        assert get_country_from_mmsi("023200001") == "United Kingdom"
+        assert get_country_from_mmsi("036600001") == "USA"
 
     def test_get_country_from_mmsi_unknown(self):
         """Test country lookup returns None for unknown MID."""
         from utils.dsc.parser import get_country_from_mmsi
 
-        assert get_country_from_mmsi('999999999') is None
-        assert get_country_from_mmsi('100000000') is None
+        assert get_country_from_mmsi("999999999") is None
+        assert get_country_from_mmsi("100000000") is None
 
     def test_get_country_from_mmsi_invalid(self):
         """Test country lookup handles invalid input."""
         from utils.dsc.parser import get_country_from_mmsi
 
-        assert get_country_from_mmsi('') is None
+        assert get_country_from_mmsi("") is None
         assert get_country_from_mmsi(None) is None
-        assert get_country_from_mmsi('12') is None
+        assert get_country_from_mmsi("12") is None
 
     def test_get_distress_nature_text(self):
         """Test distress nature code to text conversion."""
         from utils.dsc.parser import get_distress_nature_text
 
-        assert get_distress_nature_text(100) == 'UNDESIGNATED'
-        assert get_distress_nature_text(101) == 'FIRE'
-        assert get_distress_nature_text(102) == 'FLOODING'
-        assert get_distress_nature_text(103) == 'COLLISION'
-        assert get_distress_nature_text(106) == 'SINKING'
-        assert get_distress_nature_text(109) == 'PIRACY'
-        assert get_distress_nature_text(110) == 'MOB'  # Man overboard
+        assert get_distress_nature_text(100) == "UNDESIGNATED"
+        assert get_distress_nature_text(101) == "FIRE"
+        assert get_distress_nature_text(102) == "FLOODING"
+        assert get_distress_nature_text(103) == "COLLISION"
+        assert get_distress_nature_text(106) == "SINKING"
+        assert get_distress_nature_text(109) == "PIRACY"
+        assert get_distress_nature_text(110) == "MOB"  # Man overboard
 
     def test_get_distress_nature_text_unknown(self):
         """Test distress nature returns formatted unknown for invalid codes."""
         from utils.dsc.parser import get_distress_nature_text
 
-        assert 'UNKNOWN' in get_distress_nature_text(999)
-        assert '999' in get_distress_nature_text(999)
+        assert "UNKNOWN" in get_distress_nature_text(999)
+        assert "999" in get_distress_nature_text(999)
 
     def test_get_distress_nature_text_string_input(self):
         """Test distress nature accepts string input."""
         from utils.dsc.parser import get_distress_nature_text
 
-        assert get_distress_nature_text('101') == 'FIRE'
-        assert get_distress_nature_text('invalid') == 'invalid'
+        assert get_distress_nature_text("101") == "FIRE"
+        assert get_distress_nature_text("invalid") == "invalid"
 
     def test_get_format_text(self):
         """Test format code to text conversion per ITU-R M.493."""
         from utils.dsc.parser import get_format_text
 
-        assert get_format_text(102) == 'ALL_SHIPS'
-        assert get_format_text(112) == 'INDIVIDUAL'
-        assert get_format_text(114) == 'INDIVIDUAL_ACK'
-        assert get_format_text(116) == 'GROUP'
-        assert get_format_text(120) == 'DISTRESS'
-        assert get_format_text(123) == 'ALL_SHIPS_URGENCY_SAFETY'
+        assert get_format_text(102) == "ALL_SHIPS"
+        assert get_format_text(112) == "INDIVIDUAL"
+        assert get_format_text(114) == "INDIVIDUAL_ACK"
+        assert get_format_text(116) == "GROUP"
+        assert get_format_text(120) == "DISTRESS"
+        assert get_format_text(123) == "ALL_SHIPS_URGENCY_SAFETY"
 
     def test_get_format_text_unknown(self):
         """Test format code returns unknown for invalid codes."""
         from utils.dsc.parser import get_format_text
 
         result = get_format_text(999)
-        assert 'UNKNOWN' in result
+        assert "UNKNOWN" in result
 
     def test_get_format_text_removed_codes(self):
         """Test that non-ITU format codes are no longer recognized."""
@@ -112,269 +112,287 @@ class TestDSCParser:
         # These were previously defined but are not ITU-R M.493 specifiers
         for code in [100, 104, 106, 108, 110, 118]:
             result = get_format_text(code)
-            assert 'UNKNOWN' in result
+            assert "UNKNOWN" in result
 
     def test_get_telecommand_text(self):
         """Test telecommand code to text conversion."""
         from utils.dsc.parser import get_telecommand_text
 
-        assert get_telecommand_text(100) == 'F3E_G3E_ALL'
-        assert get_telecommand_text(105) == 'DATA'
-        assert get_telecommand_text(107) == 'DISTRESS_ACK'
-        assert get_telecommand_text(111) == 'TEST'
+        assert get_telecommand_text(100) == "F3E_G3E_ALL"
+        assert get_telecommand_text(105) == "DATA"
+        assert get_telecommand_text(107) == "DISTRESS_ACK"
+        assert get_telecommand_text(111) == "TEST"
 
     def test_get_category_priority(self):
         """Test category priority values."""
         from utils.dsc.parser import get_category_priority
 
         # Distress has highest priority (0)
-        assert get_category_priority('DISTRESS') == 0
-        assert get_category_priority('distress') == 0
+        assert get_category_priority("DISTRESS") == 0
+        assert get_category_priority("distress") == 0
 
         # Urgency/safety
-        assert get_category_priority('ALL_SHIPS_URGENCY_SAFETY') == 2
+        assert get_category_priority("ALL_SHIPS_URGENCY_SAFETY") == 2
 
         # Routine-level
-        assert get_category_priority('ALL_SHIPS') == 5
-        assert get_category_priority('GROUP') == 5
-        assert get_category_priority('INDIVIDUAL') == 5
+        assert get_category_priority("ALL_SHIPS") == 5
+        assert get_category_priority("GROUP") == 5
+        assert get_category_priority("INDIVIDUAL") == 5
 
         # Unknown gets default high number
-        assert get_category_priority('UNKNOWN') == 10
+        assert get_category_priority("UNKNOWN") == 10
 
     def test_validate_mmsi_valid(self):
         """Test MMSI validation with valid numbers."""
         from utils.dsc.parser import validate_mmsi
 
-        assert validate_mmsi('232123456') is True
-        assert validate_mmsi('366000001') is True
-        assert validate_mmsi('002320001') is True  # Coast station
-        assert validate_mmsi('023200001') is True  # Group station
+        assert validate_mmsi("232123456") is True
+        assert validate_mmsi("366000001") is True
+        assert validate_mmsi("002320001") is True  # Coast station
+        assert validate_mmsi("023200001") is True  # Group station
 
     def test_validate_mmsi_invalid(self):
         """Test MMSI validation rejects invalid numbers."""
         from utils.dsc.parser import validate_mmsi
 
-        assert validate_mmsi('') is False
+        assert validate_mmsi("") is False
         assert validate_mmsi(None) is False
-        assert validate_mmsi('12345678') is False  # Too short
-        assert validate_mmsi('1234567890') is False  # Too long
-        assert validate_mmsi('abcdefghi') is False  # Not digits
-        assert validate_mmsi('000000000') is False  # All zeros
+        assert validate_mmsi("12345678") is False  # Too short
+        assert validate_mmsi("1234567890") is False  # Too long
+        assert validate_mmsi("abcdefghi") is False  # Not digits
+        assert validate_mmsi("000000000") is False  # All zeros
 
     def test_classify_mmsi(self):
         """Test MMSI classification."""
         from utils.dsc.parser import classify_mmsi
 
         # Ship stations (start with 2-7)
-        assert classify_mmsi('232123456') == 'ship'
-        assert classify_mmsi('366000001') == 'ship'
-        assert classify_mmsi('503000001') == 'ship'
+        assert classify_mmsi("232123456") == "ship"
+        assert classify_mmsi("366000001") == "ship"
+        assert classify_mmsi("503000001") == "ship"
 
         # Coast stations (start with 00)
-        assert classify_mmsi('002320001') == 'coast'
+        assert classify_mmsi("002320001") == "coast"
 
         # Group stations (start with 0, not 00)
-        assert classify_mmsi('023200001') == 'group'
+        assert classify_mmsi("023200001") == "group"
 
         # SAR aircraft (start with 111)
-        assert classify_mmsi('111232001') == 'sar'
+        assert classify_mmsi("111232001") == "sar"
 
         # Aids to Navigation (start with 99)
-        assert classify_mmsi('992321001') == 'aton'
+        assert classify_mmsi("992321001") == "aton"
 
         # Unknown
-        assert classify_mmsi('invalid') == 'unknown'
-        assert classify_mmsi('812345678') == 'unknown'
+        assert classify_mmsi("invalid") == "unknown"
+        assert classify_mmsi("812345678") == "unknown"
 
     def test_parse_dsc_message_distress(self):
         """Test parsing a distress message with ITU format 120."""
         from utils.dsc.parser import parse_dsc_message
 
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 120,
-            'source_mmsi': '232123456',
-            'dest_mmsi': '002320001',
-            'category': 'DISTRESS',
-            'nature': 101,
-            'position': {'lat': 51.5, 'lon': -0.1},
-            'telecommand1': 100,
-            'timestamp': '2025-01-15T12:00:00Z',
-            'raw': '120002032123456101100127',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 120,
+                "source_mmsi": "232123456",
+                "dest_mmsi": "002320001",
+                "category": "DISTRESS",
+                "nature": 101,
+                "position": {"lat": 51.5, "lon": -0.1},
+                "telecommand1": 100,
+                "timestamp": "2025-01-15T12:00:00Z",
+                "raw": "120002032123456101100127",
+            }
+        )
 
         msg = parse_dsc_message(raw)
 
         assert msg is not None
-        assert msg['type'] == 'dsc_message'
-        assert msg['source_mmsi'] == '232123456'
-        assert msg['category'] == 'DISTRESS'
-        assert msg['source_country'] == 'United Kingdom'
-        assert msg['nature_of_distress'] == 'FIRE'
-        assert msg['latitude'] == 51.5
-        assert msg['longitude'] == -0.1
-        assert msg['is_critical'] is True
-        assert msg['priority'] == 0
+        assert msg["type"] == "dsc_message"
+        assert msg["source_mmsi"] == "232123456"
+        assert msg["category"] == "DISTRESS"
+        assert msg["source_country"] == "United Kingdom"
+        assert msg["nature_of_distress"] == "FIRE"
+        assert msg["latitude"] == 51.5
+        assert msg["longitude"] == -0.1
+        assert msg["is_critical"] is True
+        assert msg["priority"] == 0
 
     def test_parse_dsc_message_group(self):
         """Test parsing a group call message."""
         from utils.dsc.parser import parse_dsc_message
 
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 116,
-            'source_mmsi': '366000001',
-            'dest_mmsi': '023200001',
-            'category': 'GROUP',
-            'timestamp': '2025-01-15T12:00:00Z',
-            'raw': '116023200001366000001117',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 116,
+                "source_mmsi": "366000001",
+                "dest_mmsi": "023200001",
+                "category": "GROUP",
+                "timestamp": "2025-01-15T12:00:00Z",
+                "raw": "116023200001366000001117",
+            }
+        )
 
         msg = parse_dsc_message(raw)
 
         assert msg is not None
-        assert msg['category'] == 'GROUP'
-        assert msg['source_country'] == 'USA'
-        assert msg['is_critical'] is False
-        assert msg['priority'] == 5
+        assert msg["category"] == "GROUP"
+        assert msg["source_country"] == "USA"
+        assert msg["is_critical"] is False
+        assert msg["priority"] == 5
 
     def test_parse_dsc_message_individual(self):
         """Test parsing an individual call message."""
         from utils.dsc.parser import parse_dsc_message
 
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 112,
-            'source_mmsi': '366000001',
-            'dest_mmsi': '232123456',
-            'category': 'INDIVIDUAL',
-            'telecommand1': 100,
-            'timestamp': '2025-01-15T12:00:00Z',
-            'raw': '112232123456366000001100122',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 112,
+                "source_mmsi": "366000001",
+                "dest_mmsi": "232123456",
+                "category": "INDIVIDUAL",
+                "telecommand1": 100,
+                "timestamp": "2025-01-15T12:00:00Z",
+                "raw": "112232123456366000001100122",
+            }
+        )
 
         msg = parse_dsc_message(raw)
 
         assert msg is not None
-        assert msg['category'] == 'INDIVIDUAL'
-        assert msg['is_critical'] is False
+        assert msg["category"] == "INDIVIDUAL"
+        assert msg["is_critical"] is False
 
     def test_parse_dsc_message_invalid_json(self):
         """Test parsing rejects invalid JSON."""
         from utils.dsc.parser import parse_dsc_message
 
-        assert parse_dsc_message('not json') is None
-        assert parse_dsc_message('{invalid}') is None
+        assert parse_dsc_message("not json") is None
+        assert parse_dsc_message("{invalid}") is None
 
     def test_parse_dsc_message_missing_type(self):
         """Test parsing rejects messages without correct type."""
         from utils.dsc.parser import parse_dsc_message
 
-        raw = json.dumps({'source_mmsi': '232123456'})
+        raw = json.dumps({"source_mmsi": "232123456"})
         assert parse_dsc_message(raw) is None
 
-        raw = json.dumps({'type': 'other', 'source_mmsi': '232123456'})
+        raw = json.dumps({"type": "other", "source_mmsi": "232123456"})
         assert parse_dsc_message(raw) is None
 
     def test_parse_dsc_message_missing_mmsi(self):
         """Test parsing rejects messages without source MMSI."""
         from utils.dsc.parser import parse_dsc_message
 
-        raw = json.dumps({'type': 'dsc'})
+        raw = json.dumps({"type": "dsc"})
         assert parse_dsc_message(raw) is None
 
     def test_parse_dsc_message_empty(self):
         """Test parsing handles empty input."""
         from utils.dsc.parser import parse_dsc_message
 
-        assert parse_dsc_message('') is None
+        assert parse_dsc_message("") is None
         assert parse_dsc_message(None) is None
-        assert parse_dsc_message('   ') is None
+        assert parse_dsc_message("   ") is None
 
     def test_parse_dsc_message_rejects_non_itu_format(self):
         """Test parser rejects records with non-ITU format specifier."""
         from utils.dsc.parser import parse_dsc_message
 
         for bad_format in [100, 104, 106, 108, 110, 118, 999]:
-            raw = json.dumps({
-                'type': 'dsc',
-                'format': bad_format,
-                'source_mmsi': '232123456',
-                'category': 'ROUTINE',
-                'raw': '120232123456100127',
-            })
+            raw = json.dumps(
+                {
+                    "type": "dsc",
+                    "format": bad_format,
+                    "source_mmsi": "232123456",
+                    "category": "ROUTINE",
+                    "raw": "120232123456100127",
+                }
+            )
             assert parse_dsc_message(raw) is None, f"Format {bad_format} should be rejected"
 
     def test_parse_dsc_message_rejects_telecommand_out_of_range(self):
         """Test parser rejects records with telecommand out of 100-127 range."""
         from utils.dsc.parser import parse_dsc_message
 
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 120,
-            'source_mmsi': '232123456',
-            'dest_mmsi': '002320001',
-            'category': 'DISTRESS',
-            'telecommand1': 200,
-            'timestamp': '2025-01-15T12:00:00Z',
-            'raw': '120002032123456200127',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 120,
+                "source_mmsi": "232123456",
+                "dest_mmsi": "002320001",
+                "category": "DISTRESS",
+                "telecommand1": 200,
+                "timestamp": "2025-01-15T12:00:00Z",
+                "raw": "120002032123456200127",
+            }
+        )
         assert parse_dsc_message(raw) is None
 
     def test_parse_dsc_message_accepts_zero_telecommand(self):
         """Test parser does not drop telecommand with value 100 (truthiness fix)."""
         from utils.dsc.parser import parse_dsc_message
 
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 112,
-            'source_mmsi': '232123456',
-            'dest_mmsi': '366000001',
-            'category': 'INDIVIDUAL',
-            'telecommand1': 100,
-            'telecommand2': 100,
-            'timestamp': '2025-01-15T12:00:00Z',
-            'raw': '112366000001232123456100100122',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 112,
+                "source_mmsi": "232123456",
+                "dest_mmsi": "366000001",
+                "category": "INDIVIDUAL",
+                "telecommand1": 100,
+                "telecommand2": 100,
+                "timestamp": "2025-01-15T12:00:00Z",
+                "raw": "112366000001232123456100100122",
+            }
+        )
 
         msg = parse_dsc_message(raw)
         assert msg is not None
-        assert msg['telecommand1'] == 100
-        assert msg['telecommand2'] == 100
+        assert msg["telecommand1"] == 100
+        assert msg["telecommand2"] == 100
 
     def test_parse_dsc_message_validates_raw_field(self):
         """Test parser validates raw field structure."""
         from utils.dsc.parser import parse_dsc_message
 
         # Non-digit raw field
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 120,
-            'source_mmsi': '232123456',
-            'category': 'DISTRESS',
-            'raw': '12abc',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 120,
+                "source_mmsi": "232123456",
+                "category": "DISTRESS",
+                "raw": "12abc",
+            }
+        )
         assert parse_dsc_message(raw) is None
 
         # Raw field length not divisible by 3
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 120,
-            'source_mmsi': '232123456',
-            'category': 'DISTRESS',
-            'raw': '1201',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 120,
+                "source_mmsi": "232123456",
+                "category": "DISTRESS",
+                "raw": "1201",
+            }
+        )
         assert parse_dsc_message(raw) is None
 
         # Raw field with non-EOS last token
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 120,
-            'source_mmsi': '232123456',
-            'category': 'DISTRESS',
-            'raw': '120100',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 120,
+                "source_mmsi": "232123456",
+                "category": "DISTRESS",
+                "raw": "120100",
+            }
+        )
         assert parse_dsc_message(raw) is None
 
     def test_parse_dsc_message_accepts_valid_eos_in_raw(self):
@@ -382,15 +400,17 @@ class TestDSCParser:
         from utils.dsc.parser import parse_dsc_message
 
         for eos in [117, 122, 127]:
-            raw = json.dumps({
-                'type': 'dsc',
-                'format': 120,
-                'source_mmsi': '232123456',
-                'dest_mmsi': '002320001',
-                'category': 'DISTRESS',
-                'timestamp': '2025-01-15T12:00:00Z',
-                'raw': f'120002032123456{eos:03d}',
-            })
+            raw = json.dumps(
+                {
+                    "type": "dsc",
+                    "format": 120,
+                    "source_mmsi": "232123456",
+                    "dest_mmsi": "002320001",
+                    "category": "DISTRESS",
+                    "timestamp": "2025-01-15T12:00:00Z",
+                    "raw": f"120002032123456{eos:03d}",
+                }
+            )
             msg = parse_dsc_message(raw)
             assert msg is not None, f"EOS {eos} should be accepted"
 
@@ -399,89 +419,97 @@ class TestDSCParser:
         from utils.dsc.parser import parse_dsc_message
 
         # All-zeros MMSI
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 120,
-            'source_mmsi': '000000000',
-            'category': 'DISTRESS',
-            'raw': '120000000000127',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 120,
+                "source_mmsi": "000000000",
+                "category": "DISTRESS",
+                "raw": "120000000000127",
+            }
+        )
         assert parse_dsc_message(raw) is None
 
         # Short MMSI
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 120,
-            'source_mmsi': '12345',
-            'category': 'DISTRESS',
-            'raw': '120127',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 120,
+                "source_mmsi": "12345",
+                "category": "DISTRESS",
+                "raw": "120127",
+            }
+        )
         assert parse_dsc_message(raw) is None
 
     def test_parse_dsc_message_nature_zero_not_dropped(self):
         """Test that nature code 0 is not dropped by truthiness check."""
         from utils.dsc.parser import parse_dsc_message
 
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 120,
-            'source_mmsi': '232123456',
-            'dest_mmsi': '002320001',
-            'category': 'DISTRESS',
-            'nature': 0,
-            'timestamp': '2025-01-15T12:00:00Z',
-            'raw': '120002032123456000127',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 120,
+                "source_mmsi": "232123456",
+                "dest_mmsi": "002320001",
+                "category": "DISTRESS",
+                "nature": 0,
+                "timestamp": "2025-01-15T12:00:00Z",
+                "raw": "120002032123456000127",
+            }
+        )
 
         msg = parse_dsc_message(raw)
         assert msg is not None
-        assert msg['nature_code'] == 0
+        assert msg["nature_code"] == 0
 
     def test_parse_dsc_message_channel_zero_not_dropped(self):
         """Test that channel value 0 is not dropped by truthiness check."""
         from utils.dsc.parser import parse_dsc_message
 
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 112,
-            'source_mmsi': '232123456',
-            'dest_mmsi': '366000001',
-            'category': 'INDIVIDUAL',
-            'channel': 0,
-            'telecommand1': 100,
-            'timestamp': '2025-01-15T12:00:00Z',
-            'raw': '112366000001232123456100122',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 112,
+                "source_mmsi": "232123456",
+                "dest_mmsi": "366000001",
+                "category": "INDIVIDUAL",
+                "channel": 0,
+                "telecommand1": 100,
+                "timestamp": "2025-01-15T12:00:00Z",
+                "raw": "112366000001232123456100122",
+            }
+        )
 
         msg = parse_dsc_message(raw)
         assert msg is not None
-        assert msg['channel'] == 0
+        assert msg["channel"] == 0
 
     def test_format_dsc_for_display(self):
         """Test message formatting for display."""
         from utils.dsc.parser import format_dsc_for_display
 
         msg = {
-            'category': 'DISTRESS',
-            'source_mmsi': '232123456',
-            'source_country': 'United Kingdom',
-            'dest_mmsi': '002320001',
-            'nature_of_distress': 'FIRE',
-            'latitude': 51.5074,
-            'longitude': -0.1278,
-            'telecommand1_text': 'F3E_G3E_ALL',
-            'channel': 16,
-            'timestamp': '2025-01-15T12:00:00Z'
+            "category": "DISTRESS",
+            "source_mmsi": "232123456",
+            "source_country": "United Kingdom",
+            "dest_mmsi": "002320001",
+            "nature_of_distress": "FIRE",
+            "latitude": 51.5074,
+            "longitude": -0.1278,
+            "telecommand1_text": "F3E_G3E_ALL",
+            "channel": 16,
+            "timestamp": "2025-01-15T12:00:00Z",
         }
 
         output = format_dsc_for_display(msg)
 
-        assert 'DISTRESS' in output
-        assert '232123456' in output
-        assert 'United Kingdom' in output
-        assert 'FIRE' in output
-        assert '51.5074' in output
-        assert 'Channel: 16' in output
+        assert "DISTRESS" in output
+        assert "232123456" in output
+        assert "United Kingdom" in output
+        assert "FIRE" in output
+        assert "51.5074" in output
+        assert "Channel: 16" in output
 
 
 class TestDSCDecoder:
@@ -491,9 +519,10 @@ class TestDSCDecoder:
     def decoder(self):
         """Create a DSC decoder instance."""
         # Skip if scipy not available
-        pytest.importorskip('scipy')
-        pytest.importorskip('numpy')
+        pytest.importorskip("scipy")
+        pytest.importorskip("numpy")
         from utils.dsc.decoder import DSCDecoder
+
         return DSCDecoder()
 
     def test_decode_mmsi_valid(self, decoder):
@@ -503,7 +532,7 @@ class TestDSCDecoder:
         # 02-32-12-34-56 -> symbols [2, 32, 12, 34, 56]
         symbols = [2, 32, 12, 34, 56]
         result = decoder._decode_mmsi(symbols)
-        assert result == '232123456'
+        assert result == "232123456"
 
     def test_decode_mmsi_with_leading_zeros(self, decoder):
         """Test MMSI decoding handles leading zeros."""
@@ -512,7 +541,7 @@ class TestDSCDecoder:
         # BCD pairs: 00-02-32-00-01 -> [0, 2, 32, 0, 1]
         symbols = [0, 2, 32, 0, 1]
         result = decoder._decode_mmsi(symbols)
-        assert result == '002320001'
+        assert result == "002320001"
 
     def test_decode_mmsi_short_symbols(self, decoder):
         """Test MMSI decoding returns None for short symbol list."""
@@ -535,8 +564,8 @@ class TestDSCDecoder:
         result = decoder._decode_position(symbols)
 
         assert result is not None
-        assert result['lat'] == pytest.approx(51.5, rel=0.01)
-        assert result['lon'] == pytest.approx(0.1667, rel=0.01)
+        assert result["lat"] == pytest.approx(51.5, rel=0.01)
+        assert result["lon"] == pytest.approx(0.1667, rel=0.01)
 
     def test_decode_position_northwest(self, decoder):
         """Test position decoding for NW quadrant."""
@@ -546,8 +575,8 @@ class TestDSCDecoder:
         result = decoder._decode_position(symbols)
 
         assert result is not None
-        assert result['lat'] > 0  # North
-        assert result['lon'] < 0  # West
+        assert result["lat"] > 0  # North
+        assert result["lon"] < 0  # West
 
     def test_decode_position_southeast(self, decoder):
         """Test position decoding for SE quadrant."""
@@ -556,8 +585,8 @@ class TestDSCDecoder:
         result = decoder._decode_position(symbols)
 
         assert result is not None
-        assert result['lat'] < 0  # South
-        assert result['lon'] > 0  # East
+        assert result["lat"] < 0  # South
+        assert result["lon"] > 0  # East
 
     def test_decode_position_short_symbols(self, decoder):
         """Test position decoding handles short symbol list."""
@@ -570,7 +599,7 @@ class TestDSCDecoder:
         symbols = [10, 95, 30, 0, 10, 0, 0, 0, 0, 0]
         result = decoder._decode_position(symbols)
         assert result is not None
-        assert result['lat'] == pytest.approx(0.5, rel=0.01)  # 0 deg + 30 min
+        assert result["lat"] == pytest.approx(0.5, rel=0.01)  # 0 deg + 30 min
 
     def test_bits_to_symbol(self, decoder):
         """Test bit to symbol conversion."""
@@ -628,6 +657,7 @@ class TestDSCDecoder:
         # Create 5 normal symbols + EOS at position 5 — should be skipped
         # Followed by more symbols and a real EOS at position 15
         from utils.dsc.decoder import DSCDecoder
+
         d = DSCDecoder()
 
         # Build symbols manually: we need _try_decode_message to find EOS too early
@@ -648,7 +678,7 @@ class TestDSCDecoder:
         # message truncated at position 5.
         # Just verify no crash and either None or a valid longer message
         # (not truncated at the early EOS)
-        assert result is None or len(result.get('raw', '')) > 18
+        assert result is None or len(result.get("raw", "")) > 18
 
     def test_bits_to_symbol_check_bit_validation(self, decoder):
         """Test that _bits_to_symbol rejects symbols with invalid check bits."""
@@ -668,17 +698,19 @@ class TestDSCDecoder:
 
         from utils.dsc.parser import parse_dsc_message
 
-        raw = json.dumps({
-            'type': 'dsc',
-            'format': 123,
-            'source_mmsi': '232123456',
-            'category': 'SAFETY',
-            'timestamp': '2025-01-15T12:00:00Z',
-            'raw': '123232123456100122',
-        })
+        raw = json.dumps(
+            {
+                "type": "dsc",
+                "format": 123,
+                "source_mmsi": "232123456",
+                "category": "SAFETY",
+                "timestamp": "2025-01-15T12:00:00Z",
+                "raw": "123232123456100122",
+            }
+        )
         msg = parse_dsc_message(raw)
         assert msg is not None
-        assert msg['is_critical'] is True
+        assert msg["is_critical"] is True
 
 
 class TestDSCConstants:
@@ -722,13 +754,13 @@ class TestDSCConstants:
         from utils.dsc.constants import MID_COUNTRY_MAP
 
         # Verify some key maritime nations
-        assert '232' in MID_COUNTRY_MAP  # UK
-        assert '366' in MID_COUNTRY_MAP  # USA
-        assert '351' in MID_COUNTRY_MAP  # Panama
-        assert '257' in MID_COUNTRY_MAP  # Norway
-        assert '211' in MID_COUNTRY_MAP  # Germany
-        assert '503' in MID_COUNTRY_MAP  # Australia
-        assert '431' in MID_COUNTRY_MAP  # Japan
+        assert "232" in MID_COUNTRY_MAP  # UK
+        assert "366" in MID_COUNTRY_MAP  # USA
+        assert "351" in MID_COUNTRY_MAP  # Panama
+        assert "257" in MID_COUNTRY_MAP  # Norway
+        assert "211" in MID_COUNTRY_MAP  # Germany
+        assert "503" in MID_COUNTRY_MAP  # Australia
+        assert "431" in MID_COUNTRY_MAP  # Japan
 
     def test_vhf_channel_70_frequency(self):
         """Test DSC Channel 70 frequency constant."""
@@ -754,11 +786,11 @@ class TestDSCConstants:
 
         assert len(TELECOMMAND_CODES_FULL) == 128
         # Known codes map correctly
-        assert TELECOMMAND_CODES_FULL[100] == 'F3E_G3E_ALL'
-        assert TELECOMMAND_CODES_FULL[107] == 'DISTRESS_ACK'
+        assert TELECOMMAND_CODES_FULL[100] == "F3E_G3E_ALL"
+        assert TELECOMMAND_CODES_FULL[107] == "DISTRESS_ACK"
         # Unknown codes map to "UNKNOWN"
-        assert TELECOMMAND_CODES_FULL[0] == 'UNKNOWN'
-        assert TELECOMMAND_CODES_FULL[99] == 'UNKNOWN'
+        assert TELECOMMAND_CODES_FULL[0] == "UNKNOWN"
+        assert TELECOMMAND_CODES_FULL[99] == "UNKNOWN"
 
     def test_telecommand_formats(self):
         """Test TELECOMMAND_FORMATS contains correct format codes."""

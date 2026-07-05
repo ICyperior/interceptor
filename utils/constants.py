@@ -159,12 +159,7 @@ DEFAULT_LATITUDE = 51.5074
 DEFAULT_LONGITUDE = -0.1278
 
 # Allowed TLE hosts for security
-ALLOWED_TLE_HOSTS = [
-    'celestrak.org',
-    'celestrak.com',
-    'www.celestrak.org',
-    'www.celestrak.com'
-]
+ALLOWED_TLE_HOSTS = ["celestrak.org", "celestrak.com", "www.celestrak.org", "www.celestrak.com"]
 
 # Earth radius (km) - WGS84 mean
 EARTH_RADIUS_KM = 6371
@@ -201,7 +196,7 @@ SBS_RECONNECT_DELAY = 2.0
 # =============================================================================
 
 # Default pager log file
-DEFAULT_PAGER_LOG_FILE = 'pager_messages.log'
+DEFAULT_PAGER_LOG_FILE = "pager_messages.log"
 
 
 # =============================================================================
@@ -230,13 +225,13 @@ MAX_VESSEL_AGE_SECONDS = 600  # 10 minutes
 AIS_TERMINATE_TIMEOUT = 5
 
 # WiFi capture temp path prefix
-WIFI_CAPTURE_PATH_PREFIX = '/tmp/intercept_wifi'
+WIFI_CAPTURE_PATH_PREFIX = "/tmp/intercept_wifi"
 
 # Handshake capture path prefix
-HANDSHAKE_CAPTURE_PATH_PREFIX = '/tmp/intercept_handshake_'
+HANDSHAKE_CAPTURE_PATH_PREFIX = "/tmp/intercept_handshake_"
 
 # PMKID capture path prefix
-PMKID_CAPTURE_PATH_PREFIX = '/tmp/intercept_pmkid_'
+PMKID_CAPTURE_PATH_PREFIX = "/tmp/intercept_pmkid_"
 
 
 # =============================================================================
@@ -262,9 +257,9 @@ DSC_TERMINATE_TIMEOUT = 3
 
 # Allowed ISM TX frequency bands (MHz) - transmit only within these ranges
 SUBGHZ_TX_ALLOWED_BANDS = [
-    (300.0, 348.0),    # 315 MHz ISM band
-    (387.0, 464.0),    # 433 MHz ISM band
-    (779.0, 928.0),    # 868/915 MHz ISM band
+    (300.0, 348.0),  # 315 MHz ISM band
+    (387.0, 464.0),  # 433 MHz ISM band
+    (779.0, 928.0),  # 868/915 MHz ISM band
 ]
 
 # HackRF frequency limits (MHz)
@@ -293,10 +288,10 @@ SUBGHZ_TERMINATE_TIMEOUT = 3
 
 # Common SubGHz preset frequencies (MHz)
 SUBGHZ_PRESETS = {
-    '315 MHz': 315.0,
-    '433.92 MHz': 433.92,
-    '868 MHz': 868.0,
-    '915 MHz': 915.0,
+    "315 MHz": 315.0,
+    "433.92 MHz": 433.92,
+    "868 MHz": 868.0,
+    "915 MHz": 915.0,
 }
 
 
@@ -332,4 +327,3 @@ MAX_DEAUTH_ALERTS_AGE_SECONDS = 300  # 5 minutes
 
 # Deauth detector sniff timeout (seconds)
 DEAUTH_SNIFF_TIMEOUT = 0.5
-

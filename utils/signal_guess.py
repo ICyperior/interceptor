@@ -17,8 +17,10 @@ from enum import Enum
 # Confidence Levels
 # =============================================================================
 
+
 class Confidence(Enum):
     """Signal identification confidence level."""
+
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
@@ -28,9 +30,11 @@ class Confidence(Enum):
 # Signal Type Definitions
 # =============================================================================
 
+
 @dataclass
 class SignalTypeDefinition:
     """Definition of a known signal type with matching criteria."""
+
     label: str
     tags: list[str]
     description: str
@@ -67,7 +71,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=15,
         regions=["UK/EU", "US", "GLOBAL"],
     ),
-
     # Civil Aviation / Airband
     SignalTypeDefinition(
         label="Airband (Civil Aviation Voice)",
@@ -81,7 +84,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=15,
         regions=["UK/EU", "US", "GLOBAL"],
     ),
-
     # ISM 433 MHz (EU)
     SignalTypeDefinition(
         label="ISM Device (433 MHz)",
@@ -96,7 +98,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         is_burst_type=True,
         regions=["UK/EU"],
     ),
-
     # ISM 315 MHz (US)
     SignalTypeDefinition(
         label="ISM Device (315 MHz)",
@@ -111,7 +112,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         is_burst_type=True,
         regions=["US"],
     ),
-
     # ISM 868 MHz (EU)
     SignalTypeDefinition(
         label="ISM Device (868 MHz)",
@@ -127,7 +127,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         is_burst_type=True,
         regions=["UK/EU"],
     ),
-
     # ISM 915 MHz (US)
     SignalTypeDefinition(
         label="ISM Device (915 MHz)",
@@ -142,7 +141,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         is_burst_type=True,
         regions=["US"],
     ),
-
     # ISM 2.4 GHz (Global)
     SignalTypeDefinition(
         label="ISM Device (2.4 GHz)",
@@ -156,7 +154,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=10,
         regions=["UK/EU", "US", "GLOBAL"],
     ),
-
     # ISM 5.8 GHz (Global)
     SignalTypeDefinition(
         label="ISM Device (5.8 GHz)",
@@ -170,7 +167,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=10,
         regions=["UK/EU", "US", "GLOBAL"],
     ),
-
     # TPMS / Tire Pressure Monitoring
     SignalTypeDefinition(
         label="TPMS / Vehicle Telemetry",
@@ -187,7 +183,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         is_burst_type=True,
         regions=["UK/EU", "US"],
     ),
-
     # Cellular / LTE (broad category)
     SignalTypeDefinition(
         label="Cellular / Mobile Network",
@@ -195,22 +190,21 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         description="Mobile network transmission (2G/3G/4G/5G)",
         frequency_ranges=[
             # UK/EU common bands
-            (791_000_000, 862_000_000),    # Band 20 (800 MHz)
-            (880_000_000, 960_000_000),    # Band 8 (900 MHz GSM/UMTS)
-            (1_710_000_000, 1_880_000_000), # Band 3 (1800 MHz)
-            (1_920_000_000, 2_170_000_000), # Band 1 (2100 MHz UMTS)
-            (2_500_000_000, 2_690_000_000), # Band 7 (2600 MHz)
+            (791_000_000, 862_000_000),  # Band 20 (800 MHz)
+            (880_000_000, 960_000_000),  # Band 8 (900 MHz GSM/UMTS)
+            (1_710_000_000, 1_880_000_000),  # Band 3 (1800 MHz)
+            (1_920_000_000, 2_170_000_000),  # Band 1 (2100 MHz UMTS)
+            (2_500_000_000, 2_690_000_000),  # Band 7 (2600 MHz)
             # US common bands
-            (698_000_000, 756_000_000),    # Band 12/17 (700 MHz)
-            (824_000_000, 894_000_000),    # Band 5 (850 MHz)
-            (1_850_000_000, 1_995_000_000), # Band 2/25 (1900 MHz PCS)
+            (698_000_000, 756_000_000),  # Band 12/17 (700 MHz)
+            (824_000_000, 894_000_000),  # Band 5 (850 MHz)
+            (1_850_000_000, 1_995_000_000),  # Band 2/25 (1900 MHz PCS)
         ],
         modulation_hints=["OFDM", "QAM", "LTE", "4G", "5G", "GSM", "UMTS"],
         bandwidth_range=(200_000, 20_000_000),  # 200 kHz (GSM) to 20 MHz (LTE)
         base_score=8,  # Lower base due to broad category
         regions=["UK/EU", "US", "GLOBAL"],
     ),
-
     # PMR446 (EU license-free)
     SignalTypeDefinition(
         label="PMR446 Radio",
@@ -224,7 +218,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=14,
         regions=["UK/EU"],
     ),
-
     # Marine VHF
     SignalTypeDefinition(
         label="Marine VHF Radio",
@@ -238,7 +231,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=14,
         regions=["UK/EU", "US", "GLOBAL"],
     ),
-
     # Amateur Radio 2m
     SignalTypeDefinition(
         label="Amateur Radio (2m)",
@@ -252,7 +244,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=12,
         regions=["UK/EU", "US", "GLOBAL"],
     ),
-
     # Amateur Radio 70cm
     SignalTypeDefinition(
         label="Amateur Radio (70cm)",
@@ -266,7 +257,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=12,
         regions=["UK/EU", "US", "GLOBAL"],
     ),
-
     # DECT Cordless Phones
     SignalTypeDefinition(
         label="DECT Cordless Phone",
@@ -281,7 +271,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=12,
         regions=["UK/EU", "US"],
     ),
-
     # DAB Digital Radio
     SignalTypeDefinition(
         label="DAB Digital Radio",
@@ -295,7 +284,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=14,
         regions=["UK/EU"],
     ),
-
     # Pager (POCSAG/FLEX)
     SignalTypeDefinition(
         label="Pager Network",
@@ -311,7 +299,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=13,
         regions=["UK/EU", "US"],
     ),
-
     # Weather Satellite (NOAA APT)
     SignalTypeDefinition(
         label="Weather Satellite (NOAA)",
@@ -325,7 +312,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         base_score=14,
         regions=["GLOBAL"],
     ),
-
     # ADS-B
     SignalTypeDefinition(
         label="ADS-B Aircraft Tracking",
@@ -340,7 +326,6 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
         is_burst_type=True,
         regions=["GLOBAL"],
     ),
-
     # Key Fob / Remote
     SignalTypeDefinition(
         label="Remote Control / Key Fob",
@@ -364,9 +349,11 @@ SIGNAL_TYPES: list[SignalTypeDefinition] = [
 # Signal Guess Result
 # =============================================================================
 
+
 @dataclass
 class SignalAlternative:
     """An alternative signal type guess."""
+
     label: str
     confidence: Confidence
     score: int
@@ -375,6 +362,7 @@ class SignalAlternative:
 @dataclass
 class SignalGuessResult:
     """Complete signal guess result with hedged language."""
+
     primary_label: str
     confidence: Confidence
     alternatives: list[SignalAlternative]
@@ -387,6 +375,7 @@ class SignalGuessResult:
 # =============================================================================
 # Signal Guessing Engine
 # =============================================================================
+
 
 class SignalGuessingEngine:
     """
@@ -488,14 +477,14 @@ class SignalGuessingEngine:
             alt_score = scores[label]
             # Alternative confidence is always at most one level below primary
             # unless scores are very close
-            alt_confidence = self._calculate_alternative_confidence(
-                alt_score, primary_score, confidence
+            alt_confidence = self._calculate_alternative_confidence(alt_score, primary_score, confidence)
+            alternatives.append(
+                SignalAlternative(
+                    label=label,
+                    confidence=alt_confidence,
+                    score=alt_score,
+                )
             )
-            alternatives.append(SignalAlternative(
-                label=label,
-                confidence=alt_confidence,
-                score=alt_score,
-            ))
 
         # Build explanation
         explanation = self._build_explanation(

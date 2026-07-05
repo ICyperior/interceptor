@@ -17,69 +17,71 @@ from utils.kiwisdr import (
 # parse_host_port tests
 # ============================================
 
+
 def test_parse_host_port_basic():
     """Should parse host:port from a simple URL."""
-    assert parse_host_port('http://kiwi.example.com:8073') == ('kiwi.example.com', 8073)
+    assert parse_host_port("http://kiwi.example.com:8073") == ("kiwi.example.com", 8073)
 
 
 def test_parse_host_port_no_port():
     """Should default to 8073 when port is missing."""
-    assert parse_host_port('http://kiwi.example.com') == ('kiwi.example.com', KIWI_DEFAULT_PORT)
+    assert parse_host_port("http://kiwi.example.com") == ("kiwi.example.com", KIWI_DEFAULT_PORT)
 
 
 def test_parse_host_port_https():
     """Should strip https:// prefix."""
-    assert parse_host_port('https://secure.kiwi.com:9090') == ('secure.kiwi.com', 9090)
+    assert parse_host_port("https://secure.kiwi.com:9090") == ("secure.kiwi.com", 9090)
 
 
 def test_parse_host_port_ws():
     """Should strip ws:// prefix."""
-    assert parse_host_port('ws://kiwi.local:8074') == ('kiwi.local', 8074)
+    assert parse_host_port("ws://kiwi.local:8074") == ("kiwi.local", 8074)
 
 
 def test_parse_host_port_with_path():
     """Should strip trailing path from URL."""
-    assert parse_host_port('http://kiwi.com:8073/some/path') == ('kiwi.com', 8073)
+    assert parse_host_port("http://kiwi.com:8073/some/path") == ("kiwi.com", 8073)
 
 
 def test_parse_host_port_bare_host():
     """Should handle bare hostname without protocol."""
-    assert parse_host_port('kiwi.local') == ('kiwi.local', KIWI_DEFAULT_PORT)
+    assert parse_host_port("kiwi.local") == ("kiwi.local", KIWI_DEFAULT_PORT)
 
 
 def test_parse_host_port_bare_host_with_port():
     """Should handle bare hostname with port."""
-    assert parse_host_port('kiwi.local:8074') == ('kiwi.local', 8074)
+    assert parse_host_port("kiwi.local:8074") == ("kiwi.local", 8074)
 
 
 def test_parse_host_port_empty():
     """Should handle empty/None input."""
-    assert parse_host_port('') == ('', KIWI_DEFAULT_PORT)
+    assert parse_host_port("") == ("", KIWI_DEFAULT_PORT)
 
 
 def test_parse_host_port_invalid_port():
     """Should default port for non-numeric port."""
-    assert parse_host_port('http://kiwi.com:abc') == ('kiwi.com', KIWI_DEFAULT_PORT)
+    assert parse_host_port("http://kiwi.com:abc") == ("kiwi.com", KIWI_DEFAULT_PORT)
 
 
 # ============================================
 # SND frame parsing tests
 # ============================================
 
+
 def _make_snd_frame(smeter_raw: int, pcm_samples: list[int]) -> bytes:
     """Build a mock KiwiSDR SND binary frame."""
-    header = b'SND'           # 3 bytes: magic
-    header += b'\x00'         # 1 byte: flags
-    header += struct.pack('>I', 42)   # 4 bytes: sequence number
-    header += struct.pack('>h', smeter_raw)  # 2 bytes: S-meter
+    header = b"SND"  # 3 bytes: magic
+    header += b"\x00"  # 1 byte: flags
+    header += struct.pack(">I", 42)  # 4 bytes: sequence number
+    header += struct.pack(">h", smeter_raw)  # 2 bytes: S-meter
     # PCM data: 16-bit signed LE
-    pcm = b''.join(struct.pack('<h', s) for s in pcm_samples)
+    pcm = b"".join(struct.pack("<h", s) for s in pcm_samples)
     return header + pcm
 
 
 def test_parse_snd_frame_smeter():
     """Should extract S-meter value from SND frame."""
-    client = KiwiSDRClient(host='test', port=8073)
+    client = KiwiSDRClient(host="test", port=8073)
     audio_data = []
 
     def on_audio(pcm, smeter):
@@ -96,7 +98,7 @@ def test_parse_snd_frame_smeter():
 
 def test_parse_snd_frame_pcm_data():
     """Should forward PCM data from SND frame."""
-    client = KiwiSDRClient(host='test', port=8073)
+    client = KiwiSDRClient(host="test", port=8073)
     received_pcm = []
 
     def on_audio(pcm, smeter):
@@ -114,17 +116,17 @@ def test_parse_snd_frame_pcm_data():
 
 def test_parse_snd_frame_short():
     """Should ignore frames shorter than header size."""
-    client = KiwiSDRClient(host='test', port=8073)
+    client = KiwiSDRClient(host="test", port=8073)
     client._on_audio = MagicMock()
-    client._parse_snd_frame(b'SND\x00')  # Too short
+    client._parse_snd_frame(b"SND\x00")  # Too short
     client._on_audio.assert_not_called()
 
 
 def test_parse_snd_frame_wrong_magic():
     """Should ignore frames with wrong header magic."""
-    client = KiwiSDRClient(host='test', port=8073)
+    client = KiwiSDRClient(host="test", port=8073)
     client._on_audio = MagicMock()
-    frame = b'XXX' + b'\x00' * 7 + b'\x00' * 10  # Wrong magic
+    frame = b"XXX" + b"\x00" * 7 + b"\x00" * 10  # Wrong magic
     client._parse_snd_frame(frame)
     client._on_audio.assert_not_called()
 
@@ -133,39 +135,41 @@ def test_parse_snd_frame_wrong_magic():
 # Client state tests
 # ============================================
 
+
 def test_client_initial_state():
     """New client should start disconnected."""
-    client = KiwiSDRClient(host='kiwi.local', port=8073)
+    client = KiwiSDRClient(host="kiwi.local", port=8073)
     assert client.connected is False
-    assert client.host == 'kiwi.local'
+    assert client.host == "kiwi.local"
     assert client.port == 8073
     assert client.frequency_khz == 0
-    assert client.mode == 'am'
+    assert client.mode == "am"
 
 
 def test_client_tune_when_disconnected():
     """Tune should fail when not connected."""
-    client = KiwiSDRClient(host='test', port=8073)
-    assert client.tune(7000, 'usb') is False
+    client = KiwiSDRClient(host="test", port=8073)
+    assert client.tune(7000, "usb") is False
 
 
 def test_client_disconnect_when_not_connected():
     """Disconnect should not raise when already disconnected."""
-    client = KiwiSDRClient(host='test', port=8073)
+    client = KiwiSDRClient(host="test", port=8073)
     client.disconnect()  # Should not raise
     assert client.connected is False
 
 
-@patch('utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE', False)
+@patch("utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE", False)
 def test_client_connect_no_websocket():
     """Connect should fail if websocket-client not available."""
-    client = KiwiSDRClient(host='test', port=8073)
-    assert client.connect(7000, 'am') is False
+    client = KiwiSDRClient(host="test", port=8073)
+    assert client.connect(7000, "am") is False
 
 
 # ============================================
 # Constants tests
 # ============================================
+
 
 def test_sample_rate():
     """Sample rate should be 12 kHz."""
@@ -179,10 +183,10 @@ def test_snd_header_size():
 
 def test_valid_modes():
     """All expected modes should be in VALID_MODES."""
-    assert 'am' in VALID_MODES
-    assert 'usb' in VALID_MODES
-    assert 'lsb' in VALID_MODES
-    assert 'cw' in VALID_MODES
+    assert "am" in VALID_MODES
+    assert "usb" in VALID_MODES
+    assert "lsb" in VALID_MODES
+    assert "cw" in VALID_MODES
 
 
 def test_mode_filters_defined():
@@ -195,20 +199,20 @@ def test_mode_filters_defined():
 
 def test_mode_filter_am_symmetric():
     """AM filter should be symmetric."""
-    low, high = MODE_FILTERS['am']
+    low, high = MODE_FILTERS["am"]
     assert low == -high
 
 
 def test_mode_filter_usb_positive():
     """USB filter should be in positive passband."""
-    low, high = MODE_FILTERS['usb']
+    low, high = MODE_FILTERS["usb"]
     assert low > 0
     assert high > low
 
 
 def test_mode_filter_lsb_negative():
     """LSB filter should be in negative passband."""
-    low, high = MODE_FILTERS['lsb']
+    low, high = MODE_FILTERS["lsb"]
     assert low < 0
     assert high < 0
 
@@ -217,20 +221,21 @@ def test_mode_filter_lsb_negative():
 # Connection tests with mocked WebSocket
 # ============================================
 
-@patch('utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE', True)
-@patch('utils.kiwisdr.websocket')
+
+@patch("utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE", True)
+@patch("utils.kiwisdr.websocket")
 def test_client_connect_success(mock_ws_module):
     """Connect should establish a WebSocket connection."""
     mock_ws = MagicMock()
     mock_ws_module.WebSocket.return_value = mock_ws
 
-    client = KiwiSDRClient(host='kiwi.local', port=8073)
-    result = client.connect(7000, 'am')
+    client = KiwiSDRClient(host="kiwi.local", port=8073)
+    result = client.connect(7000, "am")
 
     assert result is True
     assert client.connected is True
     assert client.frequency_khz == 7000
-    assert client.mode == 'am'
+    assert client.mode == "am"
 
     # Verify WebSocket was created and connected
     mock_ws_module.WebSocket.assert_called_once()
@@ -238,9 +243,9 @@ def test_client_connect_success(mock_ws_module):
 
     # Verify protocol messages were sent
     calls = [str(c) for c in mock_ws.send.call_args_list]
-    auth_sent = any('SET auth' in c for c in calls)
-    compression_sent = any('SET compression=0' in c for c in calls)
-    mod_sent = any('SET mod=am' in c and 'freq=7000' in c for c in calls)
+    auth_sent = any("SET auth" in c for c in calls)
+    compression_sent = any("SET compression=0" in c for c in calls)
+    mod_sent = any("SET mod=am" in c and "freq=7000" in c for c in calls)
     assert auth_sent, "Auth message not sent"
     assert compression_sent, "Compression message not sent"
     assert mod_sent, "Tune message not sent"
@@ -249,70 +254,70 @@ def test_client_connect_success(mock_ws_module):
     client.disconnect()
 
 
-@patch('utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE', True)
-@patch('utils.kiwisdr.websocket')
+@patch("utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE", True)
+@patch("utils.kiwisdr.websocket")
 def test_client_connect_failure(mock_ws_module):
     """Connect should handle connection failures."""
     mock_ws = MagicMock()
     mock_ws.connect.side_effect = ConnectionRefusedError("Connection refused")
     mock_ws_module.WebSocket.return_value = mock_ws
 
-    client = KiwiSDRClient(host='unreachable.local', port=8073)
-    result = client.connect(7000, 'am')
+    client = KiwiSDRClient(host="unreachable.local", port=8073)
+    result = client.connect(7000, "am")
 
     assert result is False
     assert client.connected is False
 
 
-@patch('utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE', True)
-@patch('utils.kiwisdr.websocket')
+@patch("utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE", True)
+@patch("utils.kiwisdr.websocket")
 def test_client_tune_success(mock_ws_module):
     """Tune should send the correct SET mod command."""
     mock_ws = MagicMock()
     mock_ws_module.WebSocket.return_value = mock_ws
 
-    client = KiwiSDRClient(host='kiwi.local', port=8073)
-    client.connect(7000, 'am')
+    client = KiwiSDRClient(host="kiwi.local", port=8073)
+    client.connect(7000, "am")
 
     mock_ws.send.reset_mock()
-    result = client.tune(14000, 'usb')
+    result = client.tune(14000, "usb")
 
     assert result is True
     assert client.frequency_khz == 14000
-    assert client.mode == 'usb'
+    assert client.mode == "usb"
 
     tune_calls = [str(c) for c in mock_ws.send.call_args_list]
-    assert any('SET mod=usb' in c and 'freq=14000' in c for c in tune_calls)
+    assert any("SET mod=usb" in c and "freq=14000" in c for c in tune_calls)
 
     client.disconnect()
 
 
-@patch('utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE', True)
-@patch('utils.kiwisdr.websocket')
+@patch("utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE", True)
+@patch("utils.kiwisdr.websocket")
 def test_client_invalid_mode_fallback(mock_ws_module):
     """Connect with invalid mode should fall back to AM."""
     mock_ws = MagicMock()
     mock_ws_module.WebSocket.return_value = mock_ws
 
-    client = KiwiSDRClient(host='kiwi.local', port=8073)
-    client.connect(7000, 'invalid_mode')
+    client = KiwiSDRClient(host="kiwi.local", port=8073)
+    client.connect(7000, "invalid_mode")
 
-    assert client.mode == 'am'
+    assert client.mode == "am"
     client.disconnect()
 
 
-@patch('utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE', True)
-@patch('utils.kiwisdr.websocket')
+@patch("utils.kiwisdr.WEBSOCKET_CLIENT_AVAILABLE", True)
+@patch("utils.kiwisdr.websocket")
 def test_client_ws_url_format(mock_ws_module):
     """WebSocket URL should follow KiwiSDR format."""
     mock_ws = MagicMock()
     mock_ws_module.WebSocket.return_value = mock_ws
 
-    client = KiwiSDRClient(host='test.kiwi.com', port=8074)
-    client.connect(7000, 'am')
+    client = KiwiSDRClient(host="test.kiwi.com", port=8074)
+    client.connect(7000, "am")
 
     ws_url = mock_ws.connect.call_args[0][0]
-    assert ws_url.startswith('ws://test.kiwi.com:8074/')
-    assert ws_url.endswith('/SND')
+    assert ws_url.startswith("ws://test.kiwi.com:8074/")
+    assert ws_url.endswith("/SND")
 
     client.disconnect()

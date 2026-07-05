@@ -50,11 +50,20 @@ class TestMeteorDetectorBasic:
 
     def test_reset(self, detector):
         detector._pings_total = 5
-        detector._events.append(MeteorEvent(
-            id='test', start_ts=0, end_ts=1, duration_ms=100,
-            peak_db=-40, snr_db=20, center_freq_hz=143e6,
-            peak_freq_hz=143e6, freq_offset_hz=0, confidence=0.8,
-        ))
+        detector._events.append(
+            MeteorEvent(
+                id="test",
+                start_ts=0,
+                end_ts=1,
+                duration_ms=100,
+                peak_db=-40,
+                snr_db=20,
+                center_freq_hz=143e6,
+                peak_freq_hz=143e6,
+                freq_offset_hz=0,
+                confidence=0.8,
+            )
+        )
         detector.reset()
         assert detector._pings_total == 0
         assert detector._events == []
@@ -206,14 +215,14 @@ class TestEventProperties:
         events = self._generate_event(detector)
         d = events[0].to_dict()
         assert isinstance(d, dict)
-        assert 'id' in d
-        assert 'snr_db' in d
-        assert 'tags' in d
+        assert "id" in d
+        assert "snr_db" in d
+        assert "tags" in d
 
     def test_strong_tag(self, detector):
         events = self._generate_event(detector, snr_offset=60)
         assert len(events) >= 1
-        assert 'strong' in events[0].tags
+        assert "strong" in events[0].tags
 
 
 class TestStats:
@@ -222,13 +231,13 @@ class TestStats:
     def test_stats_structure(self, detector):
         frame = _make_noise()
         stats, _ = detector.process_frame(frame, 142e6, 144e6, timestamp=time.time())
-        assert stats['type'] == 'stats'
-        assert 'pings_total' in stats
-        assert 'pings_last_10min' in stats
-        assert 'strongest_snr' in stats
-        assert 'current_noise_floor' in stats
-        assert 'uptime_s' in stats
-        assert 'state' in stats
+        assert stats["type"] == "stats"
+        assert "pings_total" in stats
+        assert "pings_last_10min" in stats
+        assert "strongest_snr" in stats
+        assert "current_noise_floor" in stats
+        assert "uptime_s" in stats
+        assert "state" in stats
 
     def test_pings_total_increments(self, detector):
         rng = np.random.default_rng(42)
@@ -262,43 +271,78 @@ class TestExport:
     """Export functionality tests."""
 
     def test_export_csv(self, detector):
-        detector._events.append(MeteorEvent(
-            id='abc', start_ts=1000.0, end_ts=1000.5, duration_ms=500,
-            peak_db=-40, snr_db=20, center_freq_hz=143e6,
-            peak_freq_hz=143.001e6, freq_offset_hz=1000, confidence=0.85,
-            tags=['strong', 'medium'],
-        ))
+        detector._events.append(
+            MeteorEvent(
+                id="abc",
+                start_ts=1000.0,
+                end_ts=1000.5,
+                duration_ms=500,
+                peak_db=-40,
+                snr_db=20,
+                center_freq_hz=143e6,
+                peak_freq_hz=143.001e6,
+                freq_offset_hz=1000,
+                confidence=0.85,
+                tags=["strong", "medium"],
+            )
+        )
         csv = detector.export_events_csv()
-        assert 'abc' in csv
-        assert 'strong;medium' in csv
+        assert "abc" in csv
+        assert "strong;medium" in csv
 
     def test_export_json(self, detector):
-        detector._events.append(MeteorEvent(
-            id='def', start_ts=2000.0, end_ts=2001.0, duration_ms=1000,
-            peak_db=-35, snr_db=25, center_freq_hz=143e6,
-            peak_freq_hz=143e6, freq_offset_hz=0, confidence=0.9,
-        ))
+        detector._events.append(
+            MeteorEvent(
+                id="def",
+                start_ts=2000.0,
+                end_ts=2001.0,
+                duration_ms=1000,
+                peak_db=-35,
+                snr_db=25,
+                center_freq_hz=143e6,
+                peak_freq_hz=143e6,
+                freq_offset_hz=0,
+                confidence=0.9,
+            )
+        )
         data = json.loads(detector.export_events_json())
         assert len(data) == 1
-        assert data[0]['id'] == 'def'
+        assert data[0]["id"] == "def"
 
     def test_get_events(self, detector):
         for i in range(10):
-            detector._events.append(MeteorEvent(
-                id=str(i), start_ts=float(i), end_ts=float(i) + 0.1,
-                duration_ms=100, peak_db=-40, snr_db=15,
-                center_freq_hz=143e6, peak_freq_hz=143e6,
-                freq_offset_hz=0, confidence=0.7,
-            ))
+            detector._events.append(
+                MeteorEvent(
+                    id=str(i),
+                    start_ts=float(i),
+                    end_ts=float(i) + 0.1,
+                    duration_ms=100,
+                    peak_db=-40,
+                    snr_db=15,
+                    center_freq_hz=143e6,
+                    peak_freq_hz=143e6,
+                    freq_offset_hz=0,
+                    confidence=0.7,
+                )
+            )
         events = detector.get_events(limit=5)
         assert len(events) == 5
 
     def test_clear_events(self, detector):
-        detector._events.append(MeteorEvent(
-            id='x', start_ts=0, end_ts=1, duration_ms=100,
-            peak_db=-40, snr_db=15, center_freq_hz=143e6,
-            peak_freq_hz=143e6, freq_offset_hz=0, confidence=0.7,
-        ))
+        detector._events.append(
+            MeteorEvent(
+                id="x",
+                start_ts=0,
+                end_ts=1,
+                duration_ms=100,
+                peak_db=-40,
+                snr_db=15,
+                center_freq_hz=143e6,
+                peak_freq_hz=143e6,
+                freq_offset_hz=0,
+                confidence=0.7,
+            )
+        )
         detector._pings_total = 1
         count = detector.clear_events()
         assert count == 1

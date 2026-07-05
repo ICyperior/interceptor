@@ -21,7 +21,7 @@ from typing import Protocol, runtime_checkable
 from utils.logging import get_logger
 from utils.process import register_process, safe_terminate, unregister_process
 
-logger = get_logger('intercept.ground_station.iq_bus')
+logger = get_logger("intercept.ground_station.iq_bus")
 
 CHUNK_SIZE = 65_536  # bytes per read (~27 ms @ 2.4 Msps CU8)
 
@@ -73,7 +73,7 @@ class IQBus:
         sample_rate: int = 2_400_000,
         gain: float | None = None,
         device_index: int = 0,
-        sdr_type: str = 'rtlsdr',
+        sdr_type: str = "rtlsdr",
         ppm: int | None = None,
         bias_t: bool = False,
     ):
@@ -113,12 +113,12 @@ class IQBus:
     def start(self) -> tuple[bool, str]:
         """Start IQ capture.  Returns (success, error_message)."""
         if self._running:
-            return True, ''
+            return True, ""
 
         try:
             cmd = self._build_command(self._center_mhz)
         except Exception as e:
-            return False, f'Failed to build IQ capture command: {e}'
+            return False, f"Failed to build IQ capture command: {e}"
 
         if not shutil.which(cmd[0]):
             return False, f'Required tool "{cmd[0]}" not found. Install SoapySDR (rx_sdr) or rtl-sdr.'
@@ -132,21 +132,21 @@ class IQBus:
             )
             register_process(self._proc)
         except Exception as e:
-            return False, f'Failed to spawn IQ capture: {e}'
+            return False, f"Failed to spawn IQ capture: {e}"
 
         # Brief check that the process actually started
         time.sleep(0.3)
         if self._proc.poll() is not None:
-            stderr_out = ''
+            stderr_out = ""
             if self._proc.stderr:
                 try:
-                    stderr_out = self._proc.stderr.read().decode('utf-8', errors='replace').strip()
+                    stderr_out = self._proc.stderr.read().decode("utf-8", errors="replace").strip()
                 except Exception:
                     pass
             unregister_process(self._proc)
             self._proc = None
-            detail = f': {stderr_out}' if stderr_out else ''
-            return False, f'IQ capture process exited immediately{detail}'
+            detail = f": {stderr_out}" if stderr_out else ""
+            return False, f"IQ capture process exited immediately{detail}"
 
         self._stop_event.clear()
         self._running = True
@@ -167,15 +167,13 @@ class IQBus:
                 except Exception as e:
                     logger.warning(f"Consumer on_start error: {e}")
 
-        self._producer_thread = threading.Thread(
-            target=self._producer_loop, daemon=True, name='iq-bus-producer'
-        )
+        self._producer_thread = threading.Thread(target=self._producer_loop, daemon=True, name="iq-bus-producer")
         self._producer_thread.start()
         logger.info(
             f"IQBus started: {self._center_mhz} MHz, sr={self._sample_rate}, "
             f"device={self._sdr_type}:{self._device_index}"
         )
-        return True, ''
+        return True, ""
 
     def stop(self) -> None:
         """Stop IQ capture and notify all consumers."""
@@ -201,7 +199,7 @@ class IQBus:
         """Retune by stopping and restarting the capture process."""
         self._current_freq_mhz = new_freq_mhz
         if not self._running:
-            return False, 'Not running'
+            return False, "Not running"
 
         # Stop the current process
         self._stop_event.set()
@@ -225,14 +223,12 @@ class IQBus:
             register_process(self._proc)
         except Exception as e:
             self._running = False
-            return False, f'Retune failed: {e}'
+            return False, f"Retune failed: {e}"
 
-        self._producer_thread = threading.Thread(
-            target=self._producer_loop, daemon=True, name='iq-bus-producer'
-        )
+        self._producer_thread = threading.Thread(target=self._producer_loop, daemon=True, name="iq-bus-producer")
         self._producer_thread.start()
         logger.info(f"IQBus retuned to {new_freq_mhz:.6f} MHz")
-        return True, ''
+        return True, ""
 
     @property
     def running(self) -> bool:
@@ -279,12 +275,12 @@ class IQBus:
         from utils.sdr.base import SDRDevice
 
         type_map = {
-            'rtlsdr': SDRType.RTL_SDR,
-            'rtl_sdr': SDRType.RTL_SDR,
-            'hackrf': SDRType.HACKRF,
-            'limesdr': SDRType.LIME_SDR,
-            'airspy': SDRType.AIRSPY,
-            'sdrplay': SDRType.SDRPLAY,
+            "rtlsdr": SDRType.RTL_SDR,
+            "rtl_sdr": SDRType.RTL_SDR,
+            "hackrf": SDRType.HACKRF,
+            "limesdr": SDRType.LIME_SDR,
+            "airspy": SDRType.AIRSPY,
+            "sdrplay": SDRType.SDRPLAY,
         }
         sdr_type = type_map.get(self._sdr_type.lower(), SDRType.RTL_SDR)
         builder = SDRFactory.get_builder(sdr_type)
@@ -292,8 +288,8 @@ class IQBus:
         device = SDRDevice(
             sdr_type=sdr_type,
             index=self._device_index,
-            name=f'{sdr_type.value}-{self._device_index}',
-            serial='N/A',
+            name=f"{sdr_type.value}-{self._device_index}",
+            serial="N/A",
             driver=sdr_type.value,
             capabilities=caps,
         )

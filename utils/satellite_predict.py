@@ -10,15 +10,15 @@ from typing import Any
 
 from utils.logging import get_logger
 
-logger = get_logger('intercept.satellite_predict')
+logger = get_logger("intercept.satellite_predict")
 
 
 def predict_passes(
     tle_data: tuple,
-    observer,        # skyfield wgs84.latlon object
-    ts,              # skyfield timescale
-    t0,              # skyfield Time start
-    t1,              # skyfield Time end
+    observer,  # skyfield wgs84.latlon object
+    ts,  # skyfield timescale
+    t0,  # skyfield Time start
+    t1,  # skyfield Time end
     min_el: float = 10.0,
     include_trajectory: bool = True,
     include_ground_track: bool = True,
@@ -56,9 +56,7 @@ def predict_passes(
         ndot_str = line1[33:43].strip()
         ndot = float(ndot_str)
         if abs(ndot) > 0.01:
-            logger.debug(
-                'Skipping decaying satellite %s (ndot=%s)', tle_data[0], ndot
-            )
+            logger.debug("Skipping decaying satellite %s (ndot=%s)", tle_data[0], ndot)
             return []
     except (ValueError, IndexError):
         # Don't skip on parse error
@@ -68,17 +66,15 @@ def predict_passes(
     try:
         satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
     except Exception as exc:
-        logger.debug('Failed to create EarthSatellite for %s: %s', tle_data[0], exc)
+        logger.debug("Failed to create EarthSatellite for %s: %s", tle_data[0], exc)
         return []
 
     # Find events using Skyfield's native find_events()
     # Event types: 0=AOS, 1=TCA, 2=LOS
     try:
-        times, events = satellite.find_events(
-            observer, t0, t1, altitude_degrees=min_el
-        )
+        times, events = satellite.find_events(observer, t0, t1, altitude_degrees=min_el)
     except Exception as exc:
-        logger.debug('find_events failed for %s: %s', tle_data[0], exc)
+        logger.debug("find_events failed for %s: %s", tle_data[0], exc)
         return []
 
     # Group events into AOS->TCA->LOS triplets
@@ -138,21 +134,21 @@ def predict_passes(
             duration = (los_dt - aos_dt).total_seconds() / 60.0
 
             pass_dict: dict[str, Any] = {
-                'aosTime': aos_dt.isoformat(),
-                'aosAz': round(float(aos_az.degrees), 1),
-                'aosEl': round(float(aos_alt.degrees), 1),
-                'tcaTime': tca_dt.isoformat(),
-                'tcaAz': round(float(tca_az.degrees), 1),
-                'tcaEl': round(float(tca_alt.degrees), 1),
-                'losTime': los_dt.isoformat(),
-                'losAz': round(float(los_az.degrees), 1),
-                'losEl': round(float(los_alt.degrees), 1),
-                'duration': round(duration, 1),
+                "aosTime": aos_dt.isoformat(),
+                "aosAz": round(float(aos_az.degrees), 1),
+                "aosEl": round(float(aos_alt.degrees), 1),
+                "tcaTime": tca_dt.isoformat(),
+                "tcaAz": round(float(tca_az.degrees), 1),
+                "tcaEl": round(float(tca_alt.degrees), 1),
+                "losTime": los_dt.isoformat(),
+                "losAz": round(float(los_az.degrees), 1),
+                "losEl": round(float(los_alt.degrees), 1),
+                "duration": round(duration, 1),
                 # Backwards-compatible fields
-                'startTime': aos_dt.strftime('%Y-%m-%d %H:%M UTC'),
-                'startTimeISO': aos_dt.isoformat(),
-                'endTimeISO': los_dt.isoformat(),
-                'maxEl': round(float(tca_alt.degrees), 1),
+                "startTime": aos_dt.strftime("%Y-%m-%d %H:%M UTC"),
+                "startTimeISO": aos_dt.isoformat(),
+                "endTimeISO": los_dt.isoformat(),
+                "maxEl": round(float(tca_alt.degrees), 1),
             }
 
             # Build 30-point az/el trajectory for polar plot
@@ -160,49 +156,43 @@ def predict_passes(
                 trajectory = []
                 for step in range(30):
                     frac = step / 29.0
-                    t_pt = ts.tt_jd(
-                        aos_time.tt + frac * (los_time.tt - aos_time.tt)
-                    )
+                    t_pt = ts.tt_jd(aos_time.tt + frac * (los_time.tt - aos_time.tt))
                     try:
                         pt_alt, pt_az, _ = (satellite - observer).at(t_pt).altaz()
-                        trajectory.append({
-                            'az': round(float(pt_az.degrees), 1),
-                            'el': round(float(max(0.0, pt_alt.degrees)), 1),
-                        })
-                    except Exception as pt_exc:
-                        logger.debug(
-                            'Trajectory point error for %s: %s', tle_data[0], pt_exc
+                        trajectory.append(
+                            {
+                                "az": round(float(pt_az.degrees), 1),
+                                "el": round(float(max(0.0, pt_alt.degrees)), 1),
+                            }
                         )
-                pass_dict['trajectory'] = trajectory
+                    except Exception as pt_exc:
+                        logger.debug("Trajectory point error for %s: %s", tle_data[0], pt_exc)
+                pass_dict["trajectory"] = trajectory
 
             # Build 60-point lat/lon ground track for map
             if include_ground_track:
                 ground_track = []
                 for step in range(60):
                     frac = step / 59.0
-                    t_pt = ts.tt_jd(
-                        aos_time.tt + frac * (los_time.tt - aos_time.tt)
-                    )
+                    t_pt = ts.tt_jd(aos_time.tt + frac * (los_time.tt - aos_time.tt))
                     try:
                         geocentric = satellite.at(t_pt)
                         subpoint = wgs84.subpoint(geocentric)
-                        ground_track.append({
-                            'lat': round(float(subpoint.latitude.degrees), 4),
-                            'lon': round(float(subpoint.longitude.degrees), 4),
-                        })
-                    except Exception as gt_exc:
-                        logger.debug(
-                            'Ground track point error for %s: %s', tle_data[0], gt_exc
+                        ground_track.append(
+                            {
+                                "lat": round(float(subpoint.latitude.degrees), 4),
+                                "lon": round(float(subpoint.longitude.degrees), 4),
+                            }
                         )
-                pass_dict['groundTrack'] = ground_track
+                    except Exception as gt_exc:
+                        logger.debug("Ground track point error for %s: %s", tle_data[0], gt_exc)
+                pass_dict["groundTrack"] = ground_track
 
             passes.append(pass_dict)
 
         except Exception as exc:
-            logger.debug(
-                'Failed to compute pass details for %s: %s', tle_data[0], exc
-            )
+            logger.debug("Failed to compute pass details for %s: %s", tle_data[0], exc)
             continue
 
-    passes.sort(key=lambda p: p['startTimeISO'])
+    passes.sort(key=lambda p: p["startTimeISO"])
     return passes

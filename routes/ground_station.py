@@ -18,9 +18,9 @@ from flask import Blueprint, Response, jsonify, request, send_file
 from utils.logging import get_logger
 from utils.sse import sse_stream_fanout
 
-logger = get_logger('intercept.ground_station.routes')
+logger = get_logger("intercept.ground_station.routes")
 
-ground_station_bp = Blueprint('ground_station', __name__, url_prefix='/ground_station')
+ground_station_bp = Blueprint("ground_station", __name__, url_prefix="/ground_station")
 
 
 # ---------------------------------------------------------------------------
@@ -30,12 +30,14 @@ ground_station_bp = Blueprint('ground_station', __name__, url_prefix='/ground_st
 
 def _get_scheduler():
     from utils.ground_station.scheduler import get_ground_station_scheduler
+
     return get_ground_station_scheduler()
 
 
 def _get_queue():
     import app as _app
-    return getattr(_app, 'ground_station_queue', None) or queue.Queue()
+
+    return getattr(_app, "ground_station_queue", None) or queue.Queue()
 
 
 # ---------------------------------------------------------------------------
@@ -43,28 +45,30 @@ def _get_queue():
 # ---------------------------------------------------------------------------
 
 
-@ground_station_bp.route('/profiles', methods=['GET'])
+@ground_station_bp.route("/profiles", methods=["GET"])
 def list_profiles():
     from utils.ground_station.observation_profile import list_profiles as _list
+
     return jsonify([p.to_dict() for p in _list()])
 
 
-@ground_station_bp.route('/profiles/<int:norad_id>', methods=['GET'])
+@ground_station_bp.route("/profiles/<int:norad_id>", methods=["GET"])
 def get_profile(norad_id: int):
     from utils.ground_station.observation_profile import get_profile as _get
+
     p = _get(norad_id)
     if not p:
-        return jsonify({'error': f'No profile for NORAD {norad_id}'}), 404
+        return jsonify({"error": f"No profile for NORAD {norad_id}"}), 404
     return jsonify(p.to_dict())
 
 
-@ground_station_bp.route('/profiles', methods=['POST'])
+@ground_station_bp.route("/profiles", methods=["POST"])
 def create_profile():
     data = request.get_json(force=True) or {}
     try:
         _validate_profile(data)
     except ValueError as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({"error": str(e)}), 400
 
     from utils.ground_station.observation_profile import (
         ObservationProfile,
@@ -73,30 +77,31 @@ def create_profile():
         save_profile,
         tasks_to_legacy_decoder,
     )
-    tasks = normalize_tasks(data.get('tasks'))
+
+    tasks = normalize_tasks(data.get("tasks"))
     if not tasks:
         tasks = legacy_decoder_to_tasks(
-            str(data.get('decoder_type', 'fm')),
-            bool(data.get('record_iq', False)),
+            str(data.get("decoder_type", "fm")),
+            bool(data.get("record_iq", False)),
         )
     profile = ObservationProfile(
-        norad_id=int(data['norad_id']),
-        name=str(data['name']),
-        frequency_mhz=float(data['frequency_mhz']),
+        norad_id=int(data["norad_id"]),
+        name=str(data["name"]),
+        frequency_mhz=float(data["frequency_mhz"]),
         decoder_type=tasks_to_legacy_decoder(tasks),
-        gain=float(data.get('gain', 40.0)),
-        bandwidth_hz=int(data.get('bandwidth_hz', 200_000)),
-        min_elevation=float(data.get('min_elevation', 10.0)),
-        enabled=bool(data.get('enabled', True)),
-        record_iq=bool(data.get('record_iq', False)) or ('record_iq' in tasks),
-        iq_sample_rate=int(data.get('iq_sample_rate', 2_400_000)),
+        gain=float(data.get("gain", 40.0)),
+        bandwidth_hz=int(data.get("bandwidth_hz", 200_000)),
+        min_elevation=float(data.get("min_elevation", 10.0)),
+        enabled=bool(data.get("enabled", True)),
+        record_iq=bool(data.get("record_iq", False)) or ("record_iq" in tasks),
+        iq_sample_rate=int(data.get("iq_sample_rate", 2_400_000)),
         tasks=tasks,
     )
     saved = save_profile(profile)
     return jsonify(saved.to_dict()), 201
 
 
-@ground_station_bp.route('/profiles/<int:norad_id>', methods=['PUT'])
+@ground_station_bp.route("/profiles/<int:norad_id>", methods=["PUT"])
 def update_profile(norad_id: int):
     data = request.get_json(force=True) or {}
     from utils.ground_station.observation_profile import (
@@ -108,44 +113,50 @@ def update_profile(norad_id: int):
         save_profile,
         tasks_to_legacy_decoder,
     )
+
     existing = _get(norad_id)
     if not existing:
-        return jsonify({'error': f'No profile for NORAD {norad_id}'}), 404
+        return jsonify({"error": f"No profile for NORAD {norad_id}"}), 404
 
     # Apply updates
     for field, cast in [
-        ('name', str), ('frequency_mhz', float), ('decoder_type', str),
-        ('gain', float), ('bandwidth_hz', int), ('min_elevation', float),
+        ("name", str),
+        ("frequency_mhz", float),
+        ("decoder_type", str),
+        ("gain", float),
+        ("bandwidth_hz", int),
+        ("min_elevation", float),
     ]:
         if field in data:
             setattr(existing, field, cast(data[field]))
-    for field in ('enabled', 'record_iq'):
+    for field in ("enabled", "record_iq"):
         if field in data:
             setattr(existing, field, bool(data[field]))
-    if 'iq_sample_rate' in data:
-        existing.iq_sample_rate = int(data['iq_sample_rate'])
-    if 'tasks' in data:
-        existing.tasks = normalize_tasks(data['tasks'])
-    elif 'decoder_type' in data:
+    if "iq_sample_rate" in data:
+        existing.iq_sample_rate = int(data["iq_sample_rate"])
+    if "tasks" in data:
+        existing.tasks = normalize_tasks(data["tasks"])
+    elif "decoder_type" in data:
         existing.tasks = legacy_decoder_to_tasks(
-            str(data.get('decoder_type', existing.decoder_type)),
-            bool(data.get('record_iq', existing.record_iq)),
+            str(data.get("decoder_type", existing.decoder_type)),
+            bool(data.get("record_iq", existing.record_iq)),
         )
 
     existing.decoder_type = tasks_to_legacy_decoder(existing.tasks)
-    existing.record_iq = bool(existing.record_iq) or ('record_iq' in existing.tasks)
+    existing.record_iq = bool(existing.record_iq) or ("record_iq" in existing.tasks)
 
     saved = save_profile(existing)
     return jsonify(saved.to_dict())
 
 
-@ground_station_bp.route('/profiles/<int:norad_id>', methods=['DELETE'])
+@ground_station_bp.route("/profiles/<int:norad_id>", methods=["DELETE"])
 def delete_profile(norad_id: int):
     from utils.ground_station.observation_profile import delete_profile as _del
+
     ok = _del(norad_id)
     if not ok:
-        return jsonify({'error': f'No profile for NORAD {norad_id}'}), 404
-    return jsonify({'status': 'deleted', 'norad_id': norad_id})
+        return jsonify({"error": f"No profile for NORAD {norad_id}"}), 404
+    return jsonify({"status": "deleted", "norad_id": norad_id})
 
 
 # ---------------------------------------------------------------------------
@@ -153,45 +164,45 @@ def delete_profile(norad_id: int):
 # ---------------------------------------------------------------------------
 
 
-@ground_station_bp.route('/scheduler/status', methods=['GET'])
+@ground_station_bp.route("/scheduler/status", methods=["GET"])
 def scheduler_status():
     return jsonify(_get_scheduler().get_status())
 
 
-@ground_station_bp.route('/scheduler/enable', methods=['POST'])
+@ground_station_bp.route("/scheduler/enable", methods=["POST"])
 def scheduler_enable():
     data = request.get_json(force=True) or {}
     try:
-        lat = float(data.get('lat', 0.0))
-        lon = float(data.get('lon', 0.0))
-        device = int(data.get('device', 0))
-        sdr_type = str(data.get('sdr_type', 'rtlsdr'))
+        lat = float(data.get("lat", 0.0))
+        lon = float(data.get("lon", 0.0))
+        device = int(data.get("device", 0))
+        sdr_type = str(data.get("sdr_type", "rtlsdr"))
     except (TypeError, ValueError) as e:
-        return jsonify({'error': str(e)}), 400
+        return jsonify({"error": str(e)}), 400
 
     status = _get_scheduler().enable(lat=lat, lon=lon, device=device, sdr_type=sdr_type)
     return jsonify(status)
 
 
-@ground_station_bp.route('/scheduler/disable', methods=['POST'])
+@ground_station_bp.route("/scheduler/disable", methods=["POST"])
 def scheduler_disable():
     return jsonify(_get_scheduler().disable())
 
 
-@ground_station_bp.route('/scheduler/observations', methods=['GET'])
+@ground_station_bp.route("/scheduler/observations", methods=["GET"])
 def get_observations():
     return jsonify(_get_scheduler().get_scheduled_observations())
 
 
-@ground_station_bp.route('/scheduler/trigger/<int:norad_id>', methods=['POST'])
+@ground_station_bp.route("/scheduler/trigger/<int:norad_id>", methods=["POST"])
 def trigger_manual(norad_id: int):
     ok, msg = _get_scheduler().trigger_manual(norad_id)
     if not ok:
-        return jsonify({'error': msg}), 400
-    return jsonify({'status': 'started', 'message': msg})
+        return jsonify({"error": msg}), 400
+    return jsonify({"status": "started", "message": msg})
 
 
-@ground_station_bp.route('/scheduler/stop', methods=['POST'])
+@ground_station_bp.route("/scheduler/stop", methods=["POST"])
 def stop_active():
     return jsonify(_get_scheduler().stop_active())
 
@@ -201,15 +212,16 @@ def stop_active():
 # ---------------------------------------------------------------------------
 
 
-@ground_station_bp.route('/observations', methods=['GET'])
+@ground_station_bp.route("/observations", methods=["GET"])
 def observation_history():
-    limit = min(int(request.args.get('limit', 50)), 200)
+    limit = min(int(request.args.get("limit", 50)), 200)
     try:
         from utils.database import get_db
+
         with get_db() as conn:
             rows = conn.execute(
-                '''SELECT * FROM ground_station_observations
-                   ORDER BY created_at DESC LIMIT ?''',
+                """SELECT * FROM ground_station_observations
+                   ORDER BY created_at DESC LIMIT ?""",
                 (limit,),
             ).fetchall()
         return jsonify([dict(r) for r in rows])
@@ -223,15 +235,15 @@ def observation_history():
 # ---------------------------------------------------------------------------
 
 
-@ground_station_bp.route('/stream')
+@ground_station_bp.route("/stream")
 def sse_stream():
     gs_queue = _get_queue()
     return Response(
-        sse_stream_fanout(gs_queue, 'ground_station'),
-        mimetype='text/event-stream',
+        sse_stream_fanout(gs_queue, "ground_station"),
+        mimetype="text/event-stream",
         headers={
-            'Cache-Control': 'no-cache',
-            'X-Accel-Buffering': 'no',
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
         },
     )
 
@@ -241,169 +253,178 @@ def sse_stream():
 # ---------------------------------------------------------------------------
 
 
-@ground_station_bp.route('/recordings', methods=['GET'])
+@ground_station_bp.route("/recordings", methods=["GET"])
 def list_recordings():
     try:
         from utils.database import get_db
+
         with get_db() as conn:
-            rows = conn.execute(
-                'SELECT * FROM sigmf_recordings ORDER BY created_at DESC LIMIT 100'
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM sigmf_recordings ORDER BY created_at DESC LIMIT 100").fetchall()
         return jsonify([dict(r) for r in rows])
     except Exception as e:
         logger.error(f"Failed to fetch recordings: {e}")
         return jsonify([])
 
 
-@ground_station_bp.route('/recordings/<int:rec_id>', methods=['GET'])
+@ground_station_bp.route("/recordings/<int:rec_id>", methods=["GET"])
 def get_recording(rec_id: int):
     try:
         from utils.database import get_db
+
         with get_db() as conn:
-            row = conn.execute(
-                'SELECT * FROM sigmf_recordings WHERE id=?', (rec_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM sigmf_recordings WHERE id=?", (rec_id,)).fetchone()
         if not row:
-            return jsonify({'error': 'Not found'}), 404
+            return jsonify({"error": "Not found"}), 404
         return jsonify(dict(row))
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@ground_station_bp.route('/recordings/<int:rec_id>', methods=['DELETE'])
+@ground_station_bp.route("/recordings/<int:rec_id>", methods=["DELETE"])
 def delete_recording(rec_id: int):
     try:
         from utils.database import get_db
+
         with get_db() as conn:
             row = conn.execute(
-                'SELECT sigmf_data_path, sigmf_meta_path FROM sigmf_recordings WHERE id=?',
+                "SELECT sigmf_data_path, sigmf_meta_path FROM sigmf_recordings WHERE id=?",
                 (rec_id,),
             ).fetchone()
             if not row:
-                return jsonify({'error': 'Not found'}), 404
+                return jsonify({"error": "Not found"}), 404
             # Remove files
-            for path_col in ('sigmf_data_path', 'sigmf_meta_path'):
+            for path_col in ("sigmf_data_path", "sigmf_meta_path"):
                 p = Path(row[path_col])
                 if p.exists():
                     p.unlink(missing_ok=True)
-            conn.execute('DELETE FROM sigmf_recordings WHERE id=?', (rec_id,))
-        return jsonify({'status': 'deleted', 'id': rec_id})
+            conn.execute("DELETE FROM sigmf_recordings WHERE id=?", (rec_id,))
+        return jsonify({"status": "deleted", "id": rec_id})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@ground_station_bp.route('/recordings/<int:rec_id>/download/<file_type>')
+@ground_station_bp.route("/recordings/<int:rec_id>/download/<file_type>")
 def download_recording(rec_id: int, file_type: str):
-    if file_type not in ('data', 'meta'):
-        return jsonify({'error': 'file_type must be data or meta'}), 400
+    if file_type not in ("data", "meta"):
+        return jsonify({"error": "file_type must be data or meta"}), 400
     try:
         from utils.database import get_db
+
         with get_db() as conn:
             row = conn.execute(
-                'SELECT sigmf_data_path, sigmf_meta_path FROM sigmf_recordings WHERE id=?',
+                "SELECT sigmf_data_path, sigmf_meta_path FROM sigmf_recordings WHERE id=?",
                 (rec_id,),
             ).fetchone()
         if not row:
-            return jsonify({'error': 'Not found'}), 404
+            return jsonify({"error": "Not found"}), 404
 
-        col = 'sigmf_data_path' if file_type == 'data' else 'sigmf_meta_path'
+        col = "sigmf_data_path" if file_type == "data" else "sigmf_meta_path"
         p = Path(row[col])
         if not p.exists():
-            return jsonify({'error': 'File not found on disk'}), 404
+            return jsonify({"error": "File not found on disk"}), 404
 
-        mimetype = 'application/octet-stream' if file_type == 'data' else 'application/json'
+        mimetype = "application/octet-stream" if file_type == "data" else "application/json"
         return send_file(p, mimetype=mimetype, as_attachment=True, download_name=p.name)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@ground_station_bp.route('/outputs', methods=['GET'])
+@ground_station_bp.route("/outputs", methods=["GET"])
 def list_outputs():
     try:
-        query = '''
+        query = """
             SELECT * FROM ground_station_outputs
             WHERE (? IS NULL OR norad_id = ?)
               AND (? IS NULL OR observation_id = ?)
               AND (? IS NULL OR output_type = ?)
             ORDER BY created_at DESC
             LIMIT 200
-        '''
-        norad_id = request.args.get('norad_id', type=int)
-        observation_id = request.args.get('observation_id', type=int)
-        output_type = request.args.get('type')
+        """
+        norad_id = request.args.get("norad_id", type=int)
+        observation_id = request.args.get("observation_id", type=int)
+        output_type = request.args.get("type")
 
         from utils.database import get_db
+
         with get_db() as conn:
             rows = conn.execute(
                 query,
                 (
-                    norad_id, norad_id,
-                    observation_id, observation_id,
-                    output_type, output_type,
+                    norad_id,
+                    norad_id,
+                    observation_id,
+                    observation_id,
+                    output_type,
+                    output_type,
                 ),
             ).fetchall()
 
         results = []
         for row in rows:
             item = dict(row)
-            metadata_raw = item.get('metadata_json')
+            metadata_raw = item.get("metadata_json")
             if metadata_raw:
                 try:
-                    item['metadata'] = json.loads(metadata_raw)
+                    item["metadata"] = json.loads(metadata_raw)
                 except json.JSONDecodeError:
-                    item['metadata'] = {}
+                    item["metadata"] = {}
             else:
-                item['metadata'] = {}
-            item.pop('metadata_json', None)
+                item["metadata"] = {}
+            item.pop("metadata_json", None)
             results.append(item)
         return jsonify(results)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@ground_station_bp.route('/outputs/<int:output_id>/download', methods=['GET'])
+@ground_station_bp.route("/outputs/<int:output_id>/download", methods=["GET"])
 def download_output(output_id: int):
     try:
         from utils.database import get_db
+
         with get_db() as conn:
             row = conn.execute(
-                'SELECT file_path FROM ground_station_outputs WHERE id=?',
+                "SELECT file_path FROM ground_station_outputs WHERE id=?",
                 (output_id,),
             ).fetchone()
         if not row:
-            return jsonify({'error': 'Not found'}), 404
-        p = Path(row['file_path'])
+            return jsonify({"error": "Not found"}), 404
+        p = Path(row["file_path"])
         if not p.exists():
-            return jsonify({'error': 'File not found on disk'}), 404
+            return jsonify({"error": "File not found on disk"}), 404
         return send_file(p, as_attachment=True, download_name=p.name)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@ground_station_bp.route('/decode-jobs', methods=['GET'])
+@ground_station_bp.route("/decode-jobs", methods=["GET"])
 def list_decode_jobs():
     try:
-        query = '''
+        query = """
             SELECT * FROM ground_station_decode_jobs
             WHERE (? IS NULL OR norad_id = ?)
               AND (? IS NULL OR observation_id = ?)
               AND (? IS NULL OR backend = ?)
             ORDER BY created_at DESC
             LIMIT ?
-        '''
-        norad_id = request.args.get('norad_id', type=int)
-        observation_id = request.args.get('observation_id', type=int)
-        backend = request.args.get('backend')
-        limit = min(request.args.get('limit', 20, type=int) or 20, 200)
+        """
+        norad_id = request.args.get("norad_id", type=int)
+        observation_id = request.args.get("observation_id", type=int)
+        backend = request.args.get("backend")
+        limit = min(request.args.get("limit", 20, type=int) or 20, 200)
 
         from utils.database import get_db
+
         with get_db() as conn:
             rows = conn.execute(
                 query,
                 (
-                    norad_id, norad_id,
-                    observation_id, observation_id,
-                    backend, backend,
+                    norad_id,
+                    norad_id,
+                    observation_id,
+                    observation_id,
+                    backend,
+                    backend,
                     limit,
                 ),
             ).fetchall()
@@ -411,19 +432,19 @@ def list_decode_jobs():
         results = []
         for row in rows:
             item = dict(row)
-            details_raw = item.get('details_json')
+            details_raw = item.get("details_json")
             if details_raw:
                 try:
-                    item['details'] = json.loads(details_raw)
+                    item["details"] = json.loads(details_raw)
                 except json.JSONDecodeError:
-                    item['details'] = {}
+                    item["details"] = {}
             else:
-                item['details'] = {}
-            item.pop('details_json', None)
+                item["details"] = {}
+            item.pop("details_json", None)
             results.append(item)
         return jsonify(results)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------------------------------------------------------------------
@@ -441,16 +462,17 @@ def init_ground_station_websocket(app) -> None:
 
     sock = Sock(app)
 
-    @sock.route('/ws/satellite_waterfall')
+    @sock.route("/ws/satellite_waterfall")
     def satellite_waterfall_ws(ws):
         """Stream binary waterfall frames from the active ground station IQ bus."""
         scheduler = _get_scheduler()
         wf_queue = scheduler.waterfall_queue
 
         from utils.sse import subscribe_fanout_queue
+
         sub_queue, unsubscribe = subscribe_fanout_queue(
             source_queue=wf_queue,
-            channel_key='gs_waterfall',
+            channel_key="gs_waterfall",
             subscriber_queue_size=120,
         )
 
@@ -474,53 +496,58 @@ def init_ground_station_websocket(app) -> None:
 # ---------------------------------------------------------------------------
 
 
-@ground_station_bp.route('/rotator/status', methods=['GET'])
+@ground_station_bp.route("/rotator/status", methods=["GET"])
 def rotator_status():
     from utils.rotator import get_rotator
+
     return jsonify(get_rotator().get_status())
 
 
-@ground_station_bp.route('/rotator/config', methods=['POST'])
+@ground_station_bp.route("/rotator/config", methods=["POST"])
 def rotator_config():
     data = request.get_json(force=True) or {}
-    host = str(data.get('host', '127.0.0.1'))
-    port = int(data.get('port', 4533))
+    host = str(data.get("host", "127.0.0.1"))
+    port = int(data.get("port", 4533))
     from utils.rotator import get_rotator
+
     ok = get_rotator().connect(host, port)
     if not ok:
-        return jsonify({'error': f'Could not connect to rotctld at {host}:{port}'}), 503
+        return jsonify({"error": f"Could not connect to rotctld at {host}:{port}"}), 503
     return jsonify(get_rotator().get_status())
 
 
-@ground_station_bp.route('/rotator/point', methods=['POST'])
+@ground_station_bp.route("/rotator/point", methods=["POST"])
 def rotator_point():
     data = request.get_json(force=True) or {}
     try:
-        az = float(data['az'])
-        el = float(data['el'])
+        az = float(data["az"])
+        el = float(data["el"])
     except (KeyError, TypeError, ValueError) as e:
-        return jsonify({'error': f'az and el required: {e}'}), 400
+        return jsonify({"error": f"az and el required: {e}"}), 400
     from utils.rotator import get_rotator
+
     ok = get_rotator().point_to(az, el)
     if not ok:
-        return jsonify({'error': 'Rotator command failed'}), 503
-    return jsonify({'status': 'ok', 'az': az, 'el': el})
+        return jsonify({"error": "Rotator command failed"}), 503
+    return jsonify({"status": "ok", "az": az, "el": el})
 
 
-@ground_station_bp.route('/rotator/park', methods=['POST'])
+@ground_station_bp.route("/rotator/park", methods=["POST"])
 def rotator_park():
     from utils.rotator import get_rotator
+
     ok = get_rotator().park()
     if not ok:
-        return jsonify({'error': 'Rotator park failed'}), 503
-    return jsonify({'status': 'parked'})
+        return jsonify({"error": "Rotator park failed"}), 503
+    return jsonify({"status": "parked"})
 
 
-@ground_station_bp.route('/rotator/disconnect', methods=['POST'])
+@ground_station_bp.route("/rotator/disconnect", methods=["POST"])
 def rotator_disconnect():
     from utils.rotator import get_rotator
+
     get_rotator().disconnect()
-    return jsonify({'status': 'disconnected'})
+    return jsonify({"status": "disconnected"})
 
 
 # ---------------------------------------------------------------------------
@@ -529,39 +556,34 @@ def rotator_disconnect():
 
 
 def _validate_profile(data: dict) -> None:
-    if 'norad_id' not in data:
+    if "norad_id" not in data:
         raise ValueError("norad_id is required")
-    if 'name' not in data:
+    if "name" not in data:
         raise ValueError("name is required")
-    if 'frequency_mhz' not in data:
+    if "frequency_mhz" not in data:
         raise ValueError("frequency_mhz is required")
     try:
-        norad_id = int(data['norad_id'])
+        norad_id = int(data["norad_id"])
         if norad_id <= 0:
             raise ValueError("norad_id must be positive")
     except (TypeError, ValueError):
         raise ValueError("norad_id must be a positive integer")
     try:
-        freq = float(data['frequency_mhz'])
+        freq = float(data["frequency_mhz"])
         if not (0.1 <= freq <= 3000.0):
             raise ValueError("frequency_mhz must be between 0.1 and 3000")
     except (TypeError, ValueError):
         raise ValueError("frequency_mhz must be a number between 0.1 and 3000")
     from utils.ground_station.observation_profile import VALID_TASK_TYPES
 
-    valid_decoders = {'fm', 'afsk', 'gmsk', 'bpsk', 'iq_only'}
-    if 'tasks' in data:
-        if not isinstance(data['tasks'], list):
+    valid_decoders = {"fm", "afsk", "gmsk", "bpsk", "iq_only"}
+    if "tasks" in data:
+        if not isinstance(data["tasks"], list):
             raise ValueError("tasks must be a list")
-        invalid = [
-            str(task) for task in data['tasks']
-            if str(task).strip().lower() not in VALID_TASK_TYPES
-        ]
+        invalid = [str(task) for task in data["tasks"] if str(task).strip().lower() not in VALID_TASK_TYPES]
         if invalid:
-            raise ValueError(
-                f"tasks contains unsupported values: {', '.join(invalid)}"
-            )
+            raise ValueError(f"tasks contains unsupported values: {', '.join(invalid)}")
     else:
-        dt = str(data.get('decoder_type', 'fm'))
+        dt = str(data.get("decoder_type", "fm"))
         if dt not in valid_decoders:
             raise ValueError(f"decoder_type must be one of: {', '.join(sorted(valid_decoders))}")

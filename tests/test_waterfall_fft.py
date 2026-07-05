@@ -130,8 +130,8 @@ class TestBuildBinaryFrame:
         bins = bytes([128] * 1024)
         frame = build_binary_frame(100.0, 102.0, bins)
         msg_type = frame[0]
-        start_freq, end_freq = struct.unpack_from('<ff', frame, 1)
-        bin_count = struct.unpack_from('<H', frame, 9)[0]
+        start_freq, end_freq = struct.unpack_from("<ff", frame, 1)
+        bin_count = struct.unpack_from("<H", frame, 9)[0]
         assert msg_type == 0x01
         assert start_freq == pytest.approx(100.0, abs=0.01)
         assert end_freq == pytest.approx(102.0, abs=0.01)
@@ -157,8 +157,8 @@ class TestBuildBinaryFrame:
 
         # Parse it back
         msg_type = frame[0]
-        parsed_start, parsed_end = struct.unpack_from('<ff', frame, 1)
-        parsed_count = struct.unpack_from('<H', frame, 9)[0]
+        parsed_start, parsed_end = struct.unpack_from("<ff", frame, 1)
+        parsed_count = struct.unpack_from("<H", frame, 9)[0]
         parsed_bins = frame[11:]
 
         assert msg_type == 0x01

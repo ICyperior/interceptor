@@ -4,8 +4,8 @@ import contextlib
 import warnings
 
 warnings.filterwarnings(
-    'ignore',
-    message='Patching more than once',
+    "ignore",
+    message="Patching more than once",
     category=DeprecationWarning,
 )
 
@@ -24,6 +24,7 @@ def post_fork(server, worker):
     """
     try:
         from gevent import monkey
+
         monkey.patch_all()
     except Exception:
         pass
@@ -32,6 +33,7 @@ def post_fork(server, worker):
     # when subprocesses fork after a double monkey-patch.
     try:
         from gevent.threading import _ForkHooks
+
         _orig = _ForkHooks.after_fork_in_child
 
         def _safe_after_fork(self):
@@ -55,6 +57,7 @@ def post_worker_init(worker):
         import ssl
 
         from gevent import get_hub
+
         hub = get_hub()
         suppress = (SystemExit, ssl.SSLZeroReturnError, ssl.SSLError)
         for exc in suppress:

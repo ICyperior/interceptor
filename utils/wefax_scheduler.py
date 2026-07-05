@@ -18,7 +18,7 @@ from utils.logging import get_logger
 from utils.wefax import get_wefax_decoder
 from utils.wefax_stations import get_station
 
-logger = get_logger('intercept.wefax_scheduler')
+logger = get_logger("intercept.wefax_scheduler")
 
 # Import config defaults
 try:
@@ -42,7 +42,7 @@ class ScheduledBroadcast:
         utc_time: str,
         duration_min: int,
         content: str,
-        occurrence_date: str = '',
+        occurrence_date: str = "",
     ):
         self.id: str = str(uuid.uuid4())[:8]
         self.station = station
@@ -52,21 +52,21 @@ class ScheduledBroadcast:
         self.duration_min = duration_min
         self.content = content
         self.occurrence_date = occurrence_date
-        self.status: str = 'scheduled'  # scheduled, capturing, complete, skipped
+        self.status: str = "scheduled"  # scheduled, capturing, complete, skipped
         self._timer: threading.Timer | None = None
         self._stop_timer: threading.Timer | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            'id': self.id,
-            'station': self.station,
-            'callsign': self.callsign,
-            'frequency_khz': self.frequency_khz,
-            'utc_time': self.utc_time,
-            'duration_min': self.duration_min,
-            'content': self.content,
-            'occurrence_date': self.occurrence_date,
-            'status': self.status,
+            "id": self.id,
+            "station": self.station,
+            "callsign": self.callsign,
+            "frequency_khz": self.frequency_khz,
+            "utc_time": self.utc_time,
+            "duration_min": self.duration_min,
+            "content": self.content,
+            "occurrence_date": self.occurrence_date,
+            "status": self.status,
         }
 
 
@@ -78,8 +78,8 @@ class WeFaxScheduler:
         self._lock = threading.Lock()
         self._broadcasts: list[ScheduledBroadcast] = []
         self._refresh_timer: threading.Timer | None = None
-        self._station: str = ''
-        self._callsign: str = ''
+        self._station: str = ""
+        self._callsign: str = ""
         self._frequency_khz: float = 0.0
         self._device: int = 0
         self._gain: float = 40.0
@@ -128,10 +128,10 @@ class WeFaxScheduler:
         """
         station_data = get_station(station)
         if not station_data:
-            return {'status': 'error', 'message': f'Station {station} not found'}
+            return {"status": "error", "message": f"Station {station} not found"}
 
         with self._lock:
-            self._station = station_data.get('name', station)
+            self._station = station_data.get("name", station)
             self._callsign = station
             self._frequency_khz = frequency_khz
             self._device = device
@@ -167,25 +167,25 @@ class WeFaxScheduler:
             self._broadcasts.clear()
 
         logger.info("WeFax auto-scheduler disabled")
-        return {'status': 'disabled'}
+        return {"status": "disabled"}
 
     def skip_broadcast(self, broadcast_id: str) -> bool:
         """Manually skip a scheduled broadcast."""
         with self._lock:
             for b in self._broadcasts:
-                if b.id == broadcast_id and b.status == 'scheduled':
-                    b.status = 'skipped'
+                if b.id == broadcast_id and b.status == "scheduled":
+                    b.status = "skipped"
                     if b._timer:
                         b._timer.cancel()
                         b._timer = None
-                    logger.info(
-                        "Skipped broadcast: %s at %s", b.content, b.utc_time
+                    logger.info("Skipped broadcast: %s at %s", b.content, b.utc_time)
+                    self._emit_event(
+                        {
+                            "type": "schedule_capture_skipped",
+                            "broadcast": b.to_dict(),
+                            "reason": "manual",
+                        }
                     )
-                    self._emit_event({
-                        'type': 'schedule_capture_skipped',
-                        'broadcast': b.to_dict(),
-                        'reason': 'manual',
-                    })
                     return True
         return False
 
@@ -193,18 +193,16 @@ class WeFaxScheduler:
         """Get current scheduler status."""
         with self._lock:
             return {
-                'enabled': self._enabled,
-                'station': self._station,
-                'callsign': self._callsign,
-                'frequency_khz': self._frequency_khz,
-                'device': self._device,
-                'gain': self._gain,
-                'ioc': self._ioc,
-                'lpm': self._lpm,
-                'scheduled_count': sum(
-                    1 for b in self._broadcasts if b.status == 'scheduled'
-                ),
-                'total_broadcasts': len(self._broadcasts),
+                "enabled": self._enabled,
+                "station": self._station,
+                "callsign": self._callsign,
+                "frequency_khz": self._frequency_khz,
+                "device": self._device,
+                "gain": self._gain,
+                "ioc": self._ioc,
+                "lpm": self._lpm,
+                "scheduled_count": sum(1 for b in self._broadcasts if b.status == "scheduled"),
+                "total_broadcasts": len(self._broadcasts),
             }
 
     def get_broadcasts(self) -> list[dict[str, Any]]:
@@ -215,7 +213,7 @@ class WeFaxScheduler:
     @staticmethod
     def _history_key(callsign: str, utc_time: str, occurrence_date: str) -> str:
         """Build a stable key for one station UTC slot on one calendar day."""
-        return f'{callsign}_{utc_time}_{occurrence_date}'
+        return f"{callsign}_{utc_time}_{occurrence_date}"
 
     def _refresh_schedule(self) -> None:
         """Recompute broadcast schedule and set timers."""
@@ -227,7 +225,7 @@ class WeFaxScheduler:
             logger.error("Station %s not found during refresh", self._callsign)
             return
 
-        schedule = station_data.get('schedule', [])
+        schedule = station_data.get("schedule", [])
 
         with self._lock:
             # Cancel existing timers
@@ -238,21 +236,18 @@ class WeFaxScheduler:
                     b._stop_timer.cancel()
 
             # Keep completed/skipped for history, replace scheduled
-            history = [
-                b for b in self._broadcasts
-                if b.status in ('complete', 'skipped', 'capturing')
-            ]
+            history = [b for b in self._broadcasts if b.status in ("complete", "skipped", "capturing")]
             self._broadcasts = history
 
             now = datetime.now(timezone.utc)
             buffer = WEFAX_CAPTURE_BUFFER_SECONDS
 
             for entry in schedule:
-                utc_time = entry.get('utc', '')
-                duration_min = entry.get('duration_min', 20)
-                content = entry.get('content', '')
+                utc_time = entry.get("utc", "")
+                duration_min = entry.get("duration_min", 20)
+                content = entry.get("content", "")
 
-                parts = utc_time.split(':')
+                parts = utc_time.split(":")
                 if len(parts) != 2:
                     continue
 
@@ -263,19 +258,13 @@ class WeFaxScheduler:
                     continue
 
                 # Compute next occurrence (today or tomorrow)
-                broadcast_dt = now.replace(
-                    hour=hour, minute=minute, second=0, microsecond=0
-                )
-                capture_end = broadcast_dt + timedelta(
-                    minutes=duration_min, seconds=buffer
-                )
+                broadcast_dt = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                capture_end = broadcast_dt + timedelta(minutes=duration_min, seconds=buffer)
 
                 # If the broadcast end is already past, schedule for tomorrow
                 if capture_end <= now:
                     broadcast_dt += timedelta(days=1)
-                    capture_end = broadcast_dt + timedelta(
-                        minutes=duration_min, seconds=buffer
-                    )
+                    capture_end = broadcast_dt + timedelta(minutes=duration_min, seconds=buffer)
 
                 capture_start = broadcast_dt - timedelta(seconds=buffer)
                 occurrence_date = broadcast_dt.date().isoformat()
@@ -290,8 +279,9 @@ class WeFaxScheduler:
                     self._history_key(
                         h.callsign,
                         h.utc_time,
-                        getattr(h, 'occurrence_date', ''),
-                    ) == history_key
+                        getattr(h, "occurrence_date", ""),
+                    )
+                    == history_key
                     for h in history
                 ):
                     continue
@@ -308,22 +298,22 @@ class WeFaxScheduler:
 
                 # Schedule capture timer
                 delay = max(0.0, (capture_start - now).total_seconds())
-                sb._timer = threading.Timer(
-                    delay, self._execute_capture, args=[sb]
-                )
+                sb._timer = threading.Timer(delay, self._execute_capture, args=[sb])
                 sb._timer.daemon = True
                 sb._timer.start()
 
                 logger.info(
                     "Scheduled capture: %s at %s UTC (fires in %.0fs)",
-                    content, utc_time, delay,
+                    content,
+                    utc_time,
+                    delay,
                 )
 
                 self._broadcasts.append(sb)
 
             logger.info(
                 "WeFax scheduler refreshed: %d broadcasts scheduled",
-                sum(1 for b in self._broadcasts if b.status == 'scheduled'),
+                sum(1 for b in self._broadcasts if b.status == "scheduled"),
             )
 
         # Schedule next refresh
@@ -344,56 +334,63 @@ class WeFaxScheduler:
         except Exception:
             logger.exception(
                 "Unhandled exception in scheduled capture: %s at %s",
-                sb.content, sb.utc_time,
+                sb.content,
+                sb.utc_time,
             )
-            sb.status = 'skipped'
-            self._emit_event({
-                'type': 'schedule_capture_skipped',
-                'broadcast': sb.to_dict(),
-                'reason': 'error',
-                'detail': 'internal error — see server logs',
-            })
+            sb.status = "skipped"
+            self._emit_event(
+                {
+                    "type": "schedule_capture_skipped",
+                    "broadcast": sb.to_dict(),
+                    "reason": "error",
+                    "detail": "internal error — see server logs",
+                }
+            )
 
     def _execute_capture_inner(self, sb: ScheduledBroadcast) -> None:
         """Execute capture for a scheduled broadcast."""
-        if not self._enabled or sb.status != 'scheduled':
+        if not self._enabled or sb.status != "scheduled":
             return
 
         decoder = get_wefax_decoder()
 
         if decoder.is_running:
             logger.info("Decoder busy, skipping scheduled broadcast: %s", sb.content)
-            sb.status = 'skipped'
-            self._emit_event({
-                'type': 'schedule_capture_skipped',
-                'broadcast': sb.to_dict(),
-                'reason': 'decoder_busy',
-            })
+            sb.status = "skipped"
+            self._emit_event(
+                {
+                    "type": "schedule_capture_skipped",
+                    "broadcast": sb.to_dict(),
+                    "reason": "decoder_busy",
+                }
+            )
             return
 
         # Claim SDR device
         try:
             import app as app_module
-            error = app_module.claim_sdr_device(self._device, 'wefax')
+
+            error = app_module.claim_sdr_device(self._device, "wefax")
             if error:
-                logger.info(
-                    "SDR device busy, skipping: %s - %s", sb.content, error
+                logger.info("SDR device busy, skipping: %s - %s", sb.content, error)
+                sb.status = "skipped"
+                self._emit_event(
+                    {
+                        "type": "schedule_capture_skipped",
+                        "broadcast": sb.to_dict(),
+                        "reason": "device_busy",
+                    }
                 )
-                sb.status = 'skipped'
-                self._emit_event({
-                    'type': 'schedule_capture_skipped',
-                    'broadcast': sb.to_dict(),
-                    'reason': 'device_busy',
-                })
                 return
         except ImportError:
             pass
 
-        sb.status = 'capturing'
+        sb.status = "capturing"
 
         def _release_device():
             try:
                 import app as app_module
+
                 app_module.release_sdr_device(self._device)
             except ImportError:
                 pass
@@ -414,28 +411,32 @@ class WeFaxScheduler:
             if self._progress_callback:
                 self._progress_callback(progress)
 
-            if not isinstance(progress, dict) or progress.get('type') != 'wefax_progress':
+            if not isinstance(progress, dict) or progress.get("type") != "wefax_progress":
                 return
 
-            status = progress.get('status')
-            if status not in ('complete', 'error', 'stopped'):
+            status = progress.get("status")
+            if status not in ("complete", "error", "stopped"):
                 return
 
-            if sb.status == 'capturing':
-                if status == 'complete':
-                    sb.status = 'complete'
-                    self._emit_event({
-                        'type': 'schedule_capture_complete',
-                        'broadcast': sb.to_dict(),
-                    })
+            if sb.status == "capturing":
+                if status == "complete":
+                    sb.status = "complete"
+                    self._emit_event(
+                        {
+                            "type": "schedule_capture_complete",
+                            "broadcast": sb.to_dict(),
+                        }
+                    )
                 else:
-                    sb.status = 'skipped'
-                    self._emit_event({
-                        'type': 'schedule_capture_skipped',
-                        'broadcast': sb.to_dict(),
-                        'reason': 'decoder_error',
-                        'detail': progress.get('message', ''),
-                    })
+                    sb.status = "skipped"
+                    self._emit_event(
+                        {
+                            "type": "schedule_capture_skipped",
+                            "broadcast": sb.to_dict(),
+                            "reason": "decoder_error",
+                            "detail": progress.get("message", ""),
+                        }
+                    )
 
             _release_device_once()
 
@@ -453,17 +454,21 @@ class WeFaxScheduler:
 
         if success:
             logger.info("Auto-scheduler started capture: %s", sb.content)
-            self._emit_event({
-                'type': 'schedule_capture_start',
-                'broadcast': sb.to_dict(),
-            })
+            self._emit_event(
+                {
+                    "type": "schedule_capture_start",
+                    "broadcast": sb.to_dict(),
+                }
+            )
 
             # Schedule stop timer at broadcast end + buffer
             now = datetime.now(timezone.utc)
-            parts = sb.utc_time.split(':')
+            parts = sb.utc_time.split(":")
             broadcast_dt = now.replace(
-                hour=int(parts[0]), minute=int(parts[1]),
-                second=0, microsecond=0,
+                hour=int(parts[0]),
+                minute=int(parts[1]),
+                second=0,
+                microsecond=0,
             )
             if broadcast_dt < now - timedelta(hours=1):
                 broadcast_dt += timedelta(days=1)
@@ -474,9 +479,7 @@ class WeFaxScheduler:
             stop_delay = max(0.0, (stop_dt - now).total_seconds())
 
             if stop_delay > 0:
-                sb._stop_timer = threading.Timer(
-                    stop_delay, self._stop_capture, args=[sb, _release_device_once]
-                )
+                sb._stop_timer = threading.Timer(stop_delay, self._stop_capture, args=[sb, _release_device_once])
                 sb._stop_timer.daemon = True
                 sb._stop_timer.start()
             else:
@@ -489,24 +492,24 @@ class WeFaxScheduler:
                 )
                 self._stop_capture(sb, _release_device_once)
         else:
-            sb.status = 'skipped'
+            sb.status = "skipped"
             _release_device_once()
-            self._emit_event({
-                'type': 'schedule_capture_skipped',
-                'broadcast': sb.to_dict(),
-                'reason': 'start_failed',
-                'detail': decoder.last_error or 'unknown error',
-            })
+            self._emit_event(
+                {
+                    "type": "schedule_capture_skipped",
+                    "broadcast": sb.to_dict(),
+                    "reason": "start_failed",
+                    "detail": decoder.last_error or "unknown error",
+                }
+            )
 
-    def _stop_capture(
-        self, sb: ScheduledBroadcast, release_fn: Callable
-    ) -> None:
+    def _stop_capture(self, sb: ScheduledBroadcast, release_fn: Callable) -> None:
         """Stop capture at broadcast end."""
-        if sb.status != 'capturing':
+        if sb.status != "capturing":
             release_fn()
             return
 
-        sb.status = 'complete'
+        sb.status = "complete"
 
         decoder = get_wefax_decoder()
         if decoder.is_running:
@@ -514,10 +517,12 @@ class WeFaxScheduler:
             logger.info("Auto-scheduler stopped capture: %s", sb.content)
 
         release_fn()
-        self._emit_event({
-            'type': 'schedule_capture_complete',
-            'broadcast': sb.to_dict(),
-        })
+        self._emit_event(
+            {
+                "type": "schedule_capture_complete",
+                "broadcast": sb.to_dict(),
+            }
+        )
 
     def _emit_event(self, event: dict[str, Any]) -> None:
         """Emit scheduler event to callback."""

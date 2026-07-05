@@ -15,7 +15,7 @@ from typing import Any
 
 from .dependencies import check_tool
 
-logger = logging.getLogger('intercept.process')
+logger = logging.getLogger("intercept.process")
 
 # Track all spawned processes for cleanup
 _spawned_processes: list[subprocess.Popen] = []
@@ -62,6 +62,7 @@ def cleanup_all_processes() -> None:
     # Stop DataStore cleanup timers and run final cleanup
     try:
         from utils.cleanup import cleanup_manager
+
         cleanup_manager.cleanup_now()
         cleanup_manager.stop()
     except Exception as e:
@@ -110,6 +111,7 @@ def safe_terminate(process: subprocess.Popen | None, timeout: float = 2.0) -> bo
 # Register cleanup handlers
 atexit.register(cleanup_all_processes)
 
+
 # Handle signals for graceful shutdown
 def _signal_handler(signum, frame):
     """Handle termination signals.
@@ -119,6 +121,7 @@ def _signal_handler(signum, frame):
     Process cleanup is handled by the atexit handler registered above.
     """
     import sys
+
     if signum == signal.SIGINT:
         raise KeyboardInterrupt()
     sys.exit(0)
@@ -131,6 +134,7 @@ def _is_under_gunicorn():
     """Check if we're running inside a gunicorn worker."""
     try:
         import gunicorn.arbiter  # noqa: F401
+
         # If gunicorn is importable AND we were invoked via gunicorn, the
         # arbiter will have installed its own signal handlers already.
         # Check the current SIGTERM handler — if it's not the default,
@@ -139,6 +143,7 @@ def _is_under_gunicorn():
         return current not in (signal.SIG_DFL, signal.SIG_IGN, None)
     except ImportError:
         return False
+
 
 if not _is_under_gunicorn():
     try:
@@ -152,13 +157,13 @@ if not _is_under_gunicorn():
 def cleanup_stale_processes() -> None:
     """Kill any stale processes from previous runs (but not system services)."""
     # Note: dump1090 is NOT included here as users may run it as a system service
-    processes_to_kill = ['rtl_adsb', 'rtl_433', 'multimon-ng', 'rtl_fm']
+    processes_to_kill = ["rtl_adsb", "rtl_433", "multimon-ng", "rtl_fm"]
     for proc_name in processes_to_kill:
         with contextlib.suppress(subprocess.SubprocessError, OSError):
-            subprocess.run(['pkill', '-9', proc_name], capture_output=True)
+            subprocess.run(["pkill", "-9", proc_name], capture_output=True)
 
 
-_DUMP1090_PID_FILE = Path(__file__).resolve().parent.parent / 'instance' / 'dump1090.pid'
+_DUMP1090_PID_FILE = Path(__file__).resolve().parent.parent / "instance" / "dump1090.pid"
 
 
 def write_dump1090_pid(pid: int) -> None:
@@ -183,18 +188,15 @@ def clear_dump1090_pid() -> None:
 def _is_dump1090_process(pid: int) -> bool:
     """Check if the given PID is actually a dump1090/readsb process."""
     try:
-        if platform.system() == 'Linux':
-            cmdline_path = Path(f'/proc/{pid}/cmdline')
+        if platform.system() == "Linux":
+            cmdline_path = Path(f"/proc/{pid}/cmdline")
             if cmdline_path.exists():
-                cmdline = cmdline_path.read_bytes().replace(b'\x00', b' ').decode('utf-8', errors='ignore')
-                return 'dump1090' in cmdline or 'readsb' in cmdline
+                cmdline = cmdline_path.read_bytes().replace(b"\x00", b" ").decode("utf-8", errors="ignore")
+                return "dump1090" in cmdline or "readsb" in cmdline
         # macOS or fallback
-        result = subprocess.run(
-            ['ps', '-p', str(pid), '-o', 'comm='],
-            capture_output=True, text=True, timeout=5
-        )
+        result = subprocess.run(["ps", "-p", str(pid), "-o", "comm="], capture_output=True, text=True, timeout=5)
         comm = result.stdout.strip()
-        return 'dump1090' in comm or 'readsb' in comm
+        return "dump1090" in comm or "readsb" in comm
     except Exception:
         return False
 
@@ -247,7 +249,7 @@ def is_valid_mac(mac: str | None) -> bool:
     """Validate MAC address format."""
     if not mac:
         return False
-    return bool(re.match(r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$', mac))
+    return bool(re.match(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$", mac))
 
 
 def is_valid_channel(channel: str | int | None) -> bool:
@@ -263,41 +265,34 @@ def detect_devices() -> list[dict[str, Any]]:
     """Detect RTL-SDR devices."""
     devices: list[dict[str, Any]] = []
 
-    if not check_tool('rtl_test'):
+    if not check_tool("rtl_test"):
         return devices
 
     try:
-        result = subprocess.run(
-            ['rtl_test', '-t'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        result = subprocess.run(["rtl_test", "-t"], capture_output=True, text=True, timeout=5)
         output = result.stderr + result.stdout
 
         # Parse device info
-        device_pattern = r'(\d+):\s+(.+?)(?:,\s*SN:\s*(\S+))?$'
+        device_pattern = r"(\d+):\s+(.+?)(?:,\s*SN:\s*(\S+))?$"
 
-        for line in output.split('\n'):
+        for line in output.split("\n"):
             line = line.strip()
             match = re.match(device_pattern, line)
             if match:
-                devices.append({
-                    'index': int(match.group(1)),
-                    'name': match.group(2).strip().rstrip(','),
-                    'serial': match.group(3) or 'N/A'
-                })
+                devices.append(
+                    {
+                        "index": int(match.group(1)),
+                        "name": match.group(2).strip().rstrip(","),
+                        "serial": match.group(3) or "N/A",
+                    }
+                )
 
         if not devices:
-            found_match = re.search(r'Found (\d+) device', output)
+            found_match = re.search(r"Found (\d+) device", output)
             if found_match:
                 count = int(found_match.group(1))
                 for i in range(count):
-                    devices.append({
-                        'index': i,
-                        'name': f'RTL-SDR Device {i}',
-                        'serial': 'Unknown'
-                    })
+                    devices.append({"index": i, "name": f"RTL-SDR Device {i}", "serial": "Unknown"})
 
     except Exception:
         pass

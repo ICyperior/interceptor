@@ -36,6 +36,7 @@ DFS_CHANNELS_5_GHZ = list(range(52, 65)) + list(range(100, 145))
 @dataclass
 class ChannelScore:
     """Internal scoring for a channel."""
+
     channel: int
     band: str
     ap_count: int = 0
@@ -118,9 +119,7 @@ class ChannelAnalyzer:
         channel_stats = self._build_channel_stats(scores)
 
         # Generate recommendations
-        recommendations = self._generate_recommendations(
-            scores, access_points, include_dfs
-        )
+        recommendations = self._generate_recommendations(scores, access_points, include_dfs)
 
         return channel_stats, recommendations
 
@@ -256,13 +255,15 @@ class ChannelAnalyzer:
             if is_dfs:
                 reason += " (DFS - radar detection required)"
 
-            recommendations.append(ChannelRecommendation(
-                channel=channel,
-                band=band,
-                score=utilization,
-                reason=reason,
-                is_dfs=is_dfs,
-            ))
+            recommendations.append(
+                ChannelRecommendation(
+                    channel=channel,
+                    band=band,
+                    score=utilization,
+                    reason=reason,
+                    is_dfs=is_dfs,
+                )
+            )
 
         # Sort by score (lower is better), then prefer non-DFS
         recommendations.sort(key=lambda r: (r.score, r.is_dfs, r.channel))

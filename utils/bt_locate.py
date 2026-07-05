@@ -19,7 +19,7 @@ from utils.bluetooth.models import BTDeviceAggregate
 from utils.bluetooth.scanner import BluetoothScanner, get_bluetooth_scanner
 from utils.gps import get_current_position
 
-logger = logging.getLogger('intercept.bt_locate')
+logger = logging.getLogger("intercept.bt_locate")
 
 # Maximum trail points to retain
 MAX_TRAIL_POINTS = 500
@@ -38,18 +38,18 @@ def _normalize_mac(address: str | None) -> str | None:
     if not address:
         return None
 
-    text = str(address).strip().upper().replace('-', ':')
+    text = str(address).strip().upper().replace("-", ":")
     if not text:
         return None
 
     # Handle raw 12-hex form: AABBCCDDEEFF
-    raw = ''.join(ch for ch in text if ch in '0123456789ABCDEF')
-    if ':' not in text and len(raw) == 12:
-        text = ':'.join(raw[i:i + 2] for i in range(0, 12, 2))
+    raw = "".join(ch for ch in text if ch in "0123456789ABCDEF")
+    if ":" not in text and len(raw) == 12:
+        text = ":".join(raw[i : i + 2] for i in range(0, 12, 2))
 
-    parts = text.split(':')
-    if len(parts) == 6 and all(len(p) == 2 and all(c in '0123456789ABCDEF' for c in p) for p in parts):
-        return ':'.join(parts)
+    parts = text.split(":")
+    if len(parts) == 6 and all(len(p) == 2 and all(c in "0123456789ABCDEF" for c in p) for p in parts):
+        return ":".join(parts)
 
     # Return cleaned original when not a strict MAC (caller may still use exact matching)
     return text
@@ -65,7 +65,7 @@ def _address_looks_like_rpa(address: str | None) -> bool:
     if not normalized:
         return False
     try:
-        first_octet = int(normalized.split(':', 1)[0], 16)
+        first_octet = int(normalized.split(":", 1)[0], 16)
     except (ValueError, TypeError):
         return False
     return (first_octet >> 6) == 1
@@ -73,6 +73,7 @@ def _address_looks_like_rpa(address: str | None) -> bool:
 
 class Environment(Enum):
     """RF propagation environment presets."""
+
     FREE_SPACE = 2.0
     OUTDOOR = 2.2
     INDOOR = 3.0
@@ -99,7 +100,7 @@ def resolve_rpa(irk: bytes, address: str) -> bool:
         return False
 
     # Parse address bytes (remove colons, convert to bytes)
-    addr_bytes = bytes.fromhex(address.replace(':', '').replace('-', ''))
+    addr_bytes = bytes.fromhex(address.replace(":", "").replace("-", ""))
     if len(addr_bytes) != 6:
         return False
 
@@ -113,7 +114,7 @@ def resolve_rpa(irk: bytes, address: str) -> bool:
 
     # ah(k, r) = e(k, r') mod 2^24
     # r' is prand zero-padded to 16 bytes (MSB)
-    plaintext = b'\x00' * 13 + prand
+    plaintext = b"\x00" * 13 + prand
 
     cipher = Cipher(algorithms.AES(irk), modes.ECB())
     encryptor = cipher.encryptor()
@@ -128,6 +129,7 @@ def resolve_rpa(irk: bytes, address: str) -> bool:
 @dataclass
 class LocateTarget:
     """Target device specification for locate session."""
+
     mac_address: str | None = None
     name_pattern: str | None = None
     irk_hex: str | None = None
@@ -161,7 +163,7 @@ class LocateTarget:
     def matches(self, device: BTDeviceAggregate, irk_bytes: bytes | None = None) -> bool:
         """Check if a device matches this target."""
         # Match by stable device key (survives MAC randomization for many devices)
-        if self.device_key and getattr(device, 'device_key', None) == self.device_key:
+        if self.device_key and getattr(device, "device_key", None) == self.device_key:
             return True
 
         # Match by device_id (exact)
@@ -169,9 +171,9 @@ class LocateTarget:
             return True
 
         # Match by device_id address portion (without :address_type suffix)
-        if self.device_id and ':' in self.device_id:
-            target_addr_part = self.device_id.rsplit(':', 1)[0].upper()
-            dev_addr = (device.address or '').upper()
+        if self.device_id and ":" in self.device_id:
+            target_addr_part = self.device_id.rsplit(":", 1)[0].upper()
+            dev_addr = (device.address or "").upper()
             if target_addr_part and dev_addr == target_addr_part:
                 return True
 
@@ -186,8 +188,8 @@ class LocateTarget:
         # For explicit hand-off sessions, allow exact fingerprint matches even if
         # stability is still warming up.
         if self.fingerprint_id:
-            dev_fp = getattr(device, 'payload_fingerprint_id', None)
-            dev_fp_stability = getattr(device, 'payload_fingerprint_stability', 0.0) or 0.0
+            dev_fp = getattr(device, "payload_fingerprint_id", None)
+            dev_fp_stability = getattr(device, "payload_fingerprint_stability", 0.0) or 0.0
             if dev_fp and dev_fp == self.fingerprint_id:
                 if dev_fp_stability >= 0.35:
                     return True
@@ -208,26 +210,22 @@ class LocateTarget:
         if self.known_name and device.name:
             target_name = self.known_name.strip().lower()
             device_name = device.name.strip().lower()
-            if target_name and (
-                target_name == device_name
-                or target_name in device_name
-                or device_name in target_name
-            ):
+            if target_name and (target_name == device_name or target_name in device_name or device_name in target_name):
                 return True
 
         return False
 
     def to_dict(self) -> dict:
         return {
-            'mac_address': self.mac_address,
-            'name_pattern': self.name_pattern,
-            'irk_hex': self.irk_hex,
-            'device_id': self.device_id,
-            'device_key': self.device_key,
-            'fingerprint_id': self.fingerprint_id,
-            'known_name': self.known_name,
-            'known_manufacturer': self.known_manufacturer,
-            'last_known_rssi': self.last_known_rssi,
+            "mac_address": self.mac_address,
+            "name_pattern": self.name_pattern,
+            "irk_hex": self.irk_hex,
+            "device_id": self.device_id,
+            "device_key": self.device_key,
+            "fingerprint_id": self.fingerprint_id,
+            "known_name": self.known_name,
+            "known_manufacturer": self.known_manufacturer,
+            "last_known_rssi": self.last_known_rssi,
         }
 
 
@@ -251,16 +249,17 @@ class DistanceEstimator:
     def proximity_band(distance: float) -> str:
         """Classify distance into proximity band."""
         if distance <= 1.0:
-            return 'IMMEDIATE'
+            return "IMMEDIATE"
         elif distance <= 5.0:
-            return 'NEAR'
+            return "NEAR"
         else:
-            return 'FAR'
+            return "FAR"
 
 
 @dataclass
 class DetectionPoint:
     """A single GPS-tagged BLE detection."""
+
     timestamp: str
     rssi: int
     rssi_ema: float
@@ -273,15 +272,15 @@ class DetectionPoint:
 
     def to_dict(self) -> dict:
         return {
-            'timestamp': self.timestamp,
-            'rssi': self.rssi,
-            'rssi_ema': round(self.rssi_ema, 1),
-            'estimated_distance': round(self.estimated_distance, 2),
-            'proximity_band': self.proximity_band,
-            'lat': self.lat,
-            'lon': self.lon,
-            'gps_accuracy': self.gps_accuracy,
-            'rpa_resolved': self.rpa_resolved,
+            "timestamp": self.timestamp,
+            "rssi": self.rssi,
+            "rssi_ema": round(self.rssi_ema, 1),
+            "estimated_distance": round(self.estimated_distance, 2),
+            "proximity_band": self.proximity_band,
+            "lat": self.lat,
+            "lon": self.lon,
+            "gps_accuracy": self.gps_accuracy,
+            "rpa_resolved": self.rpa_resolved,
         }
 
 
@@ -350,7 +349,7 @@ class LocateSession:
             logger.info("BT scanner not running, starting scan for locate session")
             self._scanner_started_by_us = True
             self._last_scan_restart_attempt = time.monotonic()
-            if not self._scanner.start_scan(mode='auto'):
+            if not self._scanner.start_scan(mode="auto"):
                 # Surface startup failure to caller and avoid leaving stale callbacks.
                 status = self._scanner.get_status()
                 reason = status.error or "unknown error"
@@ -365,9 +364,7 @@ class LocateSession:
         self._stop_event.clear()
 
         # Start polling thread as reliable fallback
-        self._poll_thread = threading.Thread(
-            target=self._poll_loop, daemon=True, name='bt-locate-poll'
-        )
+        self._poll_thread = threading.Thread(target=self._poll_loop, daemon=True, name="bt-locate-poll")
         self._poll_thread.start()
 
         logger.info(f"Locate session started for target: {self.target.to_dict()}")
@@ -379,7 +376,7 @@ class LocateSession:
         self._stop_event.set()
         if self._scanner:
             self._scanner.remove_device_callback(self._on_device)
-            if getattr(self, '_scanner_started_by_us', False) and self._scanner.is_scanning:
+            if getattr(self, "_scanner_started_by_us", False) and self._scanner.is_scanning:
                 self._scanner.stop_scan()
                 logger.info("Stopped BT scanner (was started by locate session)")
         if self._poll_thread:
@@ -410,7 +407,7 @@ class LocateSession:
             if (now - self._last_scan_restart_attempt) >= SCAN_RESTART_BACKOFF_SECONDS:
                 self._last_scan_restart_attempt = now
                 logger.info("Scanner stopped, restarting for locate session")
-                self._scanner.start_scan(mode='auto')
+                self._scanner.start_scan(mode="auto")
 
         # Check devices seen within a recent window.  Using a short window
         # (rather than the aggregator's full 120s) so that once a device
@@ -518,10 +515,10 @@ class LocateSession:
 
         # Queue SSE event
         event = {
-            'type': 'detection',
-            'data': point.to_dict(),
-            'device_name': device.name,
-            'device_address': device.address,
+            "type": "detection",
+            "data": point.to_dict(),
+            "device_name": device.name,
+            "device_address": device.address,
         }
         try:
             self.event_queue.put_nowait(event)
@@ -553,40 +550,35 @@ class LocateSession:
         debug_devices = self._debug_device_sample() if include_debug else []
         scanner_running = self._scanner.is_scanning if self._scanner else False
         scanner_device_count = self._scanner.device_count if self._scanner else 0
-        callback_registered = (
-            self._on_device in self._scanner._on_device_updated_callbacks
-            if self._scanner else False
-        )
+        callback_registered = self._on_device in self._scanner._on_device_updated_callbacks if self._scanner else False
 
         with self._lock:
             return {
-                'active': self.active,
-                'target': self.target.to_dict(),
-                'environment': self.environment.name,
-                'path_loss_exponent': self.estimator.n,
-                'started_at': self.started_at.isoformat() if self.started_at else None,
-                'detection_count': self.detection_count,
-                'gps_trail_count': sum(1 for p in self.trail if p.lat is not None),
-                'last_detection': self.last_detection.isoformat() if self.last_detection else None,
-                'scanner_running': scanner_running,
-                'scanner_device_count': scanner_device_count,
-                'callback_registered': callback_registered,
-                'event_queue_size': self.event_queue.qsize(),
-                'callback_call_count': self.callback_call_count,
-                'poll_count': self.poll_count,
-                'poll_thread_alive': self._poll_thread.is_alive() if self._poll_thread else False,
-                'last_seen_device': self._last_seen_device,
-                'gps_available': gps_pos is not None,
-                'gps_source': 'live' if gps_pos else (
-                    'manual' if self.fallback_lat is not None else 'none'
-                ),
-                'fallback_lat': self.fallback_lat,
-                'fallback_lon': self.fallback_lon,
-                'latest_rssi': self.trail[-1].rssi if self.trail else None,
-                'latest_rssi_ema': round(self.trail[-1].rssi_ema, 1) if self.trail else None,
-                'latest_distance': round(self.trail[-1].estimated_distance, 2) if self.trail else None,
-                'latest_band': self.trail[-1].proximity_band if self.trail else None,
-                'debug_devices': debug_devices,
+                "active": self.active,
+                "target": self.target.to_dict(),
+                "environment": self.environment.name,
+                "path_loss_exponent": self.estimator.n,
+                "started_at": self.started_at.isoformat() if self.started_at else None,
+                "detection_count": self.detection_count,
+                "gps_trail_count": sum(1 for p in self.trail if p.lat is not None),
+                "last_detection": self.last_detection.isoformat() if self.last_detection else None,
+                "scanner_running": scanner_running,
+                "scanner_device_count": scanner_device_count,
+                "callback_registered": callback_registered,
+                "event_queue_size": self.event_queue.qsize(),
+                "callback_call_count": self.callback_call_count,
+                "poll_count": self.poll_count,
+                "poll_thread_alive": self._poll_thread.is_alive() if self._poll_thread else False,
+                "last_seen_device": self._last_seen_device,
+                "gps_available": gps_pos is not None,
+                "gps_source": "live" if gps_pos else ("manual" if self.fallback_lat is not None else "none"),
+                "fallback_lat": self.fallback_lat,
+                "fallback_lon": self.fallback_lon,
+                "latest_rssi": self.trail[-1].rssi if self.trail else None,
+                "latest_rssi_ema": round(self.trail[-1].rssi_ema, 1) if self.trail else None,
+                "latest_distance": round(self.trail[-1].estimated_distance, 2) if self.trail else None,
+                "latest_band": self.trail[-1].proximity_band if self.trail else None,
+                "debug_devices": debug_devices,
             }
 
     def set_environment(self, environment: Environment, custom_exponent: float | None = None) -> None:
@@ -604,11 +596,11 @@ class LocateSession:
             devices = self._scanner.get_devices(max_age_seconds=30)
             return [
                 {
-                    'id': d.device_id,
-                    'addr': d.address,
-                    'name': d.name,
-                    'rssi': d.rssi_current,
-                    'match': self.target.matches(d, irk_bytes=self._target_irk),
+                    "id": d.device_id,
+                    "addr": d.address,
+                    "name": d.name,
+                    "rssi": d.rssi_current,
+                    "match": self.target.matches(d, irk_bytes=self._target_irk),
                 }
                 for d in devices[:8]
             ]
@@ -648,9 +640,7 @@ def start_locate_session(
     if old_session:
         old_session.stop()
 
-    new_session = LocateSession(
-        target, environment, custom_exponent, fallback_lat, fallback_lon
-    )
+    new_session = LocateSession(target, environment, custom_exponent, fallback_lat, fallback_lon)
     with _session_lock:
         _session = new_session
 

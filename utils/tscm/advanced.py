@@ -26,33 +26,37 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any
 
-logger = logging.getLogger('intercept.tscm.advanced')
+logger = logging.getLogger("intercept.tscm.advanced")
 
 
 # =============================================================================
 # 1. Capability & Coverage Reality Panel
 # =============================================================================
 
+
 class WifiMode(Enum):
     """WiFi adapter operating modes."""
-    MONITOR = 'monitor'
-    MANAGED = 'managed'
-    UNAVAILABLE = 'unavailable'
+
+    MONITOR = "monitor"
+    MANAGED = "managed"
+    UNAVAILABLE = "unavailable"
 
 
 class BluetoothMode(Enum):
     """Bluetooth adapter capabilities."""
-    BLE_CLASSIC = 'ble_classic'
-    BLE_ONLY = 'ble_only'
-    LIMITED = 'limited'
-    UNAVAILABLE = 'unavailable'
+
+    BLE_CLASSIC = "ble_classic"
+    BLE_ONLY = "ble_only"
+    LIMITED = "limited"
+    UNAVAILABLE = "unavailable"
 
 
 @dataclass
 class RFCapability:
     """RF/SDR device capabilities."""
-    device_type: str = 'none'
-    driver: str = ''
+
+    device_type: str = "none"
+    driver: str = ""
     min_frequency_mhz: float = 0.0
     max_frequency_mhz: float = 0.0
     sample_rate_max: int = 0
@@ -68,22 +72,23 @@ class SweepCapabilities:
     Exposes what the current sweep CAN and CANNOT detect based on
     OS, privileges, adapters, and SDR hardware limits.
     """
+
     # System info
-    os_name: str = ''
-    os_version: str = ''
+    os_name: str = ""
+    os_version: str = ""
     is_root: bool = False
 
     # WiFi capabilities
     wifi_mode: WifiMode = WifiMode.UNAVAILABLE
-    wifi_interface: str = ''
-    wifi_driver: str = ''
+    wifi_interface: str = ""
+    wifi_driver: str = ""
     wifi_monitor_capable: bool = False
     wifi_limitations: list[str] = field(default_factory=list)
 
     # Bluetooth capabilities
     bt_mode: BluetoothMode = BluetoothMode.UNAVAILABLE
-    bt_adapter: str = ''
-    bt_version: str = ''
+    bt_adapter: str = ""
+    bt_version: str = ""
     bt_limitations: list[str] = field(default_factory=list)
 
     # RF/SDR capabilities
@@ -98,38 +103,38 @@ class SweepCapabilities:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'system': {
-                'os': self.os_name,
-                'os_version': self.os_version,
-                'is_root': self.is_root,
+            "system": {
+                "os": self.os_name,
+                "os_version": self.os_version,
+                "is_root": self.is_root,
             },
-            'wifi': {
-                'mode': self.wifi_mode.value,
-                'interface': self.wifi_interface,
-                'driver': self.wifi_driver,
-                'monitor_capable': self.wifi_monitor_capable,
-                'limitations': self.wifi_limitations,
+            "wifi": {
+                "mode": self.wifi_mode.value,
+                "interface": self.wifi_interface,
+                "driver": self.wifi_driver,
+                "monitor_capable": self.wifi_monitor_capable,
+                "limitations": self.wifi_limitations,
             },
-            'bluetooth': {
-                'mode': self.bt_mode.value,
-                'adapter': self.bt_adapter,
-                'version': self.bt_version,
-                'limitations': self.bt_limitations,
+            "bluetooth": {
+                "mode": self.bt_mode.value,
+                "adapter": self.bt_adapter,
+                "version": self.bt_version,
+                "limitations": self.bt_limitations,
             },
-            'rf': {
-                'device_type': self.rf_capability.device_type,
-                'driver': self.rf_capability.driver,
-                'frequency_range_mhz': {
-                    'min': self.rf_capability.min_frequency_mhz,
-                    'max': self.rf_capability.max_frequency_mhz,
+            "rf": {
+                "device_type": self.rf_capability.device_type,
+                "driver": self.rf_capability.driver,
+                "frequency_range_mhz": {
+                    "min": self.rf_capability.min_frequency_mhz,
+                    "max": self.rf_capability.max_frequency_mhz,
                 },
-                'sample_rate_max': self.rf_capability.sample_rate_max,
-                'available': self.rf_capability.available,
-                'limitations': self.rf_capability.limitations,
+                "sample_rate_max": self.rf_capability.sample_rate_max,
+                "available": self.rf_capability.available,
+                "limitations": self.rf_capability.limitations,
             },
-            'all_limitations': self.all_limitations,
-            'captured_at': self.captured_at.isoformat(),
-            'disclaimer': (
+            "all_limitations": self.all_limitations,
+            "captured_at": self.captured_at.isoformat(),
+            "disclaimer": (
                 "Capabilities are detected at sweep start time and may change. "
                 "Limitations listed affect what this sweep can reliably detect."
             ),
@@ -137,9 +142,7 @@ class SweepCapabilities:
 
 
 def detect_sweep_capabilities(
-    wifi_interface: str = '',
-    bt_adapter: str = '',
-    sdr_device: Any = None
+    wifi_interface: str = "", bt_adapter: str = "", sdr_device: Any = None
 ) -> SweepCapabilities:
     """
     Detect current system capabilities for TSCM sweeping.
@@ -157,7 +160,7 @@ def detect_sweep_capabilities(
     # System info
     caps.os_name = platform.system()
     caps.os_version = platform.release()
-    caps.is_root = os.geteuid() == 0 if hasattr(os, 'geteuid') else False
+    caps.is_root = os.geteuid() == 0 if hasattr(os, "geteuid") else False
 
     # Detect WiFi capabilities
     _detect_wifi_capabilities(caps, wifi_interface)
@@ -169,17 +172,11 @@ def detect_sweep_capabilities(
     _detect_rf_capabilities(caps, sdr_device)
 
     # Compile all limitations
-    caps.all_limitations = (
-        caps.wifi_limitations +
-        caps.bt_limitations +
-        caps.rf_capability.limitations
-    )
+    caps.all_limitations = caps.wifi_limitations + caps.bt_limitations + caps.rf_capability.limitations
 
     # Add privilege-based limitations
     if not caps.is_root:
-        caps.all_limitations.append(
-            "Running without root privileges - some features may be limited"
-        )
+        caps.all_limitations.append("Running without root privileges - some features may be limited")
 
     return caps
 
@@ -188,12 +185,12 @@ def _detect_wifi_capabilities(caps: SweepCapabilities, interface: str) -> None:
     """Detect WiFi adapter capabilities."""
     caps.wifi_interface = interface
 
-    if platform.system() == 'Darwin':
+    if platform.system() == "Darwin":
         # macOS: Check for WiFi capability using multiple methods
         wifi_available = False
 
         # Method 1: Check airport utility (older macOS)
-        airport_path = '/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport'
+        airport_path = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
         if os.path.exists(airport_path):
             wifi_available = True
 
@@ -201,12 +198,9 @@ def _detect_wifi_capabilities(caps: SweepCapabilities, interface: str) -> None:
         if not wifi_available:
             try:
                 result = subprocess.run(
-                    ['networksetup', '-listallhardwareports'],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
+                    ["networksetup", "-listallhardwareports"], capture_output=True, text=True, timeout=5
                 )
-                if 'Wi-Fi' in result.stdout or 'AirPort' in result.stdout:
+                if "Wi-Fi" in result.stdout or "AirPort" in result.stdout:
                     wifi_available = True
             except Exception:
                 pass
@@ -214,12 +208,7 @@ def _detect_wifi_capabilities(caps: SweepCapabilities, interface: str) -> None:
         # Method 3: Check if en0 exists (common WiFi interface on macOS)
         if not wifi_available:
             try:
-                result = subprocess.run(
-                    ['ifconfig', 'en0'],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
+                result = subprocess.run(["ifconfig", "en0"], capture_output=True, text=True, timeout=5)
                 if result.returncode == 0:
                     wifi_available = True
             except Exception:
@@ -227,7 +216,7 @@ def _detect_wifi_capabilities(caps: SweepCapabilities, interface: str) -> None:
 
         if wifi_available:
             caps.wifi_mode = WifiMode.MANAGED
-            caps.wifi_driver = 'apple80211'
+            caps.wifi_driver = "apple80211"
             caps.wifi_monitor_capable = False
             caps.wifi_limitations = [
                 "macOS WiFi operates in managed mode only.",
@@ -242,31 +231,22 @@ def _detect_wifi_capabilities(caps: SweepCapabilities, interface: str) -> None:
         # Linux: Check for monitor mode capability
         try:
             # Check if interface supports monitor mode
-            result = subprocess.run(
-                ['iw', 'list'],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
+            result = subprocess.run(["iw", "list"], capture_output=True, text=True, timeout=5)
 
-            if 'monitor' in result.stdout.lower():
+            if "monitor" in result.stdout.lower():
                 # Check current mode
                 if interface:
                     mode_result = subprocess.run(
-                        ['iw', 'dev', interface, 'info'],
-                        capture_output=True,
-                        text=True,
-                        timeout=5
+                        ["iw", "dev", interface, "info"], capture_output=True, text=True, timeout=5
                     )
-                    if 'type monitor' in mode_result.stdout.lower():
+                    if "type monitor" in mode_result.stdout.lower():
                         caps.wifi_mode = WifiMode.MONITOR
                         caps.wifi_monitor_capable = True
                     else:
                         caps.wifi_mode = WifiMode.MANAGED
                         caps.wifi_monitor_capable = True
                         caps.wifi_limitations.append(
-                            "WiFi interface in managed mode. "
-                            "Probe requests and deauth detection require monitor mode."
+                            "WiFi interface in managed mode. Probe requests and deauth detection require monitor mode."
                         )
                 else:
                     caps.wifi_mode = WifiMode.MANAGED
@@ -283,7 +263,7 @@ def _detect_wifi_capabilities(caps: SweepCapabilities, interface: str) -> None:
             # Get driver info
             if interface:
                 try:
-                    driver_path = f'/sys/class/net/{interface}/device/driver'
+                    driver_path = f"/sys/class/net/{interface}/device/driver"
                     if os.path.exists(driver_path):
                         caps.wifi_driver = os.path.basename(os.readlink(driver_path))
                 except Exception:
@@ -298,18 +278,15 @@ def _detect_bluetooth_capabilities(caps: SweepCapabilities, adapter: str) -> Non
     """Detect Bluetooth adapter capabilities."""
     caps.bt_adapter = adapter
 
-    if platform.system() == 'Darwin':
+    if platform.system() == "Darwin":
         # macOS: Use system_profiler
         try:
             result = subprocess.run(
-                ['system_profiler', 'SPBluetoothDataType', '-json'],
-                capture_output=True,
-                text=True,
-                timeout=10
+                ["system_profiler", "SPBluetoothDataType", "-json"], capture_output=True, text=True, timeout=10
             )
-            if 'Bluetooth' in result.stdout:
+            if "Bluetooth" in result.stdout:
                 caps.bt_mode = BluetoothMode.BLE_CLASSIC
-                caps.bt_version = 'macOS CoreBluetooth'
+                caps.bt_version = "macOS CoreBluetooth"
                 caps.bt_limitations = [
                     "BLE scanning limited to advertising devices only.",
                     "Classic Bluetooth discovery may be incomplete.",
@@ -325,16 +302,11 @@ def _detect_bluetooth_capabilities(caps: SweepCapabilities, adapter: str) -> Non
     else:
         # Linux: Check bluetoothctl/hciconfig
         try:
-            result = subprocess.run(
-                ['hciconfig', '-a'],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
+            result = subprocess.run(["hciconfig", "-a"], capture_output=True, text=True, timeout=5)
 
-            if 'hci' in result.stdout.lower():
+            if "hci" in result.stdout.lower():
                 # Check for BLE support
-                if 'le' in result.stdout.lower():
+                if "le" in result.stdout.lower():
                     caps.bt_mode = BluetoothMode.BLE_CLASSIC
                     caps.bt_limitations = [
                         "BLE scanning range depends on adapter sensitivity.",
@@ -348,8 +320,8 @@ def _detect_bluetooth_capabilities(caps: SweepCapabilities, adapter: str) -> Non
                     ]
 
                 # Extract version
-                for line in result.stdout.split('\n'):
-                    if 'hci version' in line.lower():
+                for line in result.stdout.split("\n"):
+                    if "hci version" in line.lower():
                         caps.bt_version = line.strip()
                         break
             else:
@@ -367,18 +339,19 @@ def _detect_rf_capabilities(caps: SweepCapabilities, sdr_device: Any) -> None:
 
     try:
         from utils.sdr import SDRFactory
+
         devices = SDRFactory.detect_devices()
 
         if devices:
             device = devices[0]  # Use first device
             rf_cap.available = True
-            rf_cap.device_type = getattr(device, 'sdr_type', 'unknown')
-            if hasattr(rf_cap.device_type, 'value'):
+            rf_cap.device_type = getattr(device, "sdr_type", "unknown")
+            if hasattr(rf_cap.device_type, "value"):
                 rf_cap.device_type = rf_cap.device_type.value
-            rf_cap.driver = getattr(device, 'driver', '')
+            rf_cap.driver = getattr(device, "driver", "")
 
             # Set frequency ranges based on device type
-            if 'rtl' in rf_cap.device_type.lower():
+            if "rtl" in rf_cap.device_type.lower():
                 rf_cap.min_frequency_mhz = 24.0
                 rf_cap.max_frequency_mhz = 1766.0
                 rf_cap.sample_rate_max = 3200000
@@ -388,7 +361,7 @@ def _detect_rf_capabilities(caps: SweepCapabilities, sdr_device: Any) -> None:
                     "Cannot cover microwave bands (>1.8 GHz) without upconverter.",
                     "Signal detection limited by SDR noise floor and dynamic range.",
                 ]
-            elif 'hackrf' in rf_cap.device_type.lower():
+            elif "hackrf" in rf_cap.device_type.lower():
                 rf_cap.min_frequency_mhz = 1.0
                 rf_cap.max_frequency_mhz = 6000.0
                 rf_cap.sample_rate_max = 20000000
@@ -403,7 +376,7 @@ def _detect_rf_capabilities(caps: SweepCapabilities, sdr_device: Any) -> None:
                 ]
         else:
             rf_cap.available = False
-            rf_cap.device_type = 'none'
+            rf_cap.device_type = "none"
             rf_cap.limitations = [
                 "No SDR device detected.",
                 "RF spectrum analysis is not available in this sweep.",
@@ -427,16 +400,19 @@ def _detect_rf_capabilities(caps: SweepCapabilities, sdr_device: Any) -> None:
 # 2. Baseline Diff & Baseline Health
 # =============================================================================
 
+
 class BaselineHealth(Enum):
     """Baseline health status."""
-    HEALTHY = 'healthy'
-    NOISY = 'noisy'
-    STALE = 'stale'
+
+    HEALTHY = "healthy"
+    NOISY = "noisy"
+    STALE = "stale"
 
 
 @dataclass
 class DeviceChange:
     """Represents a change detected compared to baseline."""
+
     identifier: str
     protocol: str
     change_type: str  # 'new', 'missing', 'rssi_drift', 'channel_change', 'security_change'
@@ -453,6 +429,7 @@ class BaselineDiff:
     Shows what changed, whether baseline is reliable,
     and separates expected vs unexpected changes.
     """
+
     baseline_id: int
     sweep_id: int
 
@@ -482,41 +459,44 @@ class BaselineDiff:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'baseline_id': self.baseline_id,
-            'sweep_id': self.sweep_id,
-            'health': {
-                'status': self.health.value,
-                'score': round(self.health_score, 2),
-                'reasons': self.health_reasons,
+            "baseline_id": self.baseline_id,
+            "sweep_id": self.sweep_id,
+            "health": {
+                "status": self.health.value,
+                "score": round(self.health_score, 2),
+                "reasons": self.health_reasons,
             },
-            'age': {
-                'hours': round(self.baseline_age_hours, 1),
-                'is_stale': self.is_stale,
+            "age": {
+                "hours": round(self.baseline_age_hours, 1),
+                "is_stale": self.is_stale,
             },
-            'summary': {
-                'new_devices': self.total_new,
-                'missing_devices': self.total_missing,
-                'changed_devices': self.total_changed,
-                'expected_changes': len(self.expected_changes),
-                'unexpected_changes': len(self.unexpected_changes),
+            "summary": {
+                "new_devices": self.total_new,
+                "missing_devices": self.total_missing,
+                "changed_devices": self.total_changed,
+                "expected_changes": len(self.expected_changes),
+                "unexpected_changes": len(self.unexpected_changes),
             },
-            'new_devices': [
-                {'identifier': d.identifier, 'protocol': d.protocol,
-                 'description': d.description, 'details': d.details}
+            "new_devices": [
+                {"identifier": d.identifier, "protocol": d.protocol, "description": d.description, "details": d.details}
                 for d in self.new_devices
             ],
-            'missing_devices': [
-                {'identifier': d.identifier, 'protocol': d.protocol,
-                 'description': d.description, 'details': d.details}
+            "missing_devices": [
+                {"identifier": d.identifier, "protocol": d.protocol, "description": d.description, "details": d.details}
                 for d in self.missing_devices
             ],
-            'changed_devices': [
-                {'identifier': d.identifier, 'protocol': d.protocol,
-                 'change_type': d.change_type, 'description': d.description,
-                 'expected': d.expected, 'details': d.details}
+            "changed_devices": [
+                {
+                    "identifier": d.identifier,
+                    "protocol": d.protocol,
+                    "change_type": d.change_type,
+                    "description": d.description,
+                    "expected": d.expected,
+                    "details": d.details,
+                }
                 for d in self.changed_devices
             ],
-            'disclaimer': (
+            "disclaimer": (
                 "Baseline comparison shows differences, not confirmed threats. "
                 "New devices may be legitimate. Missing devices may have been powered off."
             ),
@@ -529,7 +509,7 @@ def calculate_baseline_diff(
     current_wifi_clients: list[dict],
     current_bt: list[dict],
     current_rf: list[dict],
-    sweep_id: int
+    sweep_id: int,
 ) -> BaselineDiff:
     """
     Calculate comprehensive diff between baseline and current scan.
@@ -545,17 +525,14 @@ def calculate_baseline_diff(
     Returns:
         BaselineDiff with complete comparison results
     """
-    diff = BaselineDiff(
-        baseline_id=baseline.get('id', 0),
-        sweep_id=sweep_id
-    )
+    diff = BaselineDiff(baseline_id=baseline.get("id", 0), sweep_id=sweep_id)
 
     # Calculate baseline age
-    created_at = baseline.get('created_at')
+    created_at = baseline.get("created_at")
     if created_at:
         if isinstance(created_at, str):
             try:
-                created = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
                 diff.baseline_age_hours = (datetime.now() - created.replace(tzinfo=None)).total_seconds() / 3600
             except ValueError:
                 diff.baseline_age_hours = 0
@@ -567,25 +544,21 @@ def calculate_baseline_diff(
 
     # Build baseline lookup dicts
     baseline_wifi = {
-        d.get('bssid', d.get('mac', '')).upper(): d
-        for d in baseline.get('wifi_networks', [])
-        if d.get('bssid') or d.get('mac')
+        d.get("bssid", d.get("mac", "")).upper(): d
+        for d in baseline.get("wifi_networks", [])
+        if d.get("bssid") or d.get("mac")
     }
     baseline_wifi_clients = {
-        d.get('mac', d.get('address', '')).upper(): d
-        for d in baseline.get('wifi_clients', [])
-        if d.get('mac') or d.get('address')
+        d.get("mac", d.get("address", "")).upper(): d
+        for d in baseline.get("wifi_clients", [])
+        if d.get("mac") or d.get("address")
     }
     baseline_bt = {
-        d.get('mac', d.get('address', '')).upper(): d
-        for d in baseline.get('bt_devices', [])
-        if d.get('mac') or d.get('address')
+        d.get("mac", d.get("address", "")).upper(): d
+        for d in baseline.get("bt_devices", [])
+        if d.get("mac") or d.get("address")
     }
-    baseline_rf = {
-        round(d.get('frequency', 0), 1): d
-        for d in baseline.get('rf_frequencies', [])
-        if d.get('frequency')
-    }
+    baseline_rf = {round(d.get("frequency", 0), 1): d for d in baseline.get("rf_frequencies", []) if d.get("frequency")}
 
     # Compare WiFi
     _compare_wifi(diff, baseline_wifi, current_wifi)
@@ -619,215 +592,219 @@ def calculate_baseline_diff(
 
 def _compare_wifi(diff: BaselineDiff, baseline: dict, current: list[dict]) -> None:
     """Compare WiFi devices between baseline and current."""
-    current_macs = {
-        d.get('bssid', d.get('mac', '')).upper(): d
-        for d in current
-        if d.get('bssid') or d.get('mac')
-    }
+    current_macs = {d.get("bssid", d.get("mac", "")).upper(): d for d in current if d.get("bssid") or d.get("mac")}
 
     # Find new devices
     for mac, device in current_macs.items():
         if mac not in baseline:
-            ssid = device.get('essid', device.get('ssid', 'Hidden'))
-            diff.new_devices.append(DeviceChange(
-                identifier=mac,
-                protocol='wifi',
-                change_type='new',
-                description=f'New WiFi AP: {ssid}',
-                expected=False,
-                details={
-                    'ssid': ssid,
-                    'channel': device.get('channel'),
-                    'rssi': device.get('power', device.get('signal')),
-                }
-            ))
+            ssid = device.get("essid", device.get("ssid", "Hidden"))
+            diff.new_devices.append(
+                DeviceChange(
+                    identifier=mac,
+                    protocol="wifi",
+                    change_type="new",
+                    description=f"New WiFi AP: {ssid}",
+                    expected=False,
+                    details={
+                        "ssid": ssid,
+                        "channel": device.get("channel"),
+                        "rssi": device.get("power", device.get("signal")),
+                    },
+                )
+            )
 
 
 def _compare_wifi_clients(diff: BaselineDiff, baseline: dict, current: list[dict]) -> None:
     """Compare WiFi clients between baseline and current."""
-    current_macs = {
-        d.get('mac', d.get('address', '')).upper(): d
-        for d in current
-        if d.get('mac') or d.get('address')
-    }
+    current_macs = {d.get("mac", d.get("address", "")).upper(): d for d in current if d.get("mac") or d.get("address")}
 
     # Find new clients
     for mac, device in current_macs.items():
         if mac not in baseline:
-            name = device.get('vendor', 'WiFi Client')
-            diff.new_devices.append(DeviceChange(
-                identifier=mac,
-                protocol='wifi_client',
-                change_type='new',
-                description=f'New WiFi client: {name}',
-                expected=False,
-                details={
-                    'vendor': name,
-                    'rssi': device.get('rssi'),
-                    'associated_bssid': device.get('associated_bssid'),
-                }
-            ))
+            name = device.get("vendor", "WiFi Client")
+            diff.new_devices.append(
+                DeviceChange(
+                    identifier=mac,
+                    protocol="wifi_client",
+                    change_type="new",
+                    description=f"New WiFi client: {name}",
+                    expected=False,
+                    details={
+                        "vendor": name,
+                        "rssi": device.get("rssi"),
+                        "associated_bssid": device.get("associated_bssid"),
+                    },
+                )
+            )
 
     # Find missing clients
     for mac, device in baseline.items():
         if mac not in current_macs:
-            name = device.get('vendor', 'WiFi Client')
-            diff.missing_devices.append(DeviceChange(
-                identifier=mac,
-                protocol='wifi_client',
-                change_type='missing',
-                description=f'Missing WiFi client: {name}',
-                expected=True,
-                details={
-                    'vendor': name,
-                }
-            ))
+            name = device.get("vendor", "WiFi Client")
+            diff.missing_devices.append(
+                DeviceChange(
+                    identifier=mac,
+                    protocol="wifi_client",
+                    change_type="missing",
+                    description=f"Missing WiFi client: {name}",
+                    expected=True,
+                    details={
+                        "vendor": name,
+                    },
+                )
+            )
         else:
             # Check for changes
             baseline_dev = baseline[mac]
             changes = []
 
             # RSSI drift
-            curr_rssi = device.get('power', device.get('signal'))
-            base_rssi = baseline_dev.get('power', baseline_dev.get('signal'))
+            curr_rssi = device.get("power", device.get("signal"))
+            base_rssi = baseline_dev.get("power", baseline_dev.get("signal"))
             if curr_rssi and base_rssi:
                 rssi_diff = abs(int(curr_rssi) - int(base_rssi))
                 if rssi_diff > 15:
-                    changes.append(('rssi_drift', f'RSSI changed by {rssi_diff} dBm'))
+                    changes.append(("rssi_drift", f"RSSI changed by {rssi_diff} dBm"))
 
             # Channel change
-            curr_chan = device.get('channel')
-            base_chan = baseline_dev.get('channel')
+            curr_chan = device.get("channel")
+            base_chan = baseline_dev.get("channel")
             if curr_chan and base_chan and curr_chan != base_chan:
-                changes.append(('channel_change', f'Channel changed from {base_chan} to {curr_chan}'))
+                changes.append(("channel_change", f"Channel changed from {base_chan} to {curr_chan}"))
 
             # Security change
-            curr_sec = device.get('encryption', device.get('privacy', ''))
-            base_sec = baseline_dev.get('encryption', baseline_dev.get('privacy', ''))
+            curr_sec = device.get("encryption", device.get("privacy", ""))
+            base_sec = baseline_dev.get("encryption", baseline_dev.get("privacy", ""))
             if curr_sec and base_sec and curr_sec != base_sec:
-                changes.append(('security_change', f'Security changed from {base_sec} to {curr_sec}'))
+                changes.append(("security_change", f"Security changed from {base_sec} to {curr_sec}"))
 
             for change_type, desc in changes:
-                diff.changed_devices.append(DeviceChange(
-                    identifier=mac,
-                    protocol='wifi',
-                    change_type=change_type,
-                    description=desc,
-                    expected=change_type == 'rssi_drift',  # RSSI drift is often expected
-                    details={
-                        'ssid': device.get('essid', device.get('ssid')),
-                        'baseline': baseline_dev,
-                        'current': device,
-                    }
-                ))
+                diff.changed_devices.append(
+                    DeviceChange(
+                        identifier=mac,
+                        protocol="wifi",
+                        change_type=change_type,
+                        description=desc,
+                        expected=change_type == "rssi_drift",  # RSSI drift is often expected
+                        details={
+                            "ssid": device.get("essid", device.get("ssid")),
+                            "baseline": baseline_dev,
+                            "current": device,
+                        },
+                    )
+                )
 
     # Find missing devices
     for mac, device in baseline.items():
         if mac not in current_macs:
-            ssid = device.get('essid', device.get('ssid', 'Hidden'))
-            diff.missing_devices.append(DeviceChange(
-                identifier=mac,
-                protocol='wifi',
-                change_type='missing',
-                description=f'Missing WiFi AP: {ssid}',
-                expected=False,  # Could be powered off
-                details={
-                    'ssid': ssid,
-                    'last_channel': device.get('channel'),
-                }
-            ))
+            ssid = device.get("essid", device.get("ssid", "Hidden"))
+            diff.missing_devices.append(
+                DeviceChange(
+                    identifier=mac,
+                    protocol="wifi",
+                    change_type="missing",
+                    description=f"Missing WiFi AP: {ssid}",
+                    expected=False,  # Could be powered off
+                    details={
+                        "ssid": ssid,
+                        "last_channel": device.get("channel"),
+                    },
+                )
+            )
 
 
 def _compare_bluetooth(diff: BaselineDiff, baseline: dict, current: list[dict]) -> None:
     """Compare Bluetooth devices between baseline and current."""
-    current_macs = {
-        d.get('mac', d.get('address', '')).upper(): d
-        for d in current
-        if d.get('mac') or d.get('address')
-    }
+    current_macs = {d.get("mac", d.get("address", "")).upper(): d for d in current if d.get("mac") or d.get("address")}
 
     # Find new devices
     for mac, device in current_macs.items():
         if mac not in baseline:
-            name = device.get('name', 'Unknown')
-            diff.new_devices.append(DeviceChange(
-                identifier=mac,
-                protocol='bluetooth',
-                change_type='new',
-                description=f'New BLE device: {name}',
-                expected=False,
-                details={
-                    'name': name,
-                    'rssi': device.get('rssi'),
-                    'manufacturer': device.get('manufacturer'),
-                }
-            ))
+            name = device.get("name", "Unknown")
+            diff.new_devices.append(
+                DeviceChange(
+                    identifier=mac,
+                    protocol="bluetooth",
+                    change_type="new",
+                    description=f"New BLE device: {name}",
+                    expected=False,
+                    details={
+                        "name": name,
+                        "rssi": device.get("rssi"),
+                        "manufacturer": device.get("manufacturer"),
+                    },
+                )
+            )
         else:
             # Check for changes
             baseline_dev = baseline[mac]
 
             # Name change (device renamed)
-            curr_name = device.get('name', '')
-            base_name = baseline_dev.get('name', '')
+            curr_name = device.get("name", "")
+            base_name = baseline_dev.get("name", "")
             if curr_name and base_name and curr_name != base_name:
-                diff.changed_devices.append(DeviceChange(
-                    identifier=mac,
-                    protocol='bluetooth',
-                    change_type='name_change',
-                    description=f'Device renamed: {base_name} -> {curr_name}',
-                    expected=True,
-                    details={'old_name': base_name, 'new_name': curr_name}
-                ))
+                diff.changed_devices.append(
+                    DeviceChange(
+                        identifier=mac,
+                        protocol="bluetooth",
+                        change_type="name_change",
+                        description=f"Device renamed: {base_name} -> {curr_name}",
+                        expected=True,
+                        details={"old_name": base_name, "new_name": curr_name},
+                    )
+                )
 
     # Find missing devices
     for mac, device in baseline.items():
         if mac not in current_macs:
-            name = device.get('name', 'Unknown')
-            diff.missing_devices.append(DeviceChange(
-                identifier=mac,
-                protocol='bluetooth',
-                change_type='missing',
-                description=f'Missing BLE device: {name}',
-                expected=True,  # BLE devices often go to sleep
-                details={'name': name}
-            ))
+            name = device.get("name", "Unknown")
+            diff.missing_devices.append(
+                DeviceChange(
+                    identifier=mac,
+                    protocol="bluetooth",
+                    change_type="missing",
+                    description=f"Missing BLE device: {name}",
+                    expected=True,  # BLE devices often go to sleep
+                    details={"name": name},
+                )
+            )
 
 
 def _compare_rf(diff: BaselineDiff, baseline: dict, current: list[dict]) -> None:
     """Compare RF signals between baseline and current."""
-    current_freqs = {
-        round(s.get('frequency', 0), 1): s
-        for s in current
-        if s.get('frequency')
-    }
+    current_freqs = {round(s.get("frequency", 0), 1): s for s in current if s.get("frequency")}
 
     # Find new signals
     for freq, signal in current_freqs.items():
         if freq not in baseline:
-            diff.new_devices.append(DeviceChange(
-                identifier=f'{freq:.1f} MHz',
-                protocol='rf',
-                change_type='new',
-                description=f'New RF signal at {freq:.3f} MHz',
-                expected=False,
-                details={
-                    'frequency': freq,
-                    'power': signal.get('power', signal.get('level')),
-                    'modulation': signal.get('modulation'),
-                }
-            ))
+            diff.new_devices.append(
+                DeviceChange(
+                    identifier=f"{freq:.1f} MHz",
+                    protocol="rf",
+                    change_type="new",
+                    description=f"New RF signal at {freq:.3f} MHz",
+                    expected=False,
+                    details={
+                        "frequency": freq,
+                        "power": signal.get("power", signal.get("level")),
+                        "modulation": signal.get("modulation"),
+                    },
+                )
+            )
 
     # Find missing signals
     for freq, signal in baseline.items():
         if freq not in current_freqs:
-            diff.missing_devices.append(DeviceChange(
-                identifier=f'{freq:.1f} MHz',
-                protocol='rf',
-                change_type='missing',
-                description=f'Missing RF signal at {freq:.1f} MHz',
-                expected=True,  # RF signals can be intermittent
-                details={'frequency': freq}
-            ))
+            diff.missing_devices.append(
+                DeviceChange(
+                    identifier=f"{freq:.1f} MHz",
+                    protocol="rf",
+                    change_type="missing",
+                    description=f"Missing RF signal at {freq:.1f} MHz",
+                    expected=True,  # RF signals can be intermittent
+                    details={"frequency": freq},
+                )
+            )
 
 
 def _calculate_baseline_health(diff: BaselineDiff, baseline: dict) -> None:
@@ -848,10 +825,10 @@ def _calculate_baseline_health(diff: BaselineDiff, baseline: dict) -> None:
 
     # Device churn penalty
     total_baseline = (
-        len(baseline.get('wifi_networks', [])) +
-        len(baseline.get('wifi_clients', [])) +
-        len(baseline.get('bt_devices', [])) +
-        len(baseline.get('rf_frequencies', []))
+        len(baseline.get("wifi_networks", []))
+        + len(baseline.get("wifi_clients", []))
+        + len(baseline.get("bt_devices", []))
+        + len(baseline.get("rf_frequencies", []))
     )
 
     if total_baseline > 0:
@@ -889,9 +866,11 @@ def _calculate_baseline_health(diff: BaselineDiff, baseline: dict) -> None:
 # 3. Per-Device Timelines
 # =============================================================================
 
+
 @dataclass
 class DeviceObservation:
     """A single observation of a device."""
+
     timestamp: datetime
     rssi: int | None = None
     present: bool = True
@@ -908,6 +887,7 @@ class DeviceTimeline:
     Used to assess signal stability, movement patterns, and
     meeting window correlation.
     """
+
     identifier: str
     protocol: str
     name: str | None = None
@@ -929,7 +909,7 @@ class DeviceTimeline:
 
     # Movement assessment
     appears_stationary: bool = True
-    movement_pattern: str = 'unknown'  # 'stationary', 'mobile', 'intermittent'
+    movement_pattern: str = "unknown"  # 'stationary', 'mobile', 'intermittent'
 
     # Meeting correlation
     meeting_correlated: bool = False
@@ -938,38 +918,38 @@ class DeviceTimeline:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'identifier': self.identifier,
-            'protocol': self.protocol,
-            'name': self.name,
-            'observations': [
+            "identifier": self.identifier,
+            "protocol": self.protocol,
+            "name": self.name,
+            "observations": [
                 {
-                    'timestamp': obs.timestamp.isoformat(),
-                    'rssi': obs.rssi,
-                    'present': obs.present,
-                    'channel': obs.channel,
-                    'frequency': obs.frequency,
+                    "timestamp": obs.timestamp.isoformat(),
+                    "rssi": obs.rssi,
+                    "present": obs.present,
+                    "channel": obs.channel,
+                    "frequency": obs.frequency,
                 }
                 for obs in self.observations[-50:]  # Limit to last 50
             ],
-            'metrics': {
-                'first_seen': self.first_seen.isoformat() if self.first_seen else None,
-                'last_seen': self.last_seen.isoformat() if self.last_seen else None,
-                'total_observations': self.total_observations,
-                'presence_ratio': round(self.presence_ratio, 2),
+            "metrics": {
+                "first_seen": self.first_seen.isoformat() if self.first_seen else None,
+                "last_seen": self.last_seen.isoformat() if self.last_seen else None,
+                "total_observations": self.total_observations,
+                "presence_ratio": round(self.presence_ratio, 2),
             },
-            'signal': {
-                'rssi_min': self.rssi_min,
-                'rssi_max': self.rssi_max,
-                'rssi_mean': round(self.rssi_mean, 1) if self.rssi_mean else None,
-                'stability': round(self.rssi_stability, 2),
+            "signal": {
+                "rssi_min": self.rssi_min,
+                "rssi_max": self.rssi_max,
+                "rssi_mean": round(self.rssi_mean, 1) if self.rssi_mean else None,
+                "stability": round(self.rssi_stability, 2),
             },
-            'movement': {
-                'appears_stationary': self.appears_stationary,
-                'pattern': self.movement_pattern,
+            "movement": {
+                "appears_stationary": self.appears_stationary,
+                "pattern": self.movement_pattern,
             },
-            'meeting_correlation': {
-                'correlated': self.meeting_correlated,
-                'observations_during_meeting': self.meeting_observations,
+            "meeting_correlation": {
+                "correlated": self.meeting_correlated,
+                "observations_during_meeting": self.meeting_observations,
             },
         }
 
@@ -1001,7 +981,7 @@ class TimelineManager:
         channel: int | None = None,
         frequency: float | None = None,
         name: str | None = None,
-        attributes: dict | None = None
+        attributes: dict | None = None,
     ) -> None:
         """Add an observation for a device."""
         key = f"{protocol}:{identifier.upper()}"
@@ -1049,7 +1029,7 @@ class TimelineManager:
 
         # Enforce max observations
         if len(timeline.observations) > self.max_observations:
-            timeline.observations = timeline.observations[-self.max_observations:]
+            timeline.observations = timeline.observations[-self.max_observations :]
 
         # Update metrics
         timeline.last_seen = now
@@ -1107,13 +1087,13 @@ class TimelineManager:
             rssi_range = timeline.rssi_max - timeline.rssi_min
             if rssi_range < 10:
                 timeline.appears_stationary = True
-                timeline.movement_pattern = 'stationary'
+                timeline.movement_pattern = "stationary"
             elif rssi_range < 25:
                 timeline.appears_stationary = False
-                timeline.movement_pattern = 'mobile'
+                timeline.movement_pattern = "mobile"
             else:
                 timeline.appears_stationary = False
-                timeline.movement_pattern = 'intermittent'
+                timeline.movement_pattern = "intermittent"
 
         # Presence ratio
         if timeline.first_seen and timeline.last_seen:
@@ -1132,7 +1112,7 @@ class TimelineManager:
     def get_all_timelines(self) -> list[DeviceTimeline]:
         """Get all device timelines with computed metrics."""
         for key in self.timelines:
-            protocol, identifier = key.split(':', 1)
+            protocol, identifier = key.split(":", 1)
             self.compute_metrics(identifier, protocol)
         return list(self.timelines.values())
 
@@ -1140,6 +1120,7 @@ class TimelineManager:
 # =============================================================================
 # 5. Meeting-Window Summary Enhancements
 # =============================================================================
+
 
 @dataclass
 class MeetingWindowSummary:
@@ -1149,6 +1130,7 @@ class MeetingWindowSummary:
     Tracks devices first seen during meeting, behavior changes,
     and applies meeting-window scoring modifiers.
     """
+
     meeting_id: int
     name: str | None = None
     start_time: datetime | None = None
@@ -1173,20 +1155,20 @@ class MeetingWindowSummary:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'meeting_id': self.meeting_id,
-            'name': self.name,
-            'start_time': self.start_time.isoformat() if self.start_time else None,
-            'end_time': self.end_time.isoformat() if self.end_time else None,
-            'duration_minutes': round(self.duration_minutes, 1),
-            'summary': {
-                'total_devices_active': self.total_devices_active,
-                'new_devices': self.new_devices_count,
-                'behavior_changes': self.behavior_changes_count,
-                'high_interest': self.high_interest_count,
+            "meeting_id": self.meeting_id,
+            "name": self.name,
+            "start_time": self.start_time.isoformat() if self.start_time else None,
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "duration_minutes": round(self.duration_minutes, 1),
+            "summary": {
+                "total_devices_active": self.total_devices_active,
+                "new_devices": self.new_devices_count,
+                "behavior_changes": self.behavior_changes_count,
+                "high_interest": self.high_interest_count,
             },
-            'devices_first_seen': self.devices_first_seen,
-            'devices_behavior_change': self.devices_behavior_change,
-            'disclaimer': (
+            "devices_first_seen": self.devices_first_seen,
+            "devices_behavior_change": self.devices_behavior_change,
+            "disclaimer": (
                 "Meeting-correlated activity indicates temporal correlation only, "
                 "not confirmed surveillance. Devices may have legitimate reasons "
                 "for appearing during meetings."
@@ -1195,9 +1177,7 @@ class MeetingWindowSummary:
 
 
 def generate_meeting_summary(
-    meeting_window: dict,
-    device_timelines: list[DeviceTimeline],
-    device_profiles: list[dict]
+    meeting_window: dict, device_timelines: list[DeviceTimeline], device_profiles: list[dict]
 ) -> MeetingWindowSummary:
     """
     Generate summary of device activity during a meeting window.
@@ -1211,23 +1191,23 @@ def generate_meeting_summary(
         MeetingWindowSummary with analysis
     """
     summary = MeetingWindowSummary(
-        meeting_id=meeting_window.get('id', 0),
-        name=meeting_window.get('name'),
+        meeting_id=meeting_window.get("id", 0),
+        name=meeting_window.get("name"),
     )
 
     # Parse times
-    start_str = meeting_window.get('start_time')
-    end_str = meeting_window.get('end_time')
+    start_str = meeting_window.get("start_time")
+    end_str = meeting_window.get("end_time")
 
     if start_str:
         if isinstance(start_str, str):
-            summary.start_time = datetime.fromisoformat(start_str.replace('Z', '+00:00')).replace(tzinfo=None)
+            summary.start_time = datetime.fromisoformat(start_str.replace("Z", "+00:00")).replace(tzinfo=None)
         else:
             summary.start_time = start_str
 
     if end_str:
         if isinstance(end_str, str):
-            summary.end_time = datetime.fromisoformat(end_str.replace('Z', '+00:00')).replace(tzinfo=None)
+            summary.end_time = datetime.fromisoformat(end_str.replace("Z", "+00:00")).replace(tzinfo=None)
         else:
             summary.end_time = end_str
 
@@ -1263,20 +1243,22 @@ def generate_meeting_summary(
 
         if was_active:
             device_info = {
-                'identifier': timeline.identifier,
-                'protocol': timeline.protocol,
-                'name': timeline.name,
-                'meeting_correlated': True,
+                "identifier": timeline.identifier,
+                "protocol": timeline.protocol,
+                "name": timeline.name,
+                "meeting_correlated": True,
             }
             summary.active_devices.append(device_info)
 
             if first_seen_during:
-                device_info['first_seen_during_meeting'] = True
-                summary.devices_first_seen.append({
-                    **device_info,
-                    'description': 'Device first seen during meeting window',
-                    'risk_modifier': '+2 (meeting-correlated activity)',
-                })
+                device_info["first_seen_during_meeting"] = True
+                summary.devices_first_seen.append(
+                    {
+                        **device_info,
+                        "description": "Device first seen during meeting window",
+                        "risk_modifier": "+2 (meeting-correlated activity)",
+                    }
+                )
 
     # Update counts
     summary.total_devices_active = len(summary.active_devices)
@@ -1285,9 +1267,9 @@ def generate_meeting_summary(
 
     # Count high interest from profiles
     for profile in device_profiles:
-        if profile.get('risk_level') == 'high_interest':
-            indicators = profile.get('indicators', [])
-            if any(i.get('type') == 'meeting_correlated' for i in indicators):
+        if profile.get("risk_level") == "high_interest":
+            indicators = profile.get("indicators", [])
+            if any(i.get("type") == "meeting_correlated" for i in indicators):
                 summary.high_interest_count += 1
 
     return summary
@@ -1297,9 +1279,11 @@ def generate_meeting_summary(
 # 7. WiFi Advanced Indicators (LIMITED SCOPE)
 # =============================================================================
 
+
 @dataclass
 class WiFiAdvancedIndicator:
     """An advanced WiFi indicator detection."""
+
     indicator_type: str  # 'evil_twin', 'probe_request', 'deauth_burst'
     severity: str  # 'high', 'medium', 'low'
     description: str
@@ -1309,13 +1293,13 @@ class WiFiAdvancedIndicator:
 
     def to_dict(self) -> dict:
         return {
-            'type': self.indicator_type,
-            'severity': self.severity,
-            'description': self.description,
-            'details': self.details,
-            'timestamp': self.timestamp.isoformat(),
-            'requires_monitor_mode': self.requires_monitor_mode,
-            'disclaimer': (
+            "type": self.indicator_type,
+            "severity": self.severity,
+            "description": self.description,
+            "details": self.details,
+            "timestamp": self.timestamp.isoformat(),
+            "requires_monitor_mode": self.requires_monitor_mode,
+            "disclaimer": (
                 "Pattern detected - this is an indicator, not confirmation of an attack. "
                 "Further investigation required."
             ),
@@ -1344,13 +1328,13 @@ class WiFiAdvancedDetector:
     def set_known_networks(self, networks: list[dict]) -> None:
         """Set known/expected networks from baseline."""
         for net in networks:
-            ssid = net.get('essid', net.get('ssid', ''))
+            ssid = net.get("essid", net.get("ssid", ""))
             if ssid:
                 self.known_networks[ssid] = {
-                    'bssid': net.get('bssid', net.get('mac', '')).upper(),
-                    'security': net.get('encryption', net.get('privacy', '')),
-                    'channel': net.get('channel'),
-                    'rssi': net.get('power', net.get('signal')),
+                    "bssid": net.get("bssid", net.get("mac", "")).upper(),
+                    "security": net.get("encryption", net.get("privacy", "")),
+                    "channel": net.get("channel"),
+                    "rssi": net.get("power", net.get("signal")),
                 }
 
     def analyze_network(self, network: dict) -> list[WiFiAdvancedIndicator]:
@@ -1360,73 +1344,79 @@ class WiFiAdvancedDetector:
         Detects: Same SSID with different BSSID, security, or abnormal signal.
         """
         indicators = []
-        ssid = network.get('essid', network.get('ssid', ''))
-        bssid = network.get('bssid', network.get('mac', '')).upper()
-        security = network.get('encryption', network.get('privacy', ''))
-        rssi = network.get('power', network.get('signal'))
+        ssid = network.get("essid", network.get("ssid", ""))
+        bssid = network.get("bssid", network.get("mac", "")).upper()
+        security = network.get("encryption", network.get("privacy", ""))
+        rssi = network.get("power", network.get("signal"))
 
-        if not ssid or ssid in ['', 'Hidden', '[Hidden]']:
+        if not ssid or ssid in ["", "Hidden", "[Hidden]"]:
             return indicators
 
         if ssid in self.known_networks:
             known = self.known_networks[ssid]
 
             # Different BSSID for same SSID
-            if known['bssid'] and known['bssid'] != bssid:
+            if known["bssid"] and known["bssid"] != bssid:
                 # Check security mismatch
-                security_mismatch = known['security'] and security and known['security'] != security
+                security_mismatch = known["security"] and security and known["security"] != security
 
                 # Check signal anomaly (significantly stronger than expected)
                 signal_anomaly = False
-                if rssi and known.get('rssi'):
+                if rssi and known.get("rssi"):
                     try:
-                        rssi_diff = int(rssi) - int(known['rssi'])
+                        rssi_diff = int(rssi) - int(known["rssi"])
                         signal_anomaly = rssi_diff > 20  # Much stronger than expected
                     except (ValueError, TypeError):
                         pass
 
                 if security_mismatch:
-                    indicators.append(WiFiAdvancedIndicator(
-                        indicator_type='evil_twin',
-                        severity='high',
-                        description=f'Evil twin pattern detected for SSID "{ssid}"',
-                        details={
-                            'ssid': ssid,
-                            'detected_bssid': bssid,
-                            'expected_bssid': known['bssid'],
-                            'detected_security': security,
-                            'expected_security': known['security'],
-                            'pattern': 'Different BSSID with security downgrade',
-                        },
-                        requires_monitor_mode=False,
-                    ))
+                    indicators.append(
+                        WiFiAdvancedIndicator(
+                            indicator_type="evil_twin",
+                            severity="high",
+                            description=f'Evil twin pattern detected for SSID "{ssid}"',
+                            details={
+                                "ssid": ssid,
+                                "detected_bssid": bssid,
+                                "expected_bssid": known["bssid"],
+                                "detected_security": security,
+                                "expected_security": known["security"],
+                                "pattern": "Different BSSID with security downgrade",
+                            },
+                            requires_monitor_mode=False,
+                        )
+                    )
                 elif signal_anomaly:
-                    indicators.append(WiFiAdvancedIndicator(
-                        indicator_type='evil_twin',
-                        severity='medium',
-                        description=f'Possible evil twin pattern for SSID "{ssid}"',
-                        details={
-                            'ssid': ssid,
-                            'detected_bssid': bssid,
-                            'expected_bssid': known['bssid'],
-                            'signal_difference': f'+{rssi_diff} dBm stronger than expected',
-                            'pattern': 'Different BSSID with abnormally strong signal',
-                        },
-                        requires_monitor_mode=False,
-                    ))
+                    indicators.append(
+                        WiFiAdvancedIndicator(
+                            indicator_type="evil_twin",
+                            severity="medium",
+                            description=f'Possible evil twin pattern for SSID "{ssid}"',
+                            details={
+                                "ssid": ssid,
+                                "detected_bssid": bssid,
+                                "expected_bssid": known["bssid"],
+                                "signal_difference": f"+{rssi_diff} dBm stronger than expected",
+                                "pattern": "Different BSSID with abnormally strong signal",
+                            },
+                            requires_monitor_mode=False,
+                        )
+                    )
                 else:
-                    indicators.append(WiFiAdvancedIndicator(
-                        indicator_type='evil_twin',
-                        severity='low',
-                        description=f'Duplicate SSID detected: "{ssid}"',
-                        details={
-                            'ssid': ssid,
-                            'detected_bssid': bssid,
-                            'expected_bssid': known['bssid'],
-                            'pattern': 'Multiple APs with same SSID (may be legitimate)',
-                        },
-                        requires_monitor_mode=False,
-                    ))
+                    indicators.append(
+                        WiFiAdvancedIndicator(
+                            indicator_type="evil_twin",
+                            severity="low",
+                            description=f'Duplicate SSID detected: "{ssid}"',
+                            details={
+                                "ssid": ssid,
+                                "detected_bssid": bssid,
+                                "expected_bssid": known["bssid"],
+                                "pattern": "Multiple APs with same SSID (may be legitimate)",
+                            },
+                            requires_monitor_mode=False,
+                        )
+                    )
 
         self.indicators.extend(indicators)
         return indicators
@@ -1440,21 +1430,30 @@ class WiFiAdvancedDetector:
         if not self.monitor_mode:
             return None
 
-        self.probe_requests.append({
-            'timestamp': datetime.now(),
-            'src_mac': frame.get('src_mac', '').upper(),
-            'probed_ssid': frame.get('ssid', ''),
-        })
+        self.probe_requests.append(
+            {
+                "timestamp": datetime.now(),
+                "src_mac": frame.get("src_mac", "").upper(),
+                "probed_ssid": frame.get("ssid", ""),
+            }
+        )
 
         # Keep last 1000 probe requests
         if len(self.probe_requests) > 1000:
             self.probe_requests = self.probe_requests[-1000:]
 
         # Check for sensitive SSID probing
-        ssid = frame.get('ssid', '')
+        ssid = frame.get("ssid", "")
         sensitive_patterns = [
-            'corp', 'internal', 'private', 'secure', 'vpn',
-            'admin', 'management', 'executive', 'board',
+            "corp",
+            "internal",
+            "private",
+            "secure",
+            "vpn",
+            "admin",
+            "management",
+            "executive",
+            "board",
         ]
 
         is_sensitive = any(p in ssid.lower() for p in sensitive_patterns) if ssid else False
@@ -1463,20 +1462,19 @@ class WiFiAdvancedDetector:
             # Count recent probes for this SSID
             recent_cutoff = datetime.now() - timedelta(minutes=5)
             recent_probes = [
-                p for p in self.probe_requests
-                if p['probed_ssid'] == ssid and p['timestamp'] > recent_cutoff
+                p for p in self.probe_requests if p["probed_ssid"] == ssid and p["timestamp"] > recent_cutoff
             ]
 
             if len(recent_probes) >= 3:
                 indicator = WiFiAdvancedIndicator(
-                    indicator_type='probe_request',
-                    severity='medium',
+                    indicator_type="probe_request",
+                    severity="medium",
                     description=f'Repeated probing for sensitive SSID "{ssid}"',
                     details={
-                        'ssid': ssid,
-                        'probe_count': len(recent_probes),
-                        'source_macs': list({p['src_mac'] for p in recent_probes}),
-                        'pattern': 'Multiple probe requests for potentially sensitive network',
+                        "ssid": ssid,
+                        "probe_count": len(recent_probes),
+                        "source_macs": list({p["src_mac"] for p in recent_probes}),
+                        "pattern": "Multiple probe requests for potentially sensitive network",
                     },
                     requires_monitor_mode=True,
                 )
@@ -1494,13 +1492,15 @@ class WiFiAdvancedDetector:
         if not self.monitor_mode:
             return None
 
-        self.deauth_frames.append({
-            'timestamp': datetime.now(),
-            'src_mac': frame.get('src_mac', '').upper(),
-            'dst_mac': frame.get('dst_mac', '').upper(),
-            'bssid': frame.get('bssid', '').upper(),
-            'reason': frame.get('reason_code'),
-        })
+        self.deauth_frames.append(
+            {
+                "timestamp": datetime.now(),
+                "src_mac": frame.get("src_mac", "").upper(),
+                "dst_mac": frame.get("dst_mac", "").upper(),
+                "bssid": frame.get("bssid", "").upper(),
+                "reason": frame.get("reason_code"),
+            }
+        )
 
         # Keep last 500 deauth frames
         if len(self.deauth_frames) > 500:
@@ -1508,30 +1508,30 @@ class WiFiAdvancedDetector:
 
         # Check for deauth burst (>10 deauths in 10 seconds)
         recent_cutoff = datetime.now() - timedelta(seconds=10)
-        recent_deauths = [d for d in self.deauth_frames if d['timestamp'] > recent_cutoff]
+        recent_deauths = [d for d in self.deauth_frames if d["timestamp"] > recent_cutoff]
 
         if len(recent_deauths) >= 10:
             # Check if targeting specific BSSID
-            bssid = frame.get('bssid', '').upper()
-            targeting_bssid = len([d for d in recent_deauths if d['bssid'] == bssid]) >= 5
+            bssid = frame.get("bssid", "").upper()
+            targeting_bssid = len([d for d in recent_deauths if d["bssid"] == bssid]) >= 5
 
             indicator = WiFiAdvancedIndicator(
-                indicator_type='deauth_burst',
-                severity='high' if targeting_bssid else 'medium',
-                description='Deauthentication burst pattern detected',
+                indicator_type="deauth_burst",
+                severity="high" if targeting_bssid else "medium",
+                description="Deauthentication burst pattern detected",
                 details={
-                    'deauth_count': len(recent_deauths),
-                    'time_window_seconds': 10,
-                    'targeted_bssid': bssid if targeting_bssid else None,
-                    'unique_sources': len({d['src_mac'] for d in recent_deauths}),
-                    'pattern': 'Abnormal deauthentication frame volume',
+                    "deauth_count": len(recent_deauths),
+                    "time_window_seconds": 10,
+                    "targeted_bssid": bssid if targeting_bssid else None,
+                    "unique_sources": len({d["src_mac"] for d in recent_deauths}),
+                    "pattern": "Abnormal deauthentication frame volume",
                 },
                 requires_monitor_mode=True,
             )
             self.indicators.append(indicator)
 
             # Clear recent to avoid repeated alerts
-            self.deauth_frames = [d for d in self.deauth_frames if d['timestamp'] <= recent_cutoff]
+            self.deauth_frames = [d for d in self.deauth_frames if d["timestamp"] <= recent_cutoff]
 
             return indicator
 
@@ -1556,13 +1556,15 @@ class WiFiAdvancedDetector:
 # 8. Bluetooth Risk Explainability & Proximity Heuristics
 # =============================================================================
 
+
 class BLEProximity(Enum):
     """RSSI-based proximity estimation."""
-    VERY_CLOSE = 'very_close'  # Within ~1m
-    CLOSE = 'close'            # Within ~3m
-    MODERATE = 'moderate'      # Within ~10m
-    FAR = 'far'               # Beyond ~10m
-    UNKNOWN = 'unknown'
+
+    VERY_CLOSE = "very_close"  # Within ~1m
+    CLOSE = "close"  # Within ~3m
+    MODERATE = "moderate"  # Within ~10m
+    FAR = "far"  # Beyond ~10m
+    UNKNOWN = "unknown"
 
 
 @dataclass
@@ -1573,64 +1575,65 @@ class BLERiskExplanation:
     Provides human-readable explanations, proximity estimates,
     and recommended actions.
     """
+
     identifier: str
     name: str | None = None
 
     # Risk assessment
-    risk_level: str = 'informational'
+    risk_level: str = "informational"
     risk_score: int = 0
-    risk_explanation: str = ''
+    risk_explanation: str = ""
 
     # Proximity
     proximity: BLEProximity = BLEProximity.UNKNOWN
-    proximity_explanation: str = ''
-    estimated_distance: str = ''
+    proximity_explanation: str = ""
+    estimated_distance: str = ""
 
     # Tracker detection
     is_tracker: bool = False
     tracker_type: str | None = None
-    tracker_explanation: str = ''
+    tracker_explanation: str = ""
 
     # Meeting correlation
     meeting_correlated: bool = False
-    meeting_explanation: str = ''
+    meeting_explanation: str = ""
 
     # Recommended action
-    recommended_action: str = ''
-    action_rationale: str = ''
+    recommended_action: str = ""
+    action_rationale: str = ""
 
     # All indicators with explanations
     indicators: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
-            'identifier': self.identifier,
-            'name': self.name,
-            'risk': {
-                'level': self.risk_level,
-                'score': self.risk_score,
-                'explanation': self.risk_explanation,
+            "identifier": self.identifier,
+            "name": self.name,
+            "risk": {
+                "level": self.risk_level,
+                "score": self.risk_score,
+                "explanation": self.risk_explanation,
             },
-            'proximity': {
-                'estimate': self.proximity.value,
-                'explanation': self.proximity_explanation,
-                'estimated_distance': self.estimated_distance,
+            "proximity": {
+                "estimate": self.proximity.value,
+                "explanation": self.proximity_explanation,
+                "estimated_distance": self.estimated_distance,
             },
-            'tracker': {
-                'is_tracker': self.is_tracker,
-                'type': self.tracker_type,
-                'explanation': self.tracker_explanation,
+            "tracker": {
+                "is_tracker": self.is_tracker,
+                "type": self.tracker_type,
+                "explanation": self.tracker_explanation,
             },
-            'meeting_correlation': {
-                'correlated': self.meeting_correlated,
-                'explanation': self.meeting_explanation,
+            "meeting_correlation": {
+                "correlated": self.meeting_correlated,
+                "explanation": self.meeting_explanation,
             },
-            'recommended_action': {
-                'action': self.recommended_action,
-                'rationale': self.action_rationale,
+            "recommended_action": {
+                "action": self.recommended_action,
+                "rationale": self.action_rationale,
             },
-            'indicators': self.indicators,
-            'disclaimer': (
+            "indicators": self.indicators,
+            "disclaimer": (
                 "Risk assessment is based on observable indicators and heuristics. "
                 "Proximity estimates are approximate based on RSSI and may vary with environment. "
                 "Tracker detection indicates brand presence, not confirmed threat."
@@ -1651,43 +1654,29 @@ def estimate_ble_proximity(rssi: int) -> tuple[BLEProximity, str, str]:
         Tuple of (proximity enum, explanation, estimated distance string)
     """
     if rssi is None:
-        return (
-            BLEProximity.UNKNOWN,
-            "RSSI not available - cannot estimate proximity",
-            "Unknown"
-        )
+        return (BLEProximity.UNKNOWN, "RSSI not available - cannot estimate proximity", "Unknown")
 
     # These thresholds are heuristic approximations
     if rssi >= -50:
         return (
             BLEProximity.VERY_CLOSE,
             f"Very strong signal ({rssi} dBm) suggests device is very close",
-            "< 1 meter (approximate)"
+            "< 1 meter (approximate)",
         )
     elif rssi >= -65:
-        return (
-            BLEProximity.CLOSE,
-            f"Strong signal ({rssi} dBm) suggests device is nearby",
-            "1-3 meters (approximate)"
-        )
+        return (BLEProximity.CLOSE, f"Strong signal ({rssi} dBm) suggests device is nearby", "1-3 meters (approximate)")
     elif rssi >= -80:
         return (
             BLEProximity.MODERATE,
             f"Moderate signal ({rssi} dBm) suggests device is in the area",
-            "3-10 meters (approximate)"
+            "3-10 meters (approximate)",
         )
     else:
-        return (
-            BLEProximity.FAR,
-            f"Weak signal ({rssi} dBm) suggests device is distant",
-            "> 10 meters (approximate)"
-        )
+        return (BLEProximity.FAR, f"Weak signal ({rssi} dBm) suggests device is distant", "> 10 meters (approximate)")
 
 
 def generate_ble_risk_explanation(
-    device: dict,
-    profile: dict | None = None,
-    is_during_meeting: bool = False
+    device: dict, profile: dict | None = None, is_during_meeting: bool = False
 ) -> BLERiskExplanation:
     """
     Generate human-readable risk explanation for a BLE device.
@@ -1700,9 +1689,9 @@ def generate_ble_risk_explanation(
     Returns:
         BLERiskExplanation with complete assessment
     """
-    mac = device.get('mac', device.get('address', '')).upper()
-    name = device.get('name', '')
-    rssi = device.get('rssi', device.get('signal'))
+    mac = device.get("mac", device.get("address", "")).upper()
+    name = device.get("name", "")
+    rssi = device.get("rssi", device.get("signal"))
 
     explanation = BLERiskExplanation(
         identifier=mac,
@@ -1722,31 +1711,31 @@ def generate_ble_risk_explanation(
             explanation.proximity_explanation = "Could not parse RSSI value"
 
     # Tracker detection with explanation
-    device.get('tracker_type') or device.get('is_tracker')
-    if device.get('is_airtag'):
+    device.get("tracker_type") or device.get("is_tracker")
+    if device.get("is_airtag"):
         explanation.is_tracker = True
-        explanation.tracker_type = 'Apple AirTag'
+        explanation.tracker_type = "Apple AirTag"
         explanation.tracker_explanation = (
             "Apple AirTag detected via manufacturer data. AirTags are legitimate "
             "tracking devices but may indicate unwanted tracking if not recognized. "
             "Apple's Find My network will alert iPhone users to unknown AirTags."
         )
-    elif device.get('is_tile'):
+    elif device.get("is_tile"):
         explanation.is_tracker = True
-        explanation.tracker_type = 'Tile'
+        explanation.tracker_type = "Tile"
         explanation.tracker_explanation = (
             "Tile tracker detected. Tile trackers are common consumer devices "
             "for finding lost items. Presence does not indicate surveillance."
         )
-    elif device.get('is_smarttag'):
+    elif device.get("is_smarttag"):
         explanation.is_tracker = True
-        explanation.tracker_type = 'Samsung SmartTag'
+        explanation.tracker_type = "Samsung SmartTag"
         explanation.tracker_explanation = (
             "Samsung SmartTag detected. SmartTags are consumer tracking devices "
             "similar to AirTags. Samsung phones can detect unknown SmartTags."
         )
-    elif device.get('is_espressif'):
-        explanation.tracker_type = 'ESP32/ESP8266'
+    elif device.get("is_espressif"):
+        explanation.tracker_type = "ESP32/ESP8266"
         explanation.tracker_explanation = (
             "Espressif chipset (ESP32/ESP8266) detected. These are programmable "
             "development boards commonly used in IoT projects. They can be configured "
@@ -1754,7 +1743,7 @@ def generate_ble_risk_explanation(
         )
 
     # Meeting correlation explanation
-    if is_during_meeting or device.get('meeting_correlated'):
+    if is_during_meeting or device.get("meeting_correlated"):
         explanation.meeting_correlated = True
         explanation.meeting_explanation = (
             "Device detected during a marked meeting window. This temporal correlation "
@@ -1764,28 +1753,30 @@ def generate_ble_risk_explanation(
 
     # Build risk explanation from profile
     if profile:
-        explanation.risk_level = profile.get('risk_level', 'informational')
-        explanation.risk_score = profile.get('total_score', 0)
+        explanation.risk_level = profile.get("risk_level", "informational")
+        explanation.risk_score = profile.get("total_score", 0)
 
         # Convert indicators to explanations
-        for ind in profile.get('indicators', []):
-            ind_type = ind.get('type', '')
-            ind_desc = ind.get('description', '')
+        for ind in profile.get("indicators", []):
+            ind_type = ind.get("type", "")
+            ind_desc = ind.get("description", "")
 
-            explanation.indicators.append({
-                'type': ind_type,
-                'description': ind_desc,
-                'explanation': _get_indicator_explanation(ind_type),
-            })
+            explanation.indicators.append(
+                {
+                    "type": ind_type,
+                    "description": ind_desc,
+                    "explanation": _get_indicator_explanation(ind_type),
+                }
+            )
 
         # Build overall risk explanation
-        if explanation.risk_level == 'high_interest':
+        if explanation.risk_level == "high_interest":
             explanation.risk_explanation = (
                 f"This device has accumulated {explanation.risk_score} risk points "
                 "across multiple indicators, warranting closer investigation. "
                 "High interest does not confirm surveillance - manual verification required."
             )
-        elif explanation.risk_level == 'review':
+        elif explanation.risk_level == "review":
             explanation.risk_explanation = (
                 f"This device shows {explanation.risk_score} risk points indicating "
                 "it should be reviewed but is not immediately concerning."
@@ -1807,48 +1798,42 @@ def generate_ble_risk_explanation(
 def _get_indicator_explanation(indicator_type: str) -> str:
     """Get human-readable explanation for an indicator type."""
     explanations = {
-        'unknown_device': (
+        "unknown_device": (
             "Device manufacturer is unknown or uses a generic chipset. "
             "This is common in DIY/hobbyist devices and some surveillance equipment."
         ),
-        'audio_capable': (
+        "audio_capable": (
             "Device advertises audio services (headphones, speakers, etc.). "
             "Audio-capable devices could theoretically transmit captured audio."
         ),
-        'persistent': (
+        "persistent": (
             "Device has been detected repeatedly across multiple scans. "
             "Persistence suggests a fixed or regularly present device."
         ),
-        'meeting_correlated': (
+        "meeting_correlated": (
             "Device activity correlates with marked meeting windows. "
             "This is a temporal pattern that warrants attention."
         ),
-        'hidden_identity': (
+        "hidden_identity": (
             "Device does not broadcast a name or uses minimal advertising. "
             "Some legitimate devices minimize advertising for battery life."
         ),
-        'stable_rssi': (
+        "stable_rssi": (
             "Signal strength is very stable, suggesting a stationary device. "
             "Fixed placement could indicate a planted device."
         ),
-        'mac_rotation': (
+        "mac_rotation": (
             "Device appears to use MAC address randomization. "
             "This is a privacy feature in modern devices, also used to evade detection."
         ),
-        'known_tracker': (
+        "known_tracker": (
             "Device matches known tracking device signatures. "
             "May be a legitimate item tracker or unwanted surveillance."
         ),
-        'airtag_detected': (
-            "Apple AirTag identified. Check if this belongs to someone present."
-        ),
-        'tile_detected': (
-            "Tile tracker identified. Common consumer tracking device."
-        ),
-        'smarttag_detected': (
-            "Samsung SmartTag identified. Consumer tracking device."
-        ),
-        'esp32_device': (
+        "airtag_detected": ("Apple AirTag identified. Check if this belongs to someone present."),
+        "tile_detected": ("Tile tracker identified. Common consumer tracking device."),
+        "smarttag_detected": ("Samsung SmartTag identified. Consumer tracking device."),
+        "esp32_device": (
             "Espressif development board detected. Highly programmable, "
             "could be configured for custom surveillance applications."
         ),
@@ -1858,37 +1843,36 @@ def _get_indicator_explanation(indicator_type: str) -> str:
 
 def _set_recommended_action(explanation: BLERiskExplanation) -> None:
     """Set recommended action based on risk assessment."""
-    if explanation.risk_level == 'high_interest':
+    if explanation.risk_level == "high_interest":
         if explanation.is_tracker and explanation.proximity == BLEProximity.VERY_CLOSE:
-            explanation.recommended_action = 'Investigate immediately'
+            explanation.recommended_action = "Investigate immediately"
             explanation.action_rationale = (
                 "Unknown tracker in very close proximity warrants immediate "
                 "physical search of the area and personal belongings."
             )
         elif explanation.is_tracker:
-            explanation.recommended_action = 'Investigate location'
+            explanation.recommended_action = "Investigate location"
             explanation.action_rationale = (
                 "Tracker detected - recommend searching the area to locate "
                 "the physical device and determine if it belongs to someone present."
             )
         else:
-            explanation.recommended_action = 'Review and document'
+            explanation.recommended_action = "Review and document"
             explanation.action_rationale = (
                 "Multiple risk indicators present. Document the finding, "
                 "attempt to identify the device, and consider physical search "
                 "if other indicators suggest surveillance."
             )
-    elif explanation.risk_level == 'review':
-        explanation.recommended_action = 'Monitor and document'
+    elif explanation.risk_level == "review":
+        explanation.recommended_action = "Monitor and document"
         explanation.action_rationale = (
             "Device shows some indicators worth noting. Add to monitoring list "
             "and compare against future sweeps to identify patterns."
         )
     else:
-        explanation.recommended_action = 'Continue monitoring'
+        explanation.recommended_action = "Continue monitoring"
         explanation.action_rationale = (
-            "No immediate action required. Device will be tracked in subsequent "
-            "sweeps for pattern analysis."
+            "No immediate action required. Device will be tracked in subsequent sweeps for pattern analysis."
         )
 
 
@@ -1896,9 +1880,11 @@ def _set_recommended_action(explanation: BLERiskExplanation) -> None:
 # 9. Operator Playbooks ("What To Do Next")
 # =============================================================================
 
+
 @dataclass
 class PlaybookStep:
     """A single step in an operator playbook."""
+
     step_number: int
     action: str
     details: str
@@ -1913,32 +1899,33 @@ class OperatorPlaybook:
     Playbooks are procedural (what to do), not prescriptive (how to decide).
     All guidance is legally safe and professional.
     """
+
     playbook_id: str
     title: str
     risk_level: str
     description: str
     steps: list[PlaybookStep] = field(default_factory=list)
-    when_to_escalate: str = ''
+    when_to_escalate: str = ""
     documentation_required: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
-            'playbook_id': self.playbook_id,
-            'title': self.title,
-            'risk_level': self.risk_level,
-            'description': self.description,
-            'steps': [
+            "playbook_id": self.playbook_id,
+            "title": self.title,
+            "risk_level": self.risk_level,
+            "description": self.description,
+            "steps": [
                 {
-                    'step': s.step_number,
-                    'action': s.action,
-                    'details': s.details,
-                    'safety_note': s.safety_note,
+                    "step": s.step_number,
+                    "action": s.action,
+                    "details": s.details,
+                    "safety_note": s.safety_note,
                 }
                 for s in self.steps
             ],
-            'when_to_escalate': self.when_to_escalate,
-            'documentation_required': self.documentation_required,
-            'disclaimer': (
+            "when_to_escalate": self.when_to_escalate,
+            "documentation_required": self.documentation_required,
+            "disclaimer": (
                 "This playbook provides procedural guidance only. Actions should be "
                 "adapted to local laws, organizational policies, and professional judgment. "
                 "Do not disassemble, interfere with, or remove suspected devices without "
@@ -1949,204 +1936,198 @@ class OperatorPlaybook:
 
 # Predefined playbooks by risk level
 PLAYBOOKS = {
-    'high_interest_tracker': OperatorPlaybook(
-        playbook_id='PB-001',
-        title='High Interest: Unknown Tracker Detection',
-        risk_level='high_interest',
-        description='Guidance for responding to unknown tracking device detection',
+    "high_interest_tracker": OperatorPlaybook(
+        playbook_id="PB-001",
+        title="High Interest: Unknown Tracker Detection",
+        risk_level="high_interest",
+        description="Guidance for responding to unknown tracking device detection",
         steps=[
             PlaybookStep(
                 step_number=1,
-                action='Document the finding',
-                details='Record device identifier, signal strength, location, and timestamp. Take screenshots of the detection.',
+                action="Document the finding",
+                details="Record device identifier, signal strength, location, and timestamp. Take screenshots of the detection.",
             ),
             PlaybookStep(
                 step_number=2,
-                action='Estimate device location',
-                details='Use signal strength variations while moving to triangulate approximate device position. Note areas of strongest signal.',
-                safety_note='Do not touch or disturb any physical device found.',
+                action="Estimate device location",
+                details="Use signal strength variations while moving to triangulate approximate device position. Note areas of strongest signal.",
+                safety_note="Do not touch or disturb any physical device found.",
             ),
             PlaybookStep(
                 step_number=3,
-                action='Physical search (if authorized)',
-                details='Systematically search the high-signal area. Check common hiding spots: under furniture, in plants, behind fixtures, in bags/belongings.',
-                safety_note='Only conduct physical searches with proper authorization.',
+                action="Physical search (if authorized)",
+                details="Systematically search the high-signal area. Check common hiding spots: under furniture, in plants, behind fixtures, in bags/belongings.",
+                safety_note="Only conduct physical searches with proper authorization.",
             ),
             PlaybookStep(
                 step_number=4,
-                action='Identify device owner',
-                details='If device is located, determine if it belongs to someone legitimately present. Apple/Samsung/Tile devices can be scanned by their respective apps.',
+                action="Identify device owner",
+                details="If device is located, determine if it belongs to someone legitimately present. Apple/Samsung/Tile devices can be scanned by their respective apps.",
             ),
             PlaybookStep(
                 step_number=5,
-                action='Escalate if unidentified',
-                details='If device owner cannot be determined and device is in sensitive location, escalate to security management.',
+                action="Escalate if unidentified",
+                details="If device owner cannot be determined and device is in sensitive location, escalate to security management.",
             ),
         ],
-        when_to_escalate='Escalate immediately if: device is concealed in sensitive area, owner cannot be identified, or multiple unknown trackers are found.',
+        when_to_escalate="Escalate immediately if: device is concealed in sensitive area, owner cannot be identified, or multiple unknown trackers are found.",
         documentation_required=[
-            'Device identifier (MAC address)',
-            'Signal strength readings at multiple locations',
-            'Physical location description',
-            'Photos of any located devices',
-            'Names of individuals present during search',
+            "Device identifier (MAC address)",
+            "Signal strength readings at multiple locations",
+            "Physical location description",
+            "Photos of any located devices",
+            "Names of individuals present during search",
         ],
     ),
-
-    'high_interest_generic': OperatorPlaybook(
-        playbook_id='PB-002',
-        title='High Interest: Suspicious Device Pattern',
-        risk_level='high_interest',
-        description='Guidance for devices with multiple high-risk indicators',
+    "high_interest_generic": OperatorPlaybook(
+        playbook_id="PB-002",
+        title="High Interest: Suspicious Device Pattern",
+        risk_level="high_interest",
+        description="Guidance for devices with multiple high-risk indicators",
         steps=[
             PlaybookStep(
                 step_number=1,
-                action='Review all indicators',
-                details='Examine each risk indicator in the device profile. Understand why the device scored high interest.',
+                action="Review all indicators",
+                details="Examine each risk indicator in the device profile. Understand why the device scored high interest.",
             ),
             PlaybookStep(
                 step_number=2,
-                action='Cross-reference with baseline',
-                details='Check if device appears in baseline. New devices warrant more scrutiny than known devices.',
+                action="Cross-reference with baseline",
+                details="Check if device appears in baseline. New devices warrant more scrutiny than known devices.",
             ),
             PlaybookStep(
                 step_number=3,
-                action='Monitor for pattern',
-                details='Continue sweep and note if device persists, moves, or correlates with sensitive activities.',
+                action="Monitor for pattern",
+                details="Continue sweep and note if device persists, moves, or correlates with sensitive activities.",
             ),
             PlaybookStep(
                 step_number=4,
-                action='Attempt identification',
-                details='Research manufacturer OUI, check for matching devices in the environment, ask occupants about devices.',
+                action="Attempt identification",
+                details="Research manufacturer OUI, check for matching devices in the environment, ask occupants about devices.",
             ),
             PlaybookStep(
                 step_number=5,
-                action='Document and report',
-                details='Add finding to sweep report with full details. Include in meeting/client debrief.',
+                action="Document and report",
+                details="Add finding to sweep report with full details. Include in meeting/client debrief.",
             ),
         ],
-        when_to_escalate='Escalate if: device cannot be identified, shows surveillance-consistent behavior, or correlates strongly with sensitive activities.',
+        when_to_escalate="Escalate if: device cannot be identified, shows surveillance-consistent behavior, or correlates strongly with sensitive activities.",
         documentation_required=[
-            'Complete device profile',
-            'All risk indicators with scores',
-            'Timeline of observations',
-            'Correlation with meeting windows',
-            'Any identification attempts and results',
+            "Complete device profile",
+            "All risk indicators with scores",
+            "Timeline of observations",
+            "Correlation with meeting windows",
+            "Any identification attempts and results",
         ],
     ),
-
-    'needs_review': OperatorPlaybook(
-        playbook_id='PB-003',
-        title='Needs Review: Unknown Device',
-        risk_level='needs_review',
-        description='Guidance for devices requiring investigation but not immediately concerning',
+    "needs_review": OperatorPlaybook(
+        playbook_id="PB-003",
+        title="Needs Review: Unknown Device",
+        risk_level="needs_review",
+        description="Guidance for devices requiring investigation but not immediately concerning",
         steps=[
             PlaybookStep(
                 step_number=1,
-                action='Note the device',
-                details='Add device to monitoring list. Record basic details: identifier, type, signal strength.',
+                action="Note the device",
+                details="Add device to monitoring list. Record basic details: identifier, type, signal strength.",
             ),
             PlaybookStep(
                 step_number=2,
-                action='Check against known devices',
-                details='Verify device is not a known infrastructure device or personal device of authorized personnel.',
+                action="Check against known devices",
+                details="Verify device is not a known infrastructure device or personal device of authorized personnel.",
             ),
             PlaybookStep(
                 step_number=3,
-                action='Continue sweep',
-                details='Complete the sweep. Review device in context of all findings.',
+                action="Continue sweep",
+                details="Complete the sweep. Review device in context of all findings.",
             ),
             PlaybookStep(
                 step_number=4,
-                action='Assess in final review',
-                details='During sweep wrap-up, decide if device warrants further investigation or can be added to baseline.',
+                action="Assess in final review",
+                details="During sweep wrap-up, decide if device warrants further investigation or can be added to baseline.",
             ),
         ],
         when_to_escalate='Escalate if: multiple "needs review" devices appear together, or device shows high-interest indicators in subsequent sweeps.',
         documentation_required=[
-            'Device identifier and type',
-            'Brief description of why flagged',
-            'Decision made (investigate further / add to baseline / monitor)',
+            "Device identifier and type",
+            "Brief description of why flagged",
+            "Decision made (investigate further / add to baseline / monitor)",
         ],
     ),
-
-    'informational': OperatorPlaybook(
-        playbook_id='PB-004',
-        title='Informational: Known/Expected Device',
-        risk_level='informational',
-        description='Guidance for devices that appear normal and expected',
+    "informational": OperatorPlaybook(
+        playbook_id="PB-004",
+        title="Informational: Known/Expected Device",
+        risk_level="informational",
+        description="Guidance for devices that appear normal and expected",
         steps=[
             PlaybookStep(
                 step_number=1,
-                action='Verify against baseline',
-                details='Confirm device matches baseline entry. Note any changes (signal strength, channel, etc.).',
+                action="Verify against baseline",
+                details="Confirm device matches baseline entry. Note any changes (signal strength, channel, etc.).",
             ),
             PlaybookStep(
                 step_number=2,
-                action='Log observation',
-                details='Record observation for timeline tracking. Even known devices should be logged.',
+                action="Log observation",
+                details="Record observation for timeline tracking. Even known devices should be logged.",
             ),
             PlaybookStep(
                 step_number=3,
-                action='Continue sweep',
-                details='No further action required. Proceed with sweep.',
+                action="Continue sweep",
+                details="No further action required. Proceed with sweep.",
             ),
         ],
-        when_to_escalate='Only escalate if device shows unexpected behavior changes or additional risk indicators.',
+        when_to_escalate="Only escalate if device shows unexpected behavior changes or additional risk indicators.",
         documentation_required=[
-            'Device identifier (for timeline)',
-            'Observation timestamp',
+            "Device identifier (for timeline)",
+            "Observation timestamp",
         ],
     ),
-
-    'wifi_evil_twin': OperatorPlaybook(
-        playbook_id='PB-005',
-        title='High Interest: Evil Twin Pattern Detected',
-        risk_level='high_interest',
-        description='Guidance when duplicate SSID with security mismatch is detected',
+    "wifi_evil_twin": OperatorPlaybook(
+        playbook_id="PB-005",
+        title="High Interest: Evil Twin Pattern Detected",
+        risk_level="high_interest",
+        description="Guidance when duplicate SSID with security mismatch is detected",
         steps=[
             PlaybookStep(
                 step_number=1,
-                action='Document both access points',
-                details='Record details of legitimate AP and suspected rogue: BSSID, security, signal strength, channel.',
+                action="Document both access points",
+                details="Record details of legitimate AP and suspected rogue: BSSID, security, signal strength, channel.",
             ),
             PlaybookStep(
                 step_number=2,
-                action='Verify legitimate AP',
-                details='Confirm which AP is the authorized infrastructure. Check with IT/facilities if needed.',
+                action="Verify legitimate AP",
+                details="Confirm which AP is the authorized infrastructure. Check with IT/facilities if needed.",
             ),
             PlaybookStep(
                 step_number=3,
-                action='Locate rogue AP',
-                details='Use signal strength to estimate rogue AP location. Walk the area noting signal variations.',
-                safety_note='Do not connect to or interact with the suspected rogue AP.',
+                action="Locate rogue AP",
+                details="Use signal strength to estimate rogue AP location. Walk the area noting signal variations.",
+                safety_note="Do not connect to or interact with the suspected rogue AP.",
             ),
             PlaybookStep(
                 step_number=4,
-                action='Physical search',
-                details='Search suspected area for unauthorized access point. Check for hidden devices, suspicious equipment.',
+                action="Physical search",
+                details="Search suspected area for unauthorized access point. Check for hidden devices, suspicious equipment.",
             ),
             PlaybookStep(
                 step_number=5,
-                action='Report to IT Security',
-                details='Even if device not found, report the finding to IT Security for network monitoring.',
+                action="Report to IT Security",
+                details="Even if device not found, report the finding to IT Security for network monitoring.",
             ),
         ],
-        when_to_escalate='Escalate immediately. Evil twin attacks can capture credentials and traffic.',
+        when_to_escalate="Escalate immediately. Evil twin attacks can capture credentials and traffic.",
         documentation_required=[
-            'Both AP details (BSSID, SSID, security, channel, signal)',
-            'Location where detected',
-            'Signal strength map if created',
-            'Physical search results',
+            "Both AP details (BSSID, SSID, security, channel, signal)",
+            "Location where detected",
+            "Signal strength map if created",
+            "Physical search results",
         ],
     ),
 }
 
 
 def get_playbook_for_finding(
-    risk_level: str,
-    finding_type: str | None = None,
-    indicators: list[dict] | None = None
+    risk_level: str, finding_type: str | None = None, indicators: list[dict] | None = None
 ) -> OperatorPlaybook:
     """
     Get appropriate playbook for a finding.
@@ -2160,22 +2141,22 @@ def get_playbook_for_finding(
         Appropriate OperatorPlaybook
     """
     # Check for specific finding types
-    if finding_type == 'evil_twin':
-        return PLAYBOOKS['wifi_evil_twin']
+    if finding_type == "evil_twin":
+        return PLAYBOOKS["wifi_evil_twin"]
 
     # Check indicators for tracker
     if indicators:
-        tracker_types = ['airtag_detected', 'tile_detected', 'smarttag_detected', 'known_tracker']
-        if any(i.get('type') in tracker_types for i in indicators) and risk_level == 'high_interest':
-            return PLAYBOOKS['high_interest_tracker']
+        tracker_types = ["airtag_detected", "tile_detected", "smarttag_detected", "known_tracker"]
+        if any(i.get("type") in tracker_types for i in indicators) and risk_level == "high_interest":
+            return PLAYBOOKS["high_interest_tracker"]
 
     # Return based on risk level
-    if risk_level == 'high_interest':
-        return PLAYBOOKS['high_interest_generic']
-    elif risk_level in ['review', 'needs_review']:
-        return PLAYBOOKS['needs_review']
+    if risk_level == "high_interest":
+        return PLAYBOOKS["high_interest_generic"]
+    elif risk_level in ["review", "needs_review"]:
+        return PLAYBOOKS["needs_review"]
     else:
-        return PLAYBOOKS['informational']
+        return PLAYBOOKS["informational"]
 
 
 def attach_playbook_to_finding(finding: dict) -> dict:
@@ -2188,13 +2169,13 @@ def attach_playbook_to_finding(finding: dict) -> dict:
     Returns:
         Finding dict with playbook attached
     """
-    risk_level = finding.get('risk_level', 'informational')
-    finding_type = finding.get('finding_type')
-    indicators = finding.get('indicators', [])
+    risk_level = finding.get("risk_level", "informational")
+    finding_type = finding.get("finding_type")
+    indicators = finding.get("indicators", [])
 
     playbook = get_playbook_for_finding(risk_level, finding_type, indicators)
-    finding['suggested_playbook'] = playbook.to_dict()
-    finding['suggested_next_steps'] = [
+    finding["suggested_playbook"] = playbook.to_dict()
+    finding["suggested_next_steps"] = [
         f"Step {s.step_number}: {s.action}"
         for s in playbook.steps[:3]  # First 3 steps as quick reference
     ]

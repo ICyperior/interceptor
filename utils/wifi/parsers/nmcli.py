@@ -49,7 +49,7 @@ def parse_nmcli_scan(output: str) -> list[WiFiObservation]:
     """
     observations = []
 
-    for line in output.strip().split('\n'):
+    for line in output.strip().split("\n"):
         if not line:
             continue
 
@@ -78,13 +78,13 @@ def _parse_nmcli_line(line: str) -> WiFiObservation | None:
         freq_str = parts[4]
         # rate_str = parts[5]  # e.g., '130 Mbit/s'
         signal_str = parts[6]
-        security_str = parts[7] if len(parts) > 7 else ''
+        security_str = parts[7] if len(parts) > 7 else ""
 
         # Parse channel
         channel = int(channel_str) if channel_str.isdigit() else None
 
         # Parse frequency (e.g., "2437 MHz")
-        freq_match = re.match(r'(\d+)', freq_str)
+        freq_match = re.match(r"(\d+)", freq_str)
         frequency_mhz = int(freq_match.group(1)) if freq_match else None
 
         # If no channel, derive from frequency
@@ -126,13 +126,13 @@ def _split_nmcli_line(line: str) -> list[str]:
     i = 0
 
     while i < len(line):
-        if line[i] == '\\' and i + 1 < len(line) and line[i + 1] == ':':
+        if line[i] == "\\" and i + 1 < len(line) and line[i + 1] == ":":
             # Escaped colon - add literal colon
-            current.append(':')
+            current.append(":")
             i += 2
-        elif line[i] == ':':
+        elif line[i] == ":":
             # Field delimiter
-            parts.append(''.join(current))
+            parts.append("".join(current))
             current = []
             i += 1
         else:
@@ -140,7 +140,7 @@ def _split_nmcli_line(line: str) -> list[str]:
             i += 1
 
     # Add last field
-    parts.append(''.join(current))
+    parts.append("".join(current))
 
     return parts
 
@@ -157,7 +157,7 @@ def _parse_nmcli_security(security_str: str) -> tuple[str, str, str]:
         'WEP' -> (WEP, WEP, OPEN)
         '' or '--' -> (Open, None, Open)
     """
-    if not security_str or security_str == '--':
+    if not security_str or security_str == "--":
         return SECURITY_OPEN, CIPHER_UNKNOWN, AUTH_OPEN
 
     security_upper = security_str.upper()
@@ -165,21 +165,21 @@ def _parse_nmcli_security(security_str: str) -> tuple[str, str, str]:
     # Determine security type
     security = SECURITY_UNKNOWN
 
-    if '802.1X' in security_upper:
+    if "802.1X" in security_upper:
         security = SECURITY_ENTERPRISE
-    elif 'WPA3' in security_upper:
-        if 'WPA2' in security_upper:
+    elif "WPA3" in security_upper:
+        if "WPA2" in security_upper:
             security = SECURITY_WPA2_WPA3
         else:
             security = SECURITY_WPA3
-    elif 'WPA2' in security_upper:
-        if 'WPA1' in security_upper or security_upper.count('WPA') > 1:
+    elif "WPA2" in security_upper:
+        if "WPA1" in security_upper or security_upper.count("WPA") > 1:
             security = SECURITY_WPA_WPA2
         else:
             security = SECURITY_WPA2
-    elif 'WPA' in security_upper:
+    elif "WPA" in security_upper:
         security = SECURITY_WPA
-    elif 'WEP' in security_upper:
+    elif "WEP" in security_upper:
         security = SECURITY_WEP
 
     # Determine cipher (assume CCMP for WPA2+)
@@ -191,7 +191,7 @@ def _parse_nmcli_security(security_str: str) -> tuple[str, str, str]:
 
     # Determine auth
     auth = AUTH_UNKNOWN
-    if security == SECURITY_ENTERPRISE or '802.1X' in security_upper:
+    if security == SECURITY_ENTERPRISE or "802.1X" in security_upper:
         auth = AUTH_EAP
     elif security == SECURITY_WPA3:
         auth = AUTH_SAE

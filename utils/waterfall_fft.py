@@ -132,5 +132,5 @@ def build_binary_frame(
         Binary frame bytes.
     """
     bin_count = len(quantized_bins)
-    header = struct.pack('<BffH', 0x01, start_freq, end_freq, bin_count)
+    header = struct.pack("<BffH", 0x01, start_freq, end_freq, bin_count)
     return header + quantized_bins

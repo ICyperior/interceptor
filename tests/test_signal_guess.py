@@ -106,8 +106,9 @@ class TestAirband:
             modulation="FM",
         )
         # AM should score higher for airband
-        assert result_am._scores.get("Airband (Civil Aviation Voice)", 0) > \
-               result_fm._scores.get("Airband (Civil Aviation Voice)", 0)
+        assert result_am._scores.get("Airband (Civil Aviation Voice)", 0) > result_fm._scores.get(
+            "Airband (Civil Aviation Voice)", 0
+        )
 
 
 class TestISMBands:
@@ -224,10 +225,12 @@ class TestTPMSTelemetry:
         )
 
         # Burst scores should be higher for burst-type signals
-        burst_score = result_burst._scores.get("TPMS / Vehicle Telemetry", 0) + \
-                      result_burst._scores.get("Remote Control / Key Fob", 0)
-        no_burst_score = result_no_burst._scores.get("TPMS / Vehicle Telemetry", 0) + \
-                         result_no_burst._scores.get("Remote Control / Key Fob", 0)
+        burst_score = result_burst._scores.get("TPMS / Vehicle Telemetry", 0) + result_burst._scores.get(
+            "Remote Control / Key Fob", 0
+        )
+        no_burst_score = result_no_burst._scores.get("TPMS / Vehicle Telemetry", 0) + result_no_burst._scores.get(
+            "Remote Control / Key Fob", 0
+        )
         assert burst_score > no_burst_score
 
 
@@ -569,7 +572,9 @@ class TestSpecificSignalTypes:
             modulation="FM",
             bandwidth_hz=38_000,
         )
-        assert "Weather" in result.primary_label or "NOAA" in result.primary_label or "Satellite" in result.primary_label
+        assert (
+            "Weather" in result.primary_label or "NOAA" in result.primary_label or "Satellite" in result.primary_label
+        )
 
     def test_adsb_1090(self):
         """Test ADS-B at 1090 MHz."""

@@ -24,24 +24,24 @@ def _caps(sample_rates):
 
 
 def test_parse_center_prefers_center_freq_mhz():
-    assert _parse_center_freq_mhz({'center_freq_mhz': 162.55, 'center_freq': 144000000}) == 162.55
+    assert _parse_center_freq_mhz({"center_freq_mhz": 162.55, "center_freq": 144000000}) == 162.55
 
 
 def test_parse_center_supports_center_freq_hz():
-    assert _parse_center_freq_mhz({'center_freq_hz': 915000000}) == 915.0
+    assert _parse_center_freq_mhz({"center_freq_hz": 915000000}) == 915.0
 
 
 def test_parse_center_supports_legacy_hz_payload():
-    assert _parse_center_freq_mhz({'center_freq': 109000000}) == 109.0
+    assert _parse_center_freq_mhz({"center_freq": 109000000}) == 109.0
 
 
 def test_parse_center_supports_legacy_mhz_payload():
-    assert _parse_center_freq_mhz({'center_freq': 433.92}) == 433.92
+    assert _parse_center_freq_mhz({"center_freq": 433.92}) == 433.92
 
 
 def test_parse_span_from_hz_and_mhz():
-    assert _parse_span_mhz({'span_hz': 2400000}) == 2.4
-    assert _parse_span_mhz({'span_mhz': 10.0}) == 10.0
+    assert _parse_span_mhz({"span_hz": 2400000}) == 2.4
+    assert _parse_span_mhz({"span_mhz": 10.0}) == 10.0
 
 
 def test_pick_sample_rate_chooses_nearest_declared_rate():

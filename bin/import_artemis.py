@@ -38,9 +38,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SIGNALS_JSON = REPO_ROOT / "data" / "signals.json"
 
-RELEASE_INFO_URL = (
-    "https://raw.githubusercontent.com/AresValley/Artemis/master/config/release-info.json"
-)
+RELEASE_INFO_URL = "https://raw.githubusercontent.com/AresValley/Artemis/master/config/release-info.json"
 
 _LOCATION_MAP: dict[str, str] = {
     "worldwide": "GLOBAL",
@@ -64,6 +62,7 @@ _LOCATION_MAP: dict[str, str] = {
 # ---------------------------------------------------------------------------
 # Download helpers
 # ---------------------------------------------------------------------------
+
 
 def _fetch_json(url: str) -> dict:
     with urllib.request.urlopen(url, timeout=15) as r:
@@ -97,18 +96,14 @@ def _download_db(dest_dir: Path) -> Path:
     extract_dir.mkdir()
     with tarfile.open(tar_path) as tf:
         # Safety: strip any absolute paths or '..' traversal
-        members = [
-            m for m in tf.getmembers()
-            if not os.path.isabs(m.name) and ".." not in m.name
-        ]
+        members = [m for m in tf.getmembers() if not os.path.isabs(m.name) and ".." not in m.name]
         tf.extractall(extract_dir, members=members)
 
     # Find data.sqlite anywhere in the extracted tree
     matches = list(extract_dir.rglob("data.sqlite"))
     if not matches:
         raise FileNotFoundError(
-            f"No data.sqlite found after extracting {tar_path}. "
-            "The Artemis-DB tar structure may have changed."
+            f"No data.sqlite found after extracting {tar_path}. The Artemis-DB tar structure may have changed."
         )
 
     return matches[0]
@@ -117,6 +112,7 @@ def _download_db(dest_dir: Path) -> Path:
 # ---------------------------------------------------------------------------
 # Discovery (for users who have Artemis installed)
 # ---------------------------------------------------------------------------
+
 
 def _find_installed_db() -> Path | None:
     home = Path.home()
@@ -139,6 +135,7 @@ def _find_installed_db() -> Path | None:
 # ---------------------------------------------------------------------------
 # Conversion helpers
 # ---------------------------------------------------------------------------
+
 
 def _slugify(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
@@ -205,6 +202,7 @@ def _bandwidth_range(bw_values: list[int]) -> dict[str, int] | None:
 # ---------------------------------------------------------------------------
 # Database loading
 # ---------------------------------------------------------------------------
+
 
 def load_artemis(db_path: Path, limit: int = 0, existing_ids: set[str] | None = None) -> list[dict]:
     """Read signals from an Artemis data.sqlite and return them in Intercept's schema."""
@@ -281,17 +279,19 @@ def load_artemis(db_path: Path, limit: int = 0, existing_ids: set[str] | None = 
         slug = _unique_slug(_slugify(name.strip()), used_ids)
         used_ids.add(slug)
 
-        results.append({
-            "id": slug,
-            "name": name.strip(),
-            "description": (description or "").strip(),
-            "categories": cats[sig_id],
-            "frequency_ranges": freq_ranges,
-            "bandwidth_range": _bandwidth_range(bws[sig_id]),
-            "modulations": mods[sig_id],
-            "regions": locs[sig_id] or ["GLOBAL"],
-            "sigidwiki_url": sigidwiki_url,
-        })
+        results.append(
+            {
+                "id": slug,
+                "name": name.strip(),
+                "description": (description or "").strip(),
+                "categories": cats[sig_id],
+                "frequency_ranges": freq_ranges,
+                "bandwidth_range": _bandwidth_range(bws[sig_id]),
+                "modulations": mods[sig_id],
+                "regions": locs[sig_id] or ["GLOBAL"],
+                "sigidwiki_url": sigidwiki_url,
+            }
+        )
 
     if skipped_no_freq:
         print(f"  Skipped {skipped_no_freq} signals with no frequency data")
@@ -301,6 +301,7 @@ def load_artemis(db_path: Path, limit: int = 0, existing_ids: set[str] | None = 
 # ---------------------------------------------------------------------------
 # Merge
 # ---------------------------------------------------------------------------
+
 
 def merge(existing: list[dict], imported: list[dict]) -> tuple[list[dict], int, int]:
     existing_names = {s["name"].lower() for s in existing}
@@ -320,6 +321,7 @@ def merge(existing: list[dict], imported: list[dict]) -> tuple[list[dict], int, 
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Import Artemis signal database into data/signals.json",
@@ -327,23 +329,30 @@ def main() -> None:
         epilog=__doc__,
     )
     parser.add_argument(
-        "db_path", nargs="?",
+        "db_path",
+        nargs="?",
         help="Path to data.sqlite (omit to auto-detect installed Artemis DB)",
     )
     parser.add_argument(
-        "--download", action="store_true",
+        "--download",
+        action="store_true",
         help="Download the latest Artemis-DB tar (~290 MB) and import automatically",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Show import stats without writing data/signals.json",
     )
     parser.add_argument(
-        "--no-merge", action="store_true",
+        "--no-merge",
+        action="store_true",
         help="Replace data/signals.json entirely instead of merging",
     )
     parser.add_argument(
-        "--limit", type=int, default=0, metavar="N",
+        "--limit",
+        type=int,
+        default=0,
+        metavar="N",
         help="Only process the first N signals (for testing)",
     )
     args = parser.parse_args()

@@ -47,12 +47,8 @@ from .constants import (
 )
 
 # Configure logging
-logging.basicConfig(
-    level=logging.WARNING,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    stream=sys.stderr
-)
-logger = logging.getLogger('dsc.decoder')
+logging.basicConfig(level=logging.WARNING, format="%(asctime)s [%(levelname)s] %(message)s", stream=sys.stderr)
+logger = logging.getLogger("dsc.decoder")
 
 
 class DSCDecoder:
@@ -75,7 +71,7 @@ class DSCDecoder:
         nyq = sample_rate / 2
         low = 1100 / nyq
         high = 2300 / nyq
-        self.bp_b, self.bp_a = scipy_signal.butter(4, [low, high], btype='band')
+        self.bp_b, self.bp_a = scipy_signal.butter(4, [low, high], btype="band")
 
         # Build FSK correlators
         self._build_correlators()
@@ -162,8 +158,8 @@ class DSCDecoder:
                 break
 
             # Correlate with mark and space references
-            mark_corr = np.abs(np.correlate(segment, self.mark_ref, mode='valid'))
-            space_corr = np.abs(np.correlate(segment, self.space_ref, mode='valid'))
+            mark_corr = np.abs(np.correlate(segment, self.mark_ref, mode="valid"))
+            space_corr = np.abs(np.correlate(segment, self.space_ref, mode="valid"))
 
             # Decision: mark (1) if mark correlation > space correlation
             if np.max(mark_corr) > np.max(space_corr):
@@ -304,7 +300,7 @@ class DSCDecoder:
             return None
 
         # Decode the message from symbols
-        return self._decode_symbols(symbols[:eos_index + 1])
+        return self._decode_symbols(symbols[: eos_index + 1])
 
     def _bits_to_symbol(self, bits: list[int]) -> int:
         """
@@ -322,7 +318,7 @@ class DSCDecoder:
         value = 0
         for i in range(7):
             if bits[i]:
-                value |= (1 << i)
+                value |= 1 << i
 
         # Validate check bits: total number of 1s should be even
         ones = sum(bits)
@@ -354,23 +350,23 @@ class DSCDecoder:
         try:
             # Format specifier (first non-phasing symbol)
             format_code = symbols[0]
-            format_text = FORMAT_CODES.get(format_code, f'UNKNOWN-{format_code}')
+            format_text = FORMAT_CODES.get(format_code, f"UNKNOWN-{format_code}")
 
             # Derive category from format specifier per ITU-R M.493
             if format_code == 120:
-                category = 'DISTRESS'
+                category = "DISTRESS"
             elif format_code == 123:
-                category = 'ALL_SHIPS_URGENCY_SAFETY'
+                category = "ALL_SHIPS_URGENCY_SAFETY"
             elif format_code == 102:
-                category = 'ALL_SHIPS'
+                category = "ALL_SHIPS"
             elif format_code == 116:
-                category = 'GROUP'
+                category = "GROUP"
             elif format_code == 112:
-                category = 'INDIVIDUAL'
+                category = "INDIVIDUAL"
             elif format_code == 114:
-                category = 'INDIVIDUAL_ACK'
+                category = "INDIVIDUAL_ACK"
             else:
-                category = FORMAT_CODES.get(format_code, 'UNKNOWN')
+                category = FORMAT_CODES.get(format_code, "UNKNOWN")
 
             # Decode MMSI from symbols 1-5 (destination/address)
             dest_mmsi = self._decode_mmsi(symbols[1:6])
@@ -383,40 +379,38 @@ class DSCDecoder:
                 return None
 
             message = {
-                'type': 'dsc',
-                'format': format_code,
-                'format_text': format_text,
-                'category': category,
-                'source_mmsi': source_mmsi,
-                'dest_mmsi': dest_mmsi,
-                'timestamp': datetime.utcnow().isoformat() + 'Z',
+                "type": "dsc",
+                "format": format_code,
+                "format_text": format_text,
+                "category": category,
+                "source_mmsi": source_mmsi,
+                "dest_mmsi": dest_mmsi,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
             }
 
             # Parse additional fields based on format
             remaining = symbols[11:-1]  # Exclude EOS
 
-            if category in ('DISTRESS', 'DISTRESS_RELAY'):
+            if category in ("DISTRESS", "DISTRESS_RELAY"):
                 # Distress messages have nature and position
                 if len(remaining) >= 1:
-                    message['nature'] = remaining[0]
-                    message['nature_text'] = DISTRESS_NATURE_CODES.get(
-                        remaining[0], f'UNKNOWN-{remaining[0]}'
-                    )
+                    message["nature"] = remaining[0]
+                    message["nature_text"] = DISTRESS_NATURE_CODES.get(remaining[0], f"UNKNOWN-{remaining[0]}")
 
                 # Try to decode position
                 if len(remaining) >= 11:
                     position = self._decode_position(remaining[1:11])
                     if position:
-                        message['position'] = position
+                        message["position"] = position
 
             # Telecommand fields (last two before EOS) — only for formats
             # that carry telecommand fields per ITU-R M.493
             if format_code in TELECOMMAND_FORMATS and len(remaining) >= 2:
-                message['telecommand1'] = remaining[-2]
-                message['telecommand2'] = remaining[-1]
+                message["telecommand1"] = remaining[-2]
+                message["telecommand2"] = remaining[-1]
 
             # Add raw data for debugging
-            message['raw'] = ''.join(f'{s:03d}' for s in symbols)
+            message["raw"] = "".join(f"{s:03d}" for s in symbols)
 
             logger.info(f"Decoded DSC: {category} from {source_mmsi}")
             return message
@@ -441,9 +435,9 @@ class DSCDecoder:
             if sym < 0 or sym > 99:
                 return None
             # Each symbol is 2 BCD digits
-            digits.append(f'{sym:02d}')
+            digits.append(f"{sym:02d}")
 
-        mmsi = ''.join(digits)
+        mmsi = "".join(digits)
         # MMSI is 9 digits - trim the leading digit from the 10-digit
         # BCD result since the first symbol's high digit is always 0
         if len(mmsi) > 9:
@@ -487,7 +481,7 @@ class DSCDecoder:
             lat = lat_sign * (lat_deg + lat_min / 60.0)
             lon = lon_sign * (lon_deg + lon_min / 60.0)
 
-            return {'lat': round(lat, 6), 'lon': round(lon, 6)}
+            return {"lat": round(lat, 6), "lon": round(lon, 6)}
 
         except Exception:
             return None
@@ -517,20 +511,16 @@ def read_audio_stdin() -> Generator[bytes, None, None]:
 def main():
     """Main entry point for DSC decoder."""
     parser = argparse.ArgumentParser(
-        description='DSC (Digital Selective Calling) decoder',
-        epilog='Reads 48kHz 16-bit signed PCM audio from stdin'
+        description="DSC (Digital Selective Calling) decoder", epilog="Reads 48kHz 16-bit signed PCM audio from stdin"
     )
     parser.add_argument(
-        '-r', '--sample-rate',
+        "-r",
+        "--sample-rate",
         type=int,
         default=DSC_AUDIO_SAMPLE_RATE,
-        help=f'Audio sample rate (default: {DSC_AUDIO_SAMPLE_RATE})'
+        help=f"Audio sample rate (default: {DSC_AUDIO_SAMPLE_RATE})",
     )
-    parser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        help='Enable verbose logging'
-    )
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
     args = parser.parse_args()
 
     if args.verbose:
@@ -551,5 +541,5 @@ def main():
     logger.info("DSC decoder stopped")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

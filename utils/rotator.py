@@ -25,9 +25,9 @@ import threading
 
 from utils.logging import get_logger
 
-logger = get_logger('intercept.rotator')
+logger = get_logger("intercept.rotator")
 
-DEFAULT_HOST = '127.0.0.1'
+DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 4533
 DEFAULT_TIMEOUT = 2.0  # seconds
 
@@ -92,7 +92,7 @@ class RotatorController:
         az = max(0.0, min(360.0, float(az)))
         el = max(0.0, min(90.0, float(el)))
 
-        ok = self._send_command(f'P {az:.1f} {el:.1f}')
+        ok = self._send_command(f"P {az:.1f} {el:.1f}")
         if ok:
             self._current_az = az
             self._current_el = el
@@ -108,9 +108,9 @@ class RotatorController:
             if not self._enabled or self._sock is None:
                 return None
             try:
-                self._sock.sendall(b'p\n')
+                self._sock.sendall(b"p\n")
                 resp = self._recv_line()
-                if resp and 'RPRT' not in resp:
+                if resp and "RPRT" not in resp:
                     parts = resp.split()
                     if len(parts) >= 2:
                         return float(parts[0]), float(parts[1])
@@ -130,11 +130,11 @@ class RotatorController:
 
     def get_status(self) -> dict:
         return {
-            'enabled': self._enabled,
-            'host': self._host,
-            'port': self._port,
-            'current_az': self._current_az,
-            'current_el': self._current_el,
+            "enabled": self._enabled,
+            "host": self._host,
+            "port": self._port,
+            "current_az": self._current_az,
+            "current_el": self._current_el,
         }
 
     # ------------------------------------------------------------------
@@ -146,9 +146,9 @@ class RotatorController:
             if not self._enabled or self._sock is None:
                 return False
             try:
-                self._sock.sendall((cmd + '\n').encode())
+                self._sock.sendall((cmd + "\n").encode())
                 resp = self._recv_line()
-                if resp and 'RPRT 0' in resp:
+                if resp and "RPRT 0" in resp:
                     return True
                 logger.warning(f"Rotator unexpected response to '{cmd}': {resp!r}")
                 return False
@@ -164,16 +164,16 @@ class RotatorController:
 
     def _recv_line(self, max_bytes: int = 256) -> str:
         """Read until newline (already holding _lock)."""
-        buf = b''
+        buf = b""
         assert self._sock is not None
         while len(buf) < max_bytes:
             c = self._sock.recv(1)
             if not c:
                 break
             buf += c
-            if c == b'\n':
+            if c == b"\n":
                 break
-        return buf.decode('ascii', errors='replace').strip()
+        return buf.decode("ascii", errors="replace").strip()
 
 
 # ---------------------------------------------------------------------------

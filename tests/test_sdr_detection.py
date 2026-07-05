@@ -17,18 +17,13 @@ def _clear_detection_caches():
     yield
 
 
-@patch('utils.sdr.detection.get_tool_path', return_value='/usr/bin/rtl_test')
-@patch('utils.sdr.detection.subprocess.run')
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
+@patch("utils.sdr.detection.subprocess.run")
 def test_detect_rtlsdr_devices_filters_empty_serial_entries(mock_run, _mock_tool_path):
     """Ignore malformed rtl_test rows that have an empty SN field."""
     mock_result = MagicMock()
     mock_result.stdout = ""
-    mock_result.stderr = (
-        "Found 3 device(s):\n"
-        "  0:  ??C?, , SN:\n"
-        "  1:  ??C?, , SN:\n"
-        "  2:  RTLSDRBlog, Blog V4, SN: 1\n"
-    )
+    mock_result.stderr = "Found 3 device(s):\n  0:  ??C?, , SN:\n  1:  ??C?, , SN:\n  2:  RTLSDRBlog, Blog V4, SN: 1\n"
     mock_run.return_value = mock_result
 
     devices = detect_rtlsdr_devices()
@@ -40,8 +35,8 @@ def test_detect_rtlsdr_devices_filters_empty_serial_entries(mock_run, _mock_tool
     assert devices[0].serial == "1"
 
 
-@patch('utils.sdr.detection.get_tool_path', return_value='/usr/bin/rtl_test')
-@patch('utils.sdr.detection.subprocess.run')
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
+@patch("utils.sdr.detection.subprocess.run")
 def test_detect_rtlsdr_devices_uses_replace_decode_mode(mock_run, _mock_tool_path):
     """Run rtl_test with tolerant decoding for malformed output bytes."""
     mock_result = MagicMock()
@@ -74,8 +69,8 @@ HACKRF_INFO_OUTPUT = (
 )
 
 
-@patch('utils.sdr.detection.get_tool_path', return_value='/usr/bin/hackrf_info')
-@patch('utils.sdr.detection.subprocess.run')
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/hackrf_info")
+@patch("utils.sdr.detection.subprocess.run")
 def test_detect_hackrf_from_stdout(mock_run, _mock_tool_path):
     """Parse HackRF device info from stdout."""
     mock_result = MagicMock()
@@ -92,8 +87,8 @@ def test_detect_hackrf_from_stdout(mock_run, _mock_tool_path):
     assert devices[0].index == 0
 
 
-@patch('utils.sdr.detection.get_tool_path', return_value='/usr/bin/hackrf_info')
-@patch('utils.sdr.detection.subprocess.run')
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/hackrf_info")
+@patch("utils.sdr.detection.subprocess.run")
 def test_detect_hackrf_from_stderr(mock_run, _mock_tool_path):
     """Parse HackRF device info when output goes to stderr (newer firmware)."""
     mock_result = MagicMock()
@@ -109,8 +104,8 @@ def test_detect_hackrf_from_stderr(mock_run, _mock_tool_path):
     assert devices[0].serial == "0000000000000000a06063c8234e925f"
 
 
-@patch('utils.sdr.detection.get_tool_path', return_value='/usr/bin/hackrf_info')
-@patch('utils.sdr.detection.subprocess.run')
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/hackrf_info")
+@patch("utils.sdr.detection.subprocess.run")
 def test_detect_hackrf_nonzero_exit_with_valid_output(mock_run, _mock_tool_path):
     """Parse HackRF info even when hackrf_info exits non-zero (device busy)."""
     mock_result = MagicMock()
@@ -125,8 +120,8 @@ def test_detect_hackrf_nonzero_exit_with_valid_output(mock_run, _mock_tool_path)
     assert devices[0].name == "HackRF One"
 
 
-@patch('utils.sdr.detection.get_tool_path', return_value='/usr/bin/hackrf_info')
-@patch('utils.sdr.detection.subprocess.run')
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/hackrf_info")
+@patch("utils.sdr.detection.subprocess.run")
 def test_detect_hackrf_fallback_no_serial(mock_run, _mock_tool_path):
     """Fallback detection when serial is missing but 'Found HackRF' present."""
     mock_result = MagicMock()
@@ -141,8 +136,8 @@ def test_detect_hackrf_fallback_no_serial(mock_run, _mock_tool_path):
     assert devices[0].serial == "Unknown"
 
 
-@patch('utils.sdr.detection.get_tool_path', return_value='/usr/bin/hackrf_info')
-@patch('utils.sdr.detection.subprocess.run')
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/hackrf_info")
+@patch("utils.sdr.detection.subprocess.run")
 def test_detect_hackrf_parses_legacy_serial_format(mock_run, _mock_tool_path):
     """Accept legacy 'Serial Number' casing and spaced hex format."""
     mock_result = MagicMock()

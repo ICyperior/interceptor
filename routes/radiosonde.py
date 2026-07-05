@@ -43,9 +43,9 @@ from utils.validation import (
     validate_longitude,
 )
 
-logger = get_logger('intercept.radiosonde')
+logger = get_logger("intercept.radiosonde")
 
-radiosonde_bp = Blueprint('radiosonde', __name__, url_prefix='/radiosonde')
+radiosonde_bp = Blueprint("radiosonde", __name__, url_prefix="/radiosonde")
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Track radiosonde state
@@ -62,16 +62,16 @@ _udp_socket: socket.socket | None = None
 
 # Common installation paths for radiosonde_auto_rx
 AUTO_RX_PATHS = [
-    '/opt/radiosonde_auto_rx/auto_rx/auto_rx.py',
-    '/usr/local/bin/radiosonde_auto_rx',
-    '/opt/auto_rx/auto_rx.py',
+    "/opt/radiosonde_auto_rx/auto_rx/auto_rx.py",
+    "/usr/local/bin/radiosonde_auto_rx",
+    "/opt/auto_rx/auto_rx.py",
 ]
 
 
 def find_auto_rx() -> str | None:
     """Find radiosonde_auto_rx script/binary."""
     # Check PATH first
-    path = shutil.which('radiosonde_auto_rx')
+    path = shutil.which("radiosonde_auto_rx")
     if path:
         return path
     # Check common locations
@@ -88,19 +88,19 @@ def find_auto_rx() -> str | None:
 def _resolve_shebang_interpreter(script_path: str) -> str | None:
     """Resolve a Python interpreter from a script shebang if possible."""
     try:
-        with open(script_path, encoding='utf-8', errors='ignore') as handle:
+        with open(script_path, encoding="utf-8", errors="ignore") as handle:
             first_line = handle.readline().strip()
     except OSError:
         return None
 
-    if not first_line.startswith('#!'):
+    if not first_line.startswith("#!"):
         return None
 
     parts = shlex.split(first_line[2:].strip())
     if not parts:
         return None
 
-    if os.path.basename(parts[0]) == 'env' and len(parts) > 1:
+    if os.path.basename(parts[0]) == "env" and len(parts) > 1:
         return shutil.which(parts[1])
 
     return parts[0]
@@ -117,10 +117,10 @@ def _build_auto_rx_env(auto_rx_dir: str) -> dict[str, str]:
     """Build environment for radiosonde_auto_rx with compatibility shims."""
     env = os.environ.copy()
     python_path_entries = [PROJECT_ROOT, auto_rx_dir]
-    existing_pythonpath = env.get('PYTHONPATH', '')
+    existing_pythonpath = env.get("PYTHONPATH", "")
     if existing_pythonpath:
         python_path_entries.append(existing_pythonpath)
-    env['PYTHONPATH'] = os.pathsep.join(entry for entry in python_path_entries if entry)
+    env["PYTHONPATH"] = os.pathsep.join(entry for entry in python_path_entries if entry)
     return env
 
 
@@ -134,25 +134,25 @@ def _iter_auto_rx_python_candidates(auto_rx_path: str):
     candidates = [
         _resolve_shebang_interpreter(auto_rx_abs),
         sys.executable,
-        os.path.join(install_root, 'venv', 'bin', 'python'),
-        os.path.join(install_root, 'venv', 'bin', 'python3'),
-        os.path.join(install_root, '.venv', 'bin', 'python'),
-        os.path.join(install_root, '.venv', 'bin', 'python3'),
-        os.path.join(auto_rx_dir, 'venv', 'bin', 'python'),
-        os.path.join(auto_rx_dir, 'venv', 'bin', 'python3'),
-        os.path.join(auto_rx_dir, '.venv', 'bin', 'python'),
-        os.path.join(auto_rx_dir, '.venv', 'bin', 'python3'),
-        os.path.join(install_parent, 'venv', 'bin', 'python'),
-        os.path.join(install_parent, 'venv', 'bin', 'python3'),
-        os.path.join(install_parent, '.venv', 'bin', 'python'),
-        os.path.join(install_parent, '.venv', 'bin', 'python3'),
-        _resolve_pip_python(shutil.which('pip3')),
-        _resolve_pip_python(shutil.which('pip')),
-        shutil.which('python3'),
-        shutil.which('python'),
-        '/usr/local/bin/python3',
-        '/usr/local/bin/python',
-        '/usr/bin/python3',
+        os.path.join(install_root, "venv", "bin", "python"),
+        os.path.join(install_root, "venv", "bin", "python3"),
+        os.path.join(install_root, ".venv", "bin", "python"),
+        os.path.join(install_root, ".venv", "bin", "python3"),
+        os.path.join(auto_rx_dir, "venv", "bin", "python"),
+        os.path.join(auto_rx_dir, "venv", "bin", "python3"),
+        os.path.join(auto_rx_dir, ".venv", "bin", "python"),
+        os.path.join(auto_rx_dir, ".venv", "bin", "python3"),
+        os.path.join(install_parent, "venv", "bin", "python"),
+        os.path.join(install_parent, "venv", "bin", "python3"),
+        os.path.join(install_parent, ".venv", "bin", "python"),
+        os.path.join(install_parent, ".venv", "bin", "python3"),
+        _resolve_pip_python(shutil.which("pip3")),
+        _resolve_pip_python(shutil.which("pip")),
+        shutil.which("python3"),
+        shutil.which("python"),
+        "/usr/local/bin/python3",
+        "/usr/local/bin/python",
+        "/usr/bin/python3",
     ]
 
     seen: set[str] = set()
@@ -172,13 +172,13 @@ def _resolve_auto_rx_python(auto_rx_path: str) -> tuple[str | None, str, list[st
     auto_rx_dir = os.path.dirname(os.path.abspath(auto_rx_path))
     auto_rx_env = _build_auto_rx_env(auto_rx_dir)
     checked: list[str] = []
-    last_error = 'No usable Python interpreter found'
+    last_error = "No usable Python interpreter found"
 
     for python_bin in _iter_auto_rx_python_candidates(auto_rx_path):
         checked.append(python_bin)
         try:
             dep_check = subprocess.run(
-                [python_bin, '-c', 'import autorx.scan'],
+                [python_bin, "-c", "import autorx.scan"],
                 cwd=auto_rx_dir,
                 env=auto_rx_env,
                 capture_output=True,
@@ -189,11 +189,11 @@ def _resolve_auto_rx_python(auto_rx_path: str) -> tuple[str | None, str, list[st
             continue
 
         if dep_check.returncode == 0:
-            return python_bin, '', checked
+            return python_bin, "", checked
 
-        stderr_output = dep_check.stderr.decode('utf-8', errors='ignore').strip()
-        stdout_output = dep_check.stdout.decode('utf-8', errors='ignore').strip()
-        last_error = stderr_output or stdout_output or f'Interpreter exited with code {dep_check.returncode}'
+        stderr_output = dep_check.stderr.decode("utf-8", errors="ignore").strip()
+        stdout_output = dep_check.stdout.decode("utf-8", errors="ignore").strip()
+        last_error = stderr_output or stdout_output or f"Interpreter exited with code {dep_check.returncode}"
 
     return None, last_error, checked
 
@@ -212,10 +212,10 @@ def generate_station_cfg(
     gpsd_enabled: bool = False,
 ) -> str:
     """Generate a station.cfg for radiosonde_auto_rx and return the file path."""
-    cfg_dir = os.path.abspath(os.path.join('data', 'radiosonde'))
-    log_dir = os.path.join(cfg_dir, 'logs')
+    cfg_dir = os.path.abspath(os.path.join("data", "radiosonde"))
+    log_dir = os.path.join(cfg_dir, "logs")
     os.makedirs(log_dir, exist_ok=True)
-    cfg_path = os.path.join(cfg_dir, 'station.cfg')
+    cfg_path = os.path.join(cfg_dir, "station.cfg")
 
     # Full station.cfg based on radiosonde_auto_rx v1.8+ example config.
     # All sections and keys included to avoid missing-key crashes.
@@ -361,7 +361,7 @@ sonde_time_threshold = 3
 """
 
     try:
-        with open(cfg_path, 'w') as f:
+        with open(cfg_path, "w") as f:
             f.write(cfg)
     except OSError as e:
         logger.error(f"Cannot write station.cfg to {cfg_path}: {e}")
@@ -380,8 +380,8 @@ sonde_time_threshold = 3
 
 def _fix_data_ownership(path: str) -> None:
     """Recursively chown a path to the real (non-root) user when running via sudo."""
-    uid = os.environ.get('INTERCEPT_SUDO_UID')
-    gid = os.environ.get('INTERCEPT_SUDO_GID')
+    uid = os.environ.get("INTERCEPT_SUDO_UID")
+    gid = os.environ.get("INTERCEPT_SUDO_GID")
     if uid is None or gid is None:
         return
     try:
@@ -403,7 +403,7 @@ def parse_radiosonde_udp(udp_port: int) -> None:
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind(('0.0.0.0', udp_port))
+        sock.bind(("0.0.0.0", udp_port))
         sock.settimeout(2.0)
         _udp_socket = sock
     except OSError as e:
@@ -421,21 +421,23 @@ def parse_radiosonde_udp(udp_port: int) -> None:
             break
 
         try:
-            msg = json.loads(data.decode('utf-8', errors='ignore'))
+            msg = json.loads(data.decode("utf-8", errors="ignore"))
         except (json.JSONDecodeError, UnicodeDecodeError):
             continue
 
         balloon = _process_telemetry(msg)
         if balloon:
-            serial = balloon.get('id', '')
+            serial = balloon.get("id", "")
             if serial:
                 with _balloons_lock:
                     radiosonde_balloons[serial] = balloon
                 with contextlib.suppress(queue.Full):
-                    app_module.radiosonde_queue.put_nowait({
-                        'type': 'balloon',
-                        **balloon,
-                    })
+                    app_module.radiosonde_queue.put_nowait(
+                        {
+                            "type": "balloon",
+                            **balloon,
+                        }
+                    )
 
     with contextlib.suppress(OSError):
         sock.close()
@@ -447,72 +449,72 @@ def _process_telemetry(msg: dict) -> dict | None:
     """Extract relevant fields from a radiosonde_auto_rx UDP telemetry packet."""
     # auto_rx broadcasts packets with a 'type' field
     # Telemetry packets have type 'payload_summary' or individual sonde data
-    serial = msg.get('id') or msg.get('serial')
+    serial = msg.get("id") or msg.get("serial")
     if not serial:
         return None
 
-    balloon: dict[str, Any] = {'id': str(serial)}
+    balloon: dict[str, Any] = {"id": str(serial)}
 
     # Sonde type (RS41, RS92, DFM, M10, etc.) — prefer subtype if available
-    if 'subtype' in msg:
-        balloon['sonde_type'] = msg['subtype']
-    elif 'type' in msg:
-        balloon['sonde_type'] = msg['type']
+    if "subtype" in msg:
+        balloon["sonde_type"] = msg["subtype"]
+    elif "type" in msg:
+        balloon["sonde_type"] = msg["type"]
 
     # Timestamp
-    if 'datetime' in msg:
-        balloon['datetime'] = msg['datetime']
+    if "datetime" in msg:
+        balloon["datetime"] = msg["datetime"]
 
     # Position
-    for key in ('lat', 'latitude'):
+    for key in ("lat", "latitude"):
         if key in msg:
             with contextlib.suppress(ValueError, TypeError):
-                balloon['lat'] = float(msg[key])
+                balloon["lat"] = float(msg[key])
             break
-    for key in ('lon', 'longitude'):
+    for key in ("lon", "longitude"):
         if key in msg:
             with contextlib.suppress(ValueError, TypeError):
-                balloon['lon'] = float(msg[key])
+                balloon["lon"] = float(msg[key])
             break
 
     # Altitude (metres)
-    if 'alt' in msg:
+    if "alt" in msg:
         with contextlib.suppress(ValueError, TypeError):
-            balloon['alt'] = float(msg['alt'])
+            balloon["alt"] = float(msg["alt"])
 
     # Meteorological data
-    for field in ('temp', 'humidity', 'pressure'):
+    for field in ("temp", "humidity", "pressure"):
         if field in msg:
             with contextlib.suppress(ValueError, TypeError):
                 balloon[field] = float(msg[field])
 
     # Velocity
-    if 'vel_h' in msg:
+    if "vel_h" in msg:
         with contextlib.suppress(ValueError, TypeError):
-            balloon['vel_h'] = float(msg['vel_h'])
-    if 'vel_v' in msg:
+            balloon["vel_h"] = float(msg["vel_h"])
+    if "vel_v" in msg:
         with contextlib.suppress(ValueError, TypeError):
-            balloon['vel_v'] = float(msg['vel_v'])
-    if 'heading' in msg:
+            balloon["vel_v"] = float(msg["vel_v"])
+    if "heading" in msg:
         with contextlib.suppress(ValueError, TypeError):
-            balloon['heading'] = float(msg['heading'])
+            balloon["heading"] = float(msg["heading"])
 
     # GPS satellites
-    if 'sats' in msg:
+    if "sats" in msg:
         with contextlib.suppress(ValueError, TypeError):
-            balloon['sats'] = int(msg['sats'])
+            balloon["sats"] = int(msg["sats"])
 
     # Battery voltage
-    if 'batt' in msg:
+    if "batt" in msg:
         with contextlib.suppress(ValueError, TypeError):
-            balloon['batt'] = float(msg['batt'])
+            balloon["batt"] = float(msg["batt"])
 
     # Frequency
-    if 'freq' in msg:
+    if "freq" in msg:
         with contextlib.suppress(ValueError, TypeError):
-            balloon['freq'] = float(msg['freq'])
+            balloon["freq"] = float(msg["freq"])
 
-    balloon['last_seen'] = time.time()
+    balloon["last_seen"] = time.time()
     return balloon
 
 
@@ -520,30 +522,29 @@ def _cleanup_stale_balloons() -> None:
     """Remove balloons not seen within the retention window."""
     now = time.time()
     with _balloons_lock:
-        stale = [
-            k for k, v in radiosonde_balloons.items()
-            if now - v.get('last_seen', 0) > MAX_RADIOSONDE_AGE_SECONDS
-        ]
+        stale = [k for k, v in radiosonde_balloons.items() if now - v.get("last_seen", 0) > MAX_RADIOSONDE_AGE_SECONDS]
         for k in stale:
             del radiosonde_balloons[k]
 
 
-@radiosonde_bp.route('/tools')
+@radiosonde_bp.route("/tools")
 def check_tools():
     """Check for radiosonde decoding tools and hardware."""
     auto_rx_path = find_auto_rx()
     devices = SDRFactory.detect_devices()
     has_rtlsdr = any(d.sdr_type == SDRType.RTL_SDR for d in devices)
 
-    return jsonify({
-        'auto_rx': auto_rx_path is not None,
-        'auto_rx_path': auto_rx_path,
-        'has_rtlsdr': has_rtlsdr,
-        'device_count': len(devices),
-    })
+    return jsonify(
+        {
+            "auto_rx": auto_rx_path is not None,
+            "auto_rx_path": auto_rx_path,
+            "has_rtlsdr": has_rtlsdr,
+            "device_count": len(devices),
+        }
+    )
 
 
-@radiosonde_bp.route('/status')
+@radiosonde_bp.route("/status")
 def radiosonde_status():
     """Get radiosonde tracking status."""
     process_running = False
@@ -554,37 +555,39 @@ def radiosonde_status():
         balloon_count = len(radiosonde_balloons)
         balloons_snapshot = dict(radiosonde_balloons)
 
-    return jsonify({
-        'tracking_active': radiosonde_running,
-        'active_device': radiosonde_active_device,
-        'balloon_count': balloon_count,
-        'balloons': balloons_snapshot,
-        'queue_size': app_module.radiosonde_queue.qsize(),
-        'auto_rx_path': find_auto_rx(),
-        'process_running': process_running,
-    })
+    return jsonify(
+        {
+            "tracking_active": radiosonde_running,
+            "active_device": radiosonde_active_device,
+            "balloon_count": balloon_count,
+            "balloons": balloons_snapshot,
+            "queue_size": app_module.radiosonde_queue.qsize(),
+            "auto_rx_path": find_auto_rx(),
+            "process_running": process_running,
+        }
+    )
 
 
-@radiosonde_bp.route('/start', methods=['POST'])
+@radiosonde_bp.route("/start", methods=["POST"])
 def start_radiosonde():
     """Start radiosonde tracking."""
     global radiosonde_running, radiosonde_active_device, radiosonde_active_sdr_type
 
     with app_module.radiosonde_lock:
         if radiosonde_running:
-            return api_error('Radiosonde tracking already active', 409)
+            return api_error("Radiosonde tracking already active", 409)
 
     data = request.json or {}
 
     # Validate inputs
     try:
-        gain = float(validate_gain(data.get('gain', '40')))
-        device = validate_device_index(data.get('device', '0'))
+        gain = float(validate_gain(data.get("gain", "40")))
+        device = validate_device_index(data.get("device", "0"))
     except ValueError as e:
         return api_error(str(e), 400)
 
-    freq_min = data.get('freq_min', 400.0)
-    freq_max = data.get('freq_max', 406.0)
+    freq_min = data.get("freq_min", 400.0)
+    freq_max = data.get("freq_max", 406.0)
     try:
         freq_min = float(freq_min)
         freq_max = float(freq_max)
@@ -593,18 +596,18 @@ def start_radiosonde():
         if freq_min >= freq_max:
             raise ValueError("Min frequency must be less than max")
     except (ValueError, TypeError) as e:
-        return api_error(f'Invalid frequency range: {e}', 400)
+        return api_error(f"Invalid frequency range: {e}", 400)
 
-    bias_t = data.get('bias_t', False)
-    ppm = int(data.get('ppm', 0))
+    bias_t = data.get("bias_t", False)
+    ppm = int(data.get("ppm", 0))
 
     # Validate optional location
     latitude = 0.0
     longitude = 0.0
-    if data.get('latitude') is not None and data.get('longitude') is not None:
+    if data.get("latitude") is not None and data.get("longitude") is not None:
         try:
-            latitude = validate_latitude(data['latitude'])
-            longitude = validate_longitude(data['longitude'])
+            latitude = validate_latitude(data["latitude"])
+            longitude = validate_longitude(data["longitude"])
         except ValueError:
             latitude = 0.0
             longitude = 0.0
@@ -615,10 +618,12 @@ def start_radiosonde():
     # Find auto_rx
     auto_rx_path = find_auto_rx()
     if not auto_rx_path:
-        return api_error('radiosonde_auto_rx not found. Install from https://github.com/projecthorus/radiosonde_auto_rx', 400)
+        return api_error(
+            "radiosonde_auto_rx not found. Install from https://github.com/projecthorus/radiosonde_auto_rx", 400
+        )
 
     # Get SDR type
-    sdr_type_str = data.get('sdr_type', 'rtlsdr')
+    sdr_type_str = data.get("sdr_type", "rtlsdr")
 
     # Kill any existing process
     if app_module.radiosonde_process:
@@ -637,9 +642,9 @@ def start_radiosonde():
 
     # Claim SDR device
     device_int = int(device)
-    error = app_module.claim_sdr_device(device_int, 'radiosonde', sdr_type_str)
+    error = app_module.claim_sdr_device(device_int, "radiosonde", sdr_type_str)
     if error:
-        return api_error(error, 409, error_type='DEVICE_BUSY')
+        return api_error(error, 409, error_type="DEVICE_BUSY")
 
     # Generate config
     try:
@@ -661,7 +666,7 @@ def start_radiosonde():
 
     # Build command - auto_rx -c expects the path to station.cfg
     cfg_abs = os.path.abspath(cfg_path)
-    if auto_rx_path.endswith('.py'):
+    if auto_rx_path.endswith(".py"):
         selected_python, dep_error, checked_interpreters = _resolve_auto_rx_python(auto_rx_path)
         if not selected_python:
             logger.error(
@@ -670,17 +675,17 @@ def start_radiosonde():
                 dep_error,
             )
             app_module.release_sdr_device(device_int, sdr_type_str)
-            checked_msg = ', '.join(checked_interpreters) if checked_interpreters else 'none'
+            checked_msg = ", ".join(checked_interpreters) if checked_interpreters else "none"
             return api_error(
-                'radiosonde_auto_rx dependencies not satisfied. '
-                'Install or repair its Python environment (missing packages such as semver). '
-                f'Checked interpreters: {checked_msg}. '
-                f'Last error: {dep_error[:500]}',
+                "radiosonde_auto_rx dependencies not satisfied. "
+                "Install or repair its Python environment (missing packages such as semver). "
+                f"Checked interpreters: {checked_msg}. "
+                f"Last error: {dep_error[:500]}",
                 500,
             )
-        cmd = [selected_python, auto_rx_path, '-c', cfg_abs]
+        cmd = [selected_python, auto_rx_path, "-c", cfg_abs]
     else:
-        cmd = [auto_rx_path, '-c', cfg_abs]
+        cmd = [auto_rx_path, "-c", cfg_abs]
 
     # Set cwd to the auto_rx directory so 'from autorx.scan import ...' works
     auto_rx_dir = os.path.dirname(os.path.abspath(auto_rx_path))
@@ -702,29 +707,21 @@ def start_radiosonde():
 
         if app_module.radiosonde_process.poll() is not None:
             app_module.release_sdr_device(device_int, sdr_type_str)
-            stderr_output = ''
+            stderr_output = ""
             if app_module.radiosonde_process.stderr:
                 with contextlib.suppress(Exception):
-                    stderr_output = app_module.radiosonde_process.stderr.read().decode(
-                        'utf-8', errors='ignore'
-                    ).strip()
+                    stderr_output = app_module.radiosonde_process.stderr.read().decode("utf-8", errors="ignore").strip()
             if stderr_output:
                 logger.error(f"radiosonde_auto_rx stderr:\n{stderr_output}")
-            if stderr_output and (
-                'ImportError' in stderr_output
-                or 'ModuleNotFoundError' in stderr_output
-            ):
+            if stderr_output and ("ImportError" in stderr_output or "ModuleNotFoundError" in stderr_output):
                 error_msg = (
-                    'radiosonde_auto_rx failed to start due to missing Python '
-                    'dependencies. Re-run setup.sh or reinstall radiosonde_auto_rx.'
+                    "radiosonde_auto_rx failed to start due to missing Python "
+                    "dependencies. Re-run setup.sh or reinstall radiosonde_auto_rx."
                 )
             else:
-                error_msg = (
-                    'radiosonde_auto_rx failed to start. '
-                    'Check SDR device connection.'
-                )
+                error_msg = "radiosonde_auto_rx failed to start. Check SDR device connection."
             if stderr_output:
-                error_msg += f' Error: {stderr_output[:500]}'
+                error_msg += f" Error: {stderr_output[:500]}"
             return api_error(error_msg, 500)
 
         radiosonde_running = True
@@ -743,18 +740,20 @@ def start_radiosonde():
         )
         udp_thread.start()
 
-        return jsonify({
-            'status': 'started',
-            'message': 'Radiosonde tracking started',
-            'device': device,
-        })
+        return jsonify(
+            {
+                "status": "started",
+                "message": "Radiosonde tracking started",
+                "device": device,
+            }
+        )
     except Exception as e:
         app_module.release_sdr_device(device_int, sdr_type_str)
         logger.error(f"Failed to start radiosonde_auto_rx: {e}")
         return api_error(str(e), 500)
 
 
-@radiosonde_bp.route('/stop', methods=['POST'])
+@radiosonde_bp.route("/stop", methods=["POST"])
 def stop_radiosonde():
     """Stop radiosonde tracking."""
     global radiosonde_running, radiosonde_active_device, radiosonde_active_sdr_type, _udp_socket
@@ -784,7 +783,7 @@ def stop_radiosonde():
         if radiosonde_active_device is not None:
             app_module.release_sdr_device(
                 radiosonde_active_device,
-                radiosonde_active_sdr_type or 'rtlsdr',
+                radiosonde_active_sdr_type or "rtlsdr",
             )
 
         radiosonde_running = False
@@ -794,31 +793,33 @@ def stop_radiosonde():
     with _balloons_lock:
         radiosonde_balloons.clear()
 
-    return jsonify({'status': 'stopped'})
+    return jsonify({"status": "stopped"})
 
 
-@radiosonde_bp.route('/stream')
+@radiosonde_bp.route("/stream")
 def stream_radiosonde():
     """SSE stream for radiosonde telemetry."""
     response = Response(
         sse_stream_fanout(
             source_queue=app_module.radiosonde_queue,
-            channel_key='radiosonde',
+            channel_key="radiosonde",
             timeout=SSE_QUEUE_TIMEOUT,
             keepalive_interval=SSE_KEEPALIVE_INTERVAL,
         ),
-        mimetype='text/event-stream',
+        mimetype="text/event-stream",
     )
-    response.headers['Cache-Control'] = 'no-cache'
-    response.headers['X-Accel-Buffering'] = 'no'
+    response.headers["Cache-Control"] = "no-cache"
+    response.headers["X-Accel-Buffering"] = "no"
     return response
 
 
-@radiosonde_bp.route('/balloons')
+@radiosonde_bp.route("/balloons")
 def get_balloons():
     """Get current balloon data."""
     with _balloons_lock:
-        return api_success(data={
-            'count': len(radiosonde_balloons),
-            'balloons': dict(radiosonde_balloons),
-        })
+        return api_success(
+            data={
+                "count": len(radiosonde_balloons),
+                "balloons": dict(radiosonde_balloons),
+            }
+        )

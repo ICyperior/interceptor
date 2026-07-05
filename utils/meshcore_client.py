@@ -107,8 +107,9 @@ class AsyncWorker:
             else:
                 # Auto-detect: prefer ttyUSB0, then first available port
                 candidates = list_serial_ports()
-                port = next((p for p in candidates if "ttyUSB0" in p), None) or \
-                       (candidates[0] if candidates else "/dev/ttyUSB0")
+                port = next((p for p in candidates if "ttyUSB0" in p), None) or (
+                    candidates[0] if candidates else "/dev/ttyUSB0"
+                )
             self._mc = await MeshCore.create_serial(port=port, baudrate=cfg.baud, debug=False)
             transport, device = "serial", port
         elif isinstance(cfg, TCPConfig):

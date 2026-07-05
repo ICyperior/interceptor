@@ -11,12 +11,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable
 
-logger = logging.getLogger('intercept.process_monitor')
+logger = logging.getLogger("intercept.process_monitor")
 
 
 @dataclass
 class ProcessInfo:
     """Information about a monitored process."""
+
     name: str
     process: Any  # subprocess.Popen
     started_at: datetime = field(default_factory=datetime.now)
@@ -51,7 +52,7 @@ class ProcessMonitor:
         process: Any,
         restart_callback: Callable | None = None,
         max_restarts: int = 3,
-        backoff_seconds: float = 5.0
+        backoff_seconds: float = 5.0,
     ) -> None:
         """
         Register a process for monitoring.
@@ -69,7 +70,7 @@ class ProcessMonitor:
                 process=process,
                 restart_callback=restart_callback,
                 max_restarts=max_restarts,
-                backoff_seconds=backoff_seconds
+                backoff_seconds=backoff_seconds,
             )
             logger.info(f"Registered process for monitoring: {name}")
 
@@ -125,9 +126,7 @@ class ProcessMonitor:
                 # Check if process has terminated
                 return_code = info.process.poll()
                 if return_code is not None:
-                    logger.warning(
-                        f"Process '{name}' terminated with code {return_code}"
-                    )
+                    logger.warning(f"Process '{name}' terminated with code {return_code}")
                     crashed.append((name, info))
 
         # Handle restarts outside lock (involves sleeps and callbacks)
@@ -141,19 +140,15 @@ class ProcessMonitor:
             return
 
         if info.restart_count >= info.max_restarts:
-            logger.error(
-                f"Process '{name}' exceeded max restarts ({info.max_restarts}), "
-                "disabling auto-restart"
-            )
+            logger.error(f"Process '{name}' exceeded max restarts ({info.max_restarts}), disabling auto-restart")
             with self._lock:
                 info.enabled = False
             return
 
         # Calculate backoff with exponential increase
-        backoff = info.backoff_seconds * (2 ** info.restart_count)
+        backoff = info.backoff_seconds * (2**info.restart_count)
         logger.info(
-            f"Attempting to restart '{name}' in {backoff:.1f}s "
-            f"(attempt {info.restart_count + 1}/{info.max_restarts})"
+            f"Attempting to restart '{name}' in {backoff:.1f}s (attempt {info.restart_count + 1}/{info.max_restarts})"
         )
 
         # Wait for backoff period outside lock
@@ -181,17 +176,14 @@ class ProcessMonitor:
         with self._lock:
             status = {}
             for name, info in self.processes.items():
-                is_running = (
-                    info.process is not None and
-                    info.process.poll() is None
-                )
+                is_running = info.process is not None and info.process.poll() is None
                 status[name] = {
-                    'running': is_running,
-                    'started_at': info.started_at.isoformat() if info.started_at else None,
-                    'restart_count': info.restart_count,
-                    'last_restart': info.last_restart.isoformat() if info.last_restart else None,
-                    'auto_restart_enabled': info.enabled,
-                    'return_code': info.process.poll() if info.process else None
+                    "running": is_running,
+                    "started_at": info.started_at.isoformat() if info.started_at else None,
+                    "restart_count": info.restart_count,
+                    "last_restart": info.last_restart.isoformat() if info.last_restart else None,
+                    "auto_restart_enabled": info.enabled,
+                    "return_code": info.process.poll() if info.process else None,
                 }
             return status
 

@@ -14,7 +14,7 @@ from typing import Any, Callable
 from utils.logging import get_logger
 from utils.weather_sat import CaptureProgress, get_weather_sat_decoder
 
-logger = get_logger('intercept.weather_sat_scheduler')
+logger = get_logger("intercept.weather_sat_scheduler")
 
 # Import config defaults
 try:
@@ -33,17 +33,17 @@ class ScheduledPass:
     """A pass scheduled for automatic capture."""
 
     def __init__(self, pass_data: dict[str, Any]):
-        self.id: str = pass_data.get('id', str(uuid.uuid4())[:8])
-        self.satellite: str = pass_data['satellite']
-        self.name: str = pass_data['name']
-        self.frequency: float = pass_data['frequency']
-        self.mode: str = pass_data['mode']
-        self.start_time: str = pass_data['startTimeISO']
-        self.end_time: str = pass_data['endTimeISO']
-        self.max_el: float = pass_data['maxEl']
-        self.duration: float = pass_data['duration']
-        self.quality: str = pass_data['quality']
-        self.status: str = 'scheduled'  # scheduled, capturing, complete, skipped
+        self.id: str = pass_data.get("id", str(uuid.uuid4())[:8])
+        self.satellite: str = pass_data["satellite"]
+        self.name: str = pass_data["name"]
+        self.frequency: float = pass_data["frequency"]
+        self.mode: str = pass_data["mode"]
+        self.start_time: str = pass_data["startTimeISO"]
+        self.end_time: str = pass_data["endTimeISO"]
+        self.max_el: float = pass_data["maxEl"]
+        self.duration: float = pass_data["duration"]
+        self.quality: str = pass_data["quality"]
+        self.status: str = "scheduled"  # scheduled, capturing, complete, skipped
         self.skipped: bool = False
         self._timer: threading.Timer | None = None
         self._stop_timer: threading.Timer | None = None
@@ -58,18 +58,18 @@ class ScheduledPass:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            'id': self.id,
-            'satellite': self.satellite,
-            'name': self.name,
-            'frequency': self.frequency,
-            'mode': self.mode,
-            'startTimeISO': self.start_time,
-            'endTimeISO': self.end_time,
-            'maxEl': self.max_el,
-            'duration': self.duration,
-            'quality': self.quality,
-            'status': self.status,
-            'skipped': self.skipped,
+            "id": self.id,
+            "satellite": self.satellite,
+            "name": self.name,
+            "frequency": self.frequency,
+            "mode": self.mode,
+            "startTimeISO": self.start_time,
+            "endTimeISO": self.end_time,
+            "maxEl": self.max_el,
+            "duration": self.duration,
+            "quality": self.quality,
+            "status": self.status,
+            "skipped": self.skipped,
         }
 
 
@@ -160,24 +160,26 @@ class WeatherSatScheduler:
             self._passes.clear()
 
         logger.info("Weather satellite auto-scheduler disabled")
-        return {'status': 'disabled'}
+        return {"status": "disabled"}
 
     def skip_pass(self, pass_id: str) -> bool:
         """Manually skip a scheduled pass."""
         with self._lock:
             for p in self._passes:
-                if p.id == pass_id and p.status == 'scheduled':
+                if p.id == pass_id and p.status == "scheduled":
                     p.skipped = True
-                    p.status = 'skipped'
+                    p.status = "skipped"
                     if p._timer:
                         p._timer.cancel()
                         p._timer = None
                     logger.info(f"Skipped pass: {p.satellite} at {p.start_time}")
-                    self._emit_event({
-                        'type': 'schedule_capture_skipped',
-                        'pass': p.to_dict(),
-                        'reason': 'manual',
-                    })
+                    self._emit_event(
+                        {
+                            "type": "schedule_capture_skipped",
+                            "pass": p.to_dict(),
+                            "reason": "manual",
+                        }
+                    )
                     return True
         return False
 
@@ -185,16 +187,14 @@ class WeatherSatScheduler:
         """Get current scheduler status."""
         with self._lock:
             return {
-                'enabled': self._enabled,
-                'observer': {'latitude': self._lat, 'longitude': self._lon},
-                'device': self._device,
-                'gain': self._gain,
-                'bias_t': self._bias_t,
-                'min_elevation': self._min_elevation,
-                'scheduled_count': sum(
-                    1 for p in self._passes if p.status == 'scheduled'
-                ),
-                'total_passes': len(self._passes),
+                "enabled": self._enabled,
+                "observer": {"latitude": self._lat, "longitude": self._lon},
+                "device": self._device,
+                "gain": self._gain,
+                "bias_t": self._bias_t,
+                "min_elevation": self._min_elevation,
+                "scheduled_count": sum(1 for p in self._passes if p.status == "scheduled"),
+                "total_passes": len(self._passes),
             }
 
     def get_passes(self) -> list[dict[str, Any]]:
@@ -229,7 +229,7 @@ class WeatherSatScheduler:
                     p._stop_timer.cancel()
 
             # Keep completed/skipped for history, replace scheduled
-            history = [p for p in self._passes if p.status in ('complete', 'skipped', 'capturing')]
+            history = [p for p in self._passes if p.status in ("complete", "skipped", "capturing")]
             self._passes = history
 
             now = datetime.now(timezone.utc)
@@ -264,8 +264,7 @@ class WeatherSatScheduler:
                 self._passes.append(sp)
 
             logger.info(
-                f"Scheduler refreshed: {sum(1 for p in self._passes if p.status == 'scheduled')} "
-                f"passes scheduled"
+                f"Scheduler refreshed: {sum(1 for p in self._passes if p.status == 'scheduled')} passes scheduled"
             )
 
         # Schedule next refresh
@@ -287,33 +286,38 @@ class WeatherSatScheduler:
 
         if decoder.is_running:
             logger.info(f"SDR busy, skipping scheduled pass: {sp.satellite}")
-            sp.status = 'skipped'
+            sp.status = "skipped"
             sp.skipped = True
-            self._emit_event({
-                'type': 'schedule_capture_skipped',
-                'pass': sp.to_dict(),
-                'reason': 'sdr_busy',
-            })
+            self._emit_event(
+                {
+                    "type": "schedule_capture_skipped",
+                    "pass": sp.to_dict(),
+                    "reason": "sdr_busy",
+                }
+            )
             return
 
         # Claim SDR device
         try:
             import app as app_module
-            error = app_module.claim_sdr_device(self._device, 'weather_sat')
+
+            error = app_module.claim_sdr_device(self._device, "weather_sat")
             if error:
                 logger.info(f"SDR device busy, skipping: {sp.satellite} - {error}")
-                sp.status = 'skipped'
+                sp.status = "skipped"
                 sp.skipped = True
-                self._emit_event({
-                    'type': 'schedule_capture_skipped',
-                    'pass': sp.to_dict(),
-                    'reason': 'device_busy',
-                })
+                self._emit_event(
+                    {
+                        "type": "schedule_capture_skipped",
+                        "pass": sp.to_dict(),
+                        "reason": "device_busy",
+                    }
+                )
                 return
         except ImportError:
             pass
 
-        sp.status = 'capturing'
+        sp.status = "capturing"
 
         # Set up callbacks
         if self._progress_callback:
@@ -322,14 +326,15 @@ class WeatherSatScheduler:
         def _release_device():
             try:
                 import app as app_module
+
                 owner = None
-                get_status = getattr(app_module, 'get_sdr_device_status', None)
+                get_status = getattr(app_module, "get_sdr_device_status", None)
                 if callable(get_status):
                     try:
                         owner = get_status().get(self._device)
                     except Exception:
                         owner = None
-                if owner and owner != 'weather_sat':
+                if owner and owner != "weather_sat":
                     logger.debug(
                         "Skipping SDR release for device %s owned by %s",
                         self._device,
@@ -352,10 +357,12 @@ class WeatherSatScheduler:
 
         if success:
             logger.info(f"Auto-scheduler started capture: {sp.satellite}")
-            self._emit_event({
-                'type': 'schedule_capture_start',
-                'pass': sp.to_dict(),
-            })
+            self._emit_event(
+                {
+                    "type": "schedule_capture_start",
+                    "pass": sp.to_dict(),
+                }
+            )
 
             # Schedule stop timer at pass end + buffer
             now = datetime.now(timezone.utc)
@@ -365,13 +372,15 @@ class WeatherSatScheduler:
                 sp._stop_timer.daemon = True
                 sp._stop_timer.start()
         else:
-            sp.status = 'skipped'
+            sp.status = "skipped"
             _release_device()
-            self._emit_event({
-                'type': 'schedule_capture_skipped',
-                'pass': sp.to_dict(),
-                'reason': 'start_failed',
-            })
+            self._emit_event(
+                {
+                    "type": "schedule_capture_skipped",
+                    "pass": sp.to_dict(),
+                    "reason": "start_failed",
+                }
+            )
 
     def _stop_capture(self, sp: ScheduledPass) -> None:
         """Stop capture at pass end."""
@@ -382,12 +391,14 @@ class WeatherSatScheduler:
 
     def _on_capture_complete(self, sp: ScheduledPass, release_fn: Callable) -> None:
         """Handle capture completion."""
-        sp.status = 'complete'
+        sp.status = "complete"
         release_fn()
-        self._emit_event({
-            'type': 'schedule_capture_complete',
-            'pass': sp.to_dict(),
-        })
+        self._emit_event(
+            {
+                "type": "schedule_capture_complete",
+                "pass": sp.to_dict(),
+            }
+        )
 
     def _emit_event(self, event: dict[str, Any]) -> None:
         """Emit scheduler event to callback."""
@@ -405,10 +416,10 @@ def _parse_utc_iso(value: str) -> datetime:
 
     text = str(value).strip()
     # Backward compatibility for malformed legacy strings.
-    text = text.replace('+00:00Z', 'Z')
+    text = text.replace("+00:00Z", "Z")
     # Python <3.11 does not accept trailing 'Z' in fromisoformat.
-    if text.endswith('Z'):
-        text = text[:-1] + '+00:00'
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
 
     dt = datetime.fromisoformat(text)
     if dt.tzinfo is None:

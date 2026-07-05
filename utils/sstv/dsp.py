@@ -18,8 +18,7 @@ from .constants import (
 )
 
 
-def goertzel(samples: np.ndarray, target_freq: float,
-             sample_rate: int = SAMPLE_RATE) -> float:
+def goertzel(samples: np.ndarray, target_freq: float, sample_rate: int = SAMPLE_RATE) -> float:
     """Compute Goertzel energy at a single target frequency.
 
     O(N) per frequency - more efficient than FFT when only a few
@@ -56,8 +55,7 @@ def goertzel(samples: np.ndarray, target_freq: float,
     return s1 * s1 + s2 * s2 - coeff * s1 * s2
 
 
-def goertzel_mag(samples: np.ndarray, target_freq: float,
-                 sample_rate: int = SAMPLE_RATE) -> float:
+def goertzel_mag(samples: np.ndarray, target_freq: float, sample_rate: int = SAMPLE_RATE) -> float:
     """Compute Goertzel magnitude (square root of energy).
 
     Args:
@@ -71,8 +69,9 @@ def goertzel_mag(samples: np.ndarray, target_freq: float,
     return math.sqrt(max(0.0, goertzel(samples, target_freq, sample_rate)))
 
 
-def detect_tone(samples: np.ndarray, candidates: list[float],
-                sample_rate: int = SAMPLE_RATE) -> tuple[float | None, float]:
+def detect_tone(
+    samples: np.ndarray, candidates: list[float], sample_rate: int = SAMPLE_RATE
+) -> tuple[float | None, float]:
     """Detect which candidate frequency has the strongest energy.
 
     Args:
@@ -98,16 +97,20 @@ def detect_tone(samples: np.ndarray, candidates: list[float],
     others = [e for f, e in energies.items() if f != max_freq]
     avg_others = sum(others) / len(others) if others else 0.0
 
-    ratio = max_energy / avg_others if avg_others > 0 else float('inf')
+    ratio = max_energy / avg_others if avg_others > 0 else float("inf")
 
     if ratio >= MIN_ENERGY_RATIO:
         return max_freq, ratio
     return None, ratio
 
 
-def estimate_frequency(samples: np.ndarray, freq_low: float = 1000.0,
-                       freq_high: float = 2500.0, step: float = 25.0,
-                       sample_rate: int = SAMPLE_RATE) -> float:
+def estimate_frequency(
+    samples: np.ndarray,
+    freq_low: float = 1000.0,
+    freq_high: float = 2500.0,
+    step: float = 25.0,
+    sample_rate: int = SAMPLE_RATE,
+) -> float:
     """Estimate the dominant frequency in a range using Goertzel sweep.
 
     Sweeps through frequencies in the given range and returns the one
@@ -168,8 +171,7 @@ def freq_to_pixel(frequency: float) -> int:
     return max(0, min(255, int(normalized * 255 + 0.5)))
 
 
-def samples_for_duration(duration_s: float,
-                         sample_rate: int = SAMPLE_RATE) -> int:
+def samples_for_duration(duration_s: float, sample_rate: int = SAMPLE_RATE) -> int:
     """Calculate number of samples for a given duration.
 
     Args:
@@ -182,8 +184,7 @@ def samples_for_duration(duration_s: float,
     return int(duration_s * sample_rate + 0.5)
 
 
-def goertzel_batch(audio_matrix: np.ndarray, frequencies: np.ndarray,
-                   sample_rate: int = SAMPLE_RATE) -> np.ndarray:
+def goertzel_batch(audio_matrix: np.ndarray, frequencies: np.ndarray, sample_rate: int = SAMPLE_RATE) -> np.ndarray:
     """Compute Goertzel energy for multiple audio segments at multiple frequencies.
 
     Vectorized implementation using numpy broadcasting.  Processes all
@@ -212,7 +213,7 @@ def goertzel_batch(audio_matrix: np.ndarray, frequencies: np.ndarray,
     s2 = np.zeros_like(s1)
 
     for n in range(N):
-        samples_n = audio_matrix[:, n:n + 1]  # (M, 1) — broadcasts with (M, F)
+        samples_n = audio_matrix[:, n : n + 1]  # (M, 1) — broadcasts with (M, F)
         s0 = samples_n + coeff * s1 - s2
         s2 = s1
         s1 = s0

@@ -12,16 +12,18 @@ from dataclasses import dataclass, field
 
 class ColorModel(enum.Enum):
     """Color encoding models used by SSTV modes."""
-    RGB = 'rgb'          # Sequential R, G, B channels per line
-    YCRCB = 'ycrcb'      # Luminance + chrominance (Robot modes)
-    YCRCB_DUAL = 'ycrcb_dual'  # Dual-luminance YCrCb (PD modes)
+
+    RGB = "rgb"  # Sequential R, G, B channels per line
+    YCRCB = "ycrcb"  # Luminance + chrominance (Robot modes)
+    YCRCB_DUAL = "ycrcb_dual"  # Dual-luminance YCrCb (PD modes)
 
 
 class SyncPosition(enum.Enum):
     """Where the horizontal sync pulse appears in each line."""
-    FRONT = 'front'      # Sync at start of line (Robot, Martin)
-    MIDDLE = 'middle'    # Sync between G and B channels (Scottie)
-    FRONT_PD = 'front_pd'  # PD-style sync at start
+
+    FRONT = "front"  # Sync at start of line (Robot, Martin)
+    MIDDLE = "middle"  # Sync between G and B channels (Scottie)
+    FRONT_PD = "front_pd"  # PD-style sync at start
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,7 @@ class ChannelTiming:
     Attributes:
         duration_ms: Duration of this channel's pixel data in milliseconds.
     """
+
     duration_ms: float
 
 
@@ -52,6 +55,7 @@ class SSTVMode:
         has_half_rate_chroma: Whether chroma is sent at half vertical rate
             (Robot modes: Cr and Cb alternate every other line).
     """
+
     name: str
     vis_code: int
     width: int
@@ -71,7 +75,7 @@ class SSTVMode:
 # ---------------------------------------------------------------------------
 
 ROBOT_36 = SSTVMode(
-    name='Robot36',
+    name="Robot36",
     vis_code=8,
     width=320,
     height=240,
@@ -80,8 +84,8 @@ ROBOT_36 = SSTVMode(
     sync_duration_ms=9.0,
     sync_porch_ms=3.0,
     channels=[
-        ChannelTiming(duration_ms=88.0),    # Y (luminance)
-        ChannelTiming(duration_ms=44.0),    # Cr or Cb (alternating)
+        ChannelTiming(duration_ms=88.0),  # Y (luminance)
+        ChannelTiming(duration_ms=44.0),  # Cr or Cb (alternating)
     ],
     line_duration_ms=150.0,
     has_half_rate_chroma=True,
@@ -89,7 +93,7 @@ ROBOT_36 = SSTVMode(
 )
 
 ROBOT_72 = SSTVMode(
-    name='Robot72',
+    name="Robot72",
     vis_code=12,
     width=320,
     height=240,
@@ -98,9 +102,9 @@ ROBOT_72 = SSTVMode(
     sync_duration_ms=9.0,
     sync_porch_ms=3.0,
     channels=[
-        ChannelTiming(duration_ms=138.0),   # Y (luminance)
-        ChannelTiming(duration_ms=69.0),    # Cr
-        ChannelTiming(duration_ms=69.0),    # Cb
+        ChannelTiming(duration_ms=138.0),  # Y (luminance)
+        ChannelTiming(duration_ms=69.0),  # Cr
+        ChannelTiming(duration_ms=69.0),  # Cb
     ],
     line_duration_ms=300.0,
     has_half_rate_chroma=False,
@@ -112,7 +116,7 @@ ROBOT_72 = SSTVMode(
 # ---------------------------------------------------------------------------
 
 MARTIN_1 = SSTVMode(
-    name='Martin1',
+    name="Martin1",
     vis_code=44,
     width=320,
     height=256,
@@ -129,7 +133,7 @@ MARTIN_1 = SSTVMode(
 )
 
 MARTIN_2 = SSTVMode(
-    name='Martin2',
+    name="Martin2",
     vis_code=40,
     width=320,
     height=256,
@@ -138,9 +142,9 @@ MARTIN_2 = SSTVMode(
     sync_duration_ms=4.862,
     sync_porch_ms=0.572,
     channels=[
-        ChannelTiming(duration_ms=73.216),   # Green
-        ChannelTiming(duration_ms=73.216),   # Blue
-        ChannelTiming(duration_ms=73.216),   # Red
+        ChannelTiming(duration_ms=73.216),  # Green
+        ChannelTiming(duration_ms=73.216),  # Blue
+        ChannelTiming(duration_ms=73.216),  # Red
     ],
     line_duration_ms=226.798,
 )
@@ -150,7 +154,7 @@ MARTIN_2 = SSTVMode(
 # ---------------------------------------------------------------------------
 
 SCOTTIE_1 = SSTVMode(
-    name='Scottie1',
+    name="Scottie1",
     vis_code=60,
     width=320,
     height=256,
@@ -167,7 +171,7 @@ SCOTTIE_1 = SSTVMode(
 )
 
 SCOTTIE_2 = SSTVMode(
-    name='Scottie2',
+    name="Scottie2",
     vis_code=56,
     width=320,
     height=256,
@@ -176,9 +180,9 @@ SCOTTIE_2 = SSTVMode(
     sync_duration_ms=9.0,
     sync_porch_ms=1.5,
     channels=[
-        ChannelTiming(duration_ms=88.064),   # Green
-        ChannelTiming(duration_ms=88.064),   # Blue
-        ChannelTiming(duration_ms=88.064),   # Red
+        ChannelTiming(duration_ms=88.064),  # Green
+        ChannelTiming(duration_ms=88.064),  # Blue
+        ChannelTiming(duration_ms=88.064),  # Red
     ],
     line_duration_ms=277.692,
 )
@@ -188,7 +192,7 @@ SCOTTIE_2 = SSTVMode(
 # ---------------------------------------------------------------------------
 
 PD_120 = SSTVMode(
-    name='PD120',
+    name="PD120",
     vis_code=95,
     width=640,
     height=496,
@@ -206,7 +210,7 @@ PD_120 = SSTVMode(
 )
 
 PD_180 = SSTVMode(
-    name='PD180',
+    name="PD180",
     vis_code=97,
     width=640,
     height=496,
@@ -224,7 +228,7 @@ PD_180 = SSTVMode(
 )
 
 PD_90 = SSTVMode(
-    name='PD90',
+    name="PD90",
     vis_code=99,
     width=640,
     height=496,
@@ -233,16 +237,16 @@ PD_90 = SSTVMode(
     sync_duration_ms=20.0,
     sync_porch_ms=2.080,
     channels=[
-        ChannelTiming(duration_ms=91.520),   # Y1
-        ChannelTiming(duration_ms=91.520),   # Cr
-        ChannelTiming(duration_ms=91.520),   # Cb
-        ChannelTiming(duration_ms=91.520),   # Y2
+        ChannelTiming(duration_ms=91.520),  # Y1
+        ChannelTiming(duration_ms=91.520),  # Cr
+        ChannelTiming(duration_ms=91.520),  # Cb
+        ChannelTiming(duration_ms=91.520),  # Y2
     ],
     line_duration_ms=388.160,
 )
 
 PD_160 = SSTVMode(
-    name='PD160',
+    name="PD160",
     vis_code=98,
     width=640,
     height=496,
@@ -260,7 +264,7 @@ PD_160 = SSTVMode(
 )
 
 PD_240 = SSTVMode(
-    name='PD240',
+    name="PD240",
     vis_code=96,
     width=640,
     height=496,
@@ -282,7 +286,7 @@ PD_240 = SSTVMode(
 # ---------------------------------------------------------------------------
 
 SCOTTIE_DX = SSTVMode(
-    name='ScottieDX',
+    name="ScottieDX",
     vis_code=76,
     width=320,
     height=256,
@@ -304,11 +308,20 @@ SCOTTIE_DX = SSTVMode(
 # ---------------------------------------------------------------------------
 
 ALL_MODES: dict[int, SSTVMode] = {
-    m.vis_code: m for m in [
-        ROBOT_36, ROBOT_72,
-        MARTIN_1, MARTIN_2,
-        SCOTTIE_1, SCOTTIE_2, SCOTTIE_DX,
-        PD_90, PD_120, PD_160, PD_180, PD_240,
+    m.vis_code: m
+    for m in [
+        ROBOT_36,
+        ROBOT_72,
+        MARTIN_1,
+        MARTIN_2,
+        SCOTTIE_1,
+        SCOTTIE_2,
+        SCOTTIE_DX,
+        PD_90,
+        PD_120,
+        PD_160,
+        PD_180,
+        PD_240,
     ]
 }
 

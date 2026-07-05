@@ -147,33 +147,33 @@ def parse_csp(data: bytes) -> dict | None:
 
         header: int = struct.unpack(">I", data[:4])[0]
 
-        priority    = (header >> 27) & 0x1F
-        source      = (header >> 22) & 0x1F
+        priority = (header >> 27) & 0x1F
+        source = (header >> 22) & 0x1F
         destination = (header >> 17) & 0x1F
-        dest_port   = (header >> 12) & 0x1F
-        src_port    = (header >> 6)  & 0x3F
-        raw_flags   = header & 0x3F
+        dest_port = (header >> 12) & 0x1F
+        src_port = (header >> 6) & 0x3F
+        raw_flags = header & 0x3F
 
         flags = {
             "frag": bool(raw_flags & 0x10),
             "hmac": bool(raw_flags & 0x08),
             "xtea": bool(raw_flags & 0x04),
-            "rdp":  bool(raw_flags & 0x02),
-            "crc":  bool(raw_flags & 0x01),
+            "rdp": bool(raw_flags & 0x02),
+            "crc": bool(raw_flags & 0x01),
         }
 
         payload = data[4:]
 
         return {
-            "protocol":     "CSP",
-            "priority":     priority,
-            "source":       source,
-            "destination":  destination,
-            "dest_port":    dest_port,
-            "src_port":     src_port,
-            "flags":        flags,
-            "payload":      payload,
-            "payload_hex":  payload.hex(),
+            "protocol": "CSP",
+            "priority": priority,
+            "source": source,
+            "destination": destination,
+            "dest_port": dest_port,
+            "src_port": src_port,
+            "flags": flags,
+            "payload": payload,
+            "payload_hex": payload.hex(),
             "payload_length": len(payload),
         }
 
@@ -210,30 +210,30 @@ def parse_ccsds(data: bytes) -> dict | None:
         word1: int = struct.unpack(">H", data[2:4])[0]
         word2: int = struct.unpack(">H", data[4:6])[0]
 
-        version                = (word0 >> 13) & 0x07
-        packet_type            = (word0 >> 12) & 0x01
-        secondary_header_flag  = bool((word0 >> 11) & 0x01)
-        apid                   = word0 & 0x07FF
+        version = (word0 >> 13) & 0x07
+        packet_type = (word0 >> 12) & 0x01
+        secondary_header_flag = bool((word0 >> 11) & 0x01)
+        apid = word0 & 0x07FF
 
-        sequence_flags  = (word1 >> 14) & 0x03
-        sequence_count  = word1 & 0x3FFF
+        sequence_flags = (word1 >> 14) & 0x03
+        sequence_count = word1 & 0x3FFF
 
         data_length = word2  # raw field; actual user data bytes = data_length + 1
 
         payload = data[6:]
 
         return {
-            "protocol":             "CCSDS_TM",
-            "version":              version,
-            "packet_type":          packet_type,
-            "secondary_header":     secondary_header_flag,
-            "apid":                 apid,
-            "sequence_flags":       sequence_flags,
-            "sequence_count":       sequence_count,
-            "data_length":          data_length,
-            "payload":              payload,
-            "payload_hex":          payload.hex(),
-            "payload_length":       len(payload),
+            "protocol": "CCSDS_TM",
+            "version": version,
+            "packet_type": packet_type,
+            "secondary_header": secondary_header_flag,
+            "apid": apid,
+            "sequence_flags": sequence_flags,
+            "sequence_count": sequence_count,
+            "data_length": data_length,
+            "payload": payload,
+            "payload_hex": payload.hex(),
+            "payload_length": len(payload),
         }
 
     except Exception:  # noqa: BLE001
@@ -337,10 +337,10 @@ def analyze_payload(data: bytes) -> dict:
         strings = _extract_strings(data, min_len=3)
 
         interpretations = {
-            "float32":    float32_values,
-            "uint16_le":  uint16_values,
-            "uint32_le":  uint32_values,
-            "strings":    strings,
+            "float32": float32_values,
+            "uint16_le": uint16_values,
+            "uint32_le": uint32_values,
+            "strings": strings,
         }
 
         # --- heuristics ---
@@ -370,19 +370,19 @@ def analyze_payload(data: bytes) -> dict:
                 heuristics.append(f"Possible Unix timestamp: {ts} (index {idx})")
 
         return {
-            "hex_dump":        hex_dump,
-            "length":          length,
+            "hex_dump": hex_dump,
+            "length": length,
             "interpretations": interpretations,
-            "heuristics":      heuristics,
+            "heuristics": heuristics,
         }
 
     except Exception:  # noqa: BLE001
         # Guarantee a safe return even on completely malformed input
         return {
-            "hex_dump":        "",
-            "length":          len(data) if isinstance(data, (bytes, bytearray)) else 0,
+            "hex_dump": "",
+            "length": len(data) if isinstance(data, (bytes, bytearray)) else 0,
             "interpretations": {"float32": [], "uint16_le": [], "uint32_le": [], "strings": []},
-            "heuristics":      [],
+            "heuristics": [],
         }
 
 
@@ -430,6 +430,6 @@ def auto_parse(data: bytes) -> dict:
     # Nothing matched — return a raw analysis
     return {
         "protocol": "unknown",
-        "raw_hex":  data.hex(),
+        "raw_hex": data.hex(),
         "analysis": analyze_payload(data),
     }

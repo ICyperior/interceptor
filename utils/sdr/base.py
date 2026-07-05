@@ -14,6 +14,7 @@ from enum import Enum
 
 class SDRType(Enum):
     """Supported SDR hardware types."""
+
     RTL_SDR = "rtlsdr"
     LIME_SDR = "limesdr"
     HACKRF = "hackrf"
@@ -27,29 +28,31 @@ class SDRType(Enum):
 @dataclass
 class SDRCapabilities:
     """Hardware capabilities for an SDR device."""
+
     sdr_type: SDRType
-    freq_min_mhz: float          # Minimum frequency in MHz
-    freq_max_mhz: float          # Maximum frequency in MHz
-    gain_min: float              # Minimum gain in dB
-    gain_max: float              # Maximum gain in dB
+    freq_min_mhz: float  # Minimum frequency in MHz
+    freq_max_mhz: float  # Maximum frequency in MHz
+    gain_min: float  # Minimum gain in dB
+    gain_max: float  # Maximum gain in dB
     sample_rates: list[int] = field(default_factory=list)  # Supported sample rates
-    supports_bias_t: bool = False    # Bias-T support
-    supports_ppm: bool = True        # PPM correction support
-    tx_capable: bool = False         # Can transmit
+    supports_bias_t: bool = False  # Bias-T support
+    supports_ppm: bool = True  # PPM correction support
+    tx_capable: bool = False  # Can transmit
     supports_iq_capture: bool = False  # Raw I/Q sample capture
 
 
 @dataclass
 class SDRDevice:
     """Detected SDR device."""
+
     sdr_type: SDRType
     index: int
     name: str
     serial: str
-    driver: str                  # e.g., "rtlsdr", "lime", "hackrf"
+    driver: str  # e.g., "rtlsdr", "lime", "hackrf"
     capabilities: SDRCapabilities
-    rtl_tcp_host: str | None = None   # Remote rtl_tcp server host
-    rtl_tcp_port: int | None = None   # Remote rtl_tcp server port
+    rtl_tcp_host: str | None = None  # Remote rtl_tcp server host
+    rtl_tcp_port: int | None = None  # Remote rtl_tcp server port
 
     @property
     def is_network(self) -> bool:
@@ -59,26 +62,26 @@ class SDRDevice:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         result = {
-            'index': self.index,
-            'name': self.name,
-            'serial': self.serial,
-            'sdr_type': self.sdr_type.value,
-            'driver': self.driver,
-            'is_network': self.is_network,
-            'capabilities': {
-                'freq_min_mhz': self.capabilities.freq_min_mhz,
-                'freq_max_mhz': self.capabilities.freq_max_mhz,
-                'gain_min': self.capabilities.gain_min,
-                'gain_max': self.capabilities.gain_max,
-                'sample_rates': self.capabilities.sample_rates,
-                'supports_bias_t': self.capabilities.supports_bias_t,
-                'supports_ppm': self.capabilities.supports_ppm,
-                'tx_capable': self.capabilities.tx_capable,
-            }
+            "index": self.index,
+            "name": self.name,
+            "serial": self.serial,
+            "sdr_type": self.sdr_type.value,
+            "driver": self.driver,
+            "is_network": self.is_network,
+            "capabilities": {
+                "freq_min_mhz": self.capabilities.freq_min_mhz,
+                "freq_max_mhz": self.capabilities.freq_max_mhz,
+                "gain_min": self.capabilities.gain_min,
+                "gain_max": self.capabilities.gain_max,
+                "sample_rates": self.capabilities.sample_rates,
+                "supports_bias_t": self.capabilities.supports_bias_t,
+                "supports_ppm": self.capabilities.supports_ppm,
+                "tx_capable": self.capabilities.tx_capable,
+            },
         }
         if self.is_network:
-            result['rtl_tcp_host'] = self.rtl_tcp_host
-            result['rtl_tcp_port'] = self.rtl_tcp_port
+            result["rtl_tcp_host"] = self.rtl_tcp_host
+            result["rtl_tcp_port"] = self.rtl_tcp_port
         return result
 
 
@@ -95,7 +98,7 @@ class CommandBuilder(ABC):
         ppm: int | None = None,
         modulation: str = "fm",
         squelch: int | None = None,
-        bias_t: bool = False
+        bias_t: bool = False,
     ) -> list[str]:
         """
         Build FM demodulation command (for pager decoding).
@@ -116,12 +119,7 @@ class CommandBuilder(ABC):
         pass
 
     @abstractmethod
-    def build_adsb_command(
-        self,
-        device: SDRDevice,
-        gain: float | None = None,
-        bias_t: bool = False
-    ) -> list[str]:
+    def build_adsb_command(self, device: SDRDevice, gain: float | None = None, bias_t: bool = False) -> list[str]:
         """
         Build ADS-B decoder command.
 
@@ -142,7 +140,7 @@ class CommandBuilder(ABC):
         frequency_mhz: float = 433.92,
         gain: float | None = None,
         ppm: int | None = None,
-        bias_t: bool = False
+        bias_t: bool = False,
     ) -> list[str]:
         """
         Build ISM band decoder command (433MHz sensors).
@@ -198,7 +196,7 @@ class CommandBuilder(ABC):
         gain: float | None = None,
         ppm: int | None = None,
         bias_t: bool = False,
-        output_format: str = 'cu8',
+        output_format: str = "cu8",
     ) -> list[str]:
         """
         Build raw I/Q capture command for streaming samples to stdout.
@@ -222,17 +220,15 @@ class CommandBuilder(ABC):
             NotImplementedError: If the SDR type does not support I/Q capture.
         """
         if not device.capabilities.supports_iq_capture:
-            supported = ', '.join(
-                t.value for t in SDRType
+            supported = ", ".join(
+                t.value
+                for t in SDRType
                 if t == SDRType.RTL_SDR  # known IQ-capable types
             )
             raise ValueError(
-                f"{device.sdr_type.value} does not support raw I/Q capture. "
-                f"Supported devices: {supported}"
+                f"{device.sdr_type.value} does not support raw I/Q capture. Supported devices: {supported}"
             )
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not support raw I/Q capture"
-        )
+        raise NotImplementedError(f"{self.__class__.__name__} does not support raw I/Q capture")
 
     @classmethod
     @abstractmethod

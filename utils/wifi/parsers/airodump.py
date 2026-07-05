@@ -62,28 +62,28 @@ def parse_airodump_csv(filepath: str) -> tuple[list[WiFiObservation], list[dict]
     clients = []
 
     try:
-        with open(filepath, encoding='utf-8', errors='replace') as f:
+        with open(filepath, encoding="utf-8", errors="replace") as f:
             content = f.read()
 
         # airodump-ng separates sections with blank lines
         # Split into AP section and Station section
-        sections = content.split('\n\n')
+        sections = content.split("\n\n")
 
         for section in sections:
             section = section.strip()
             if not section:
                 continue
 
-            lines = section.split('\n')
+            lines = section.split("\n")
             if not lines:
                 continue
 
             header = lines[0].strip()
 
-            if header.startswith('BSSID'):
+            if header.startswith("BSSID"):
                 # Access Points section
                 networks = _parse_ap_section(lines)
-            elif header.startswith('Station MAC'):
+            elif header.startswith("Station MAC"):
                 # Clients/Stations section
                 clients = _parse_client_section(lines)
 
@@ -104,33 +104,33 @@ def _parse_ap_section(lines: list[str]) -> list[WiFiObservation]:
 
     # Parse header to get column indices
     header = lines[0]
-    header_parts = [h.strip().lower() for h in header.split(',')]
+    header_parts = [h.strip().lower() for h in header.split(",")]
 
     # Find column indices
     col_map = {}
     for i, col in enumerate(header_parts):
-        if 'bssid' in col:
-            col_map['bssid'] = i
-        elif 'channel' in col and 'id-length' not in col:
-            col_map['channel'] = i
-        elif 'privacy' in col:
-            col_map['privacy'] = i
-        elif 'cipher' in col:
-            col_map['cipher'] = i
-        elif 'authentication' in col:
-            col_map['auth'] = i
-        elif 'power' in col:
-            col_map['power'] = i
-        elif 'beacons' in col or '# beacons' in col:
-            col_map['beacons'] = i
-        elif '# iv' in col or 'iv' in col:
-            col_map['data'] = i
-        elif 'essid' in col:
-            col_map['essid'] = i
-        elif 'first time seen' in col:
-            col_map['first_seen'] = i
-        elif 'last time seen' in col:
-            col_map['last_seen'] = i
+        if "bssid" in col:
+            col_map["bssid"] = i
+        elif "channel" in col and "id-length" not in col:
+            col_map["channel"] = i
+        elif "privacy" in col:
+            col_map["privacy"] = i
+        elif "cipher" in col:
+            col_map["cipher"] = i
+        elif "authentication" in col:
+            col_map["auth"] = i
+        elif "power" in col:
+            col_map["power"] = i
+        elif "beacons" in col or "# beacons" in col:
+            col_map["beacons"] = i
+        elif "# iv" in col or "iv" in col:
+            col_map["data"] = i
+        elif "essid" in col:
+            col_map["essid"] = i
+        elif "first time seen" in col:
+            col_map["first_seen"] = i
+        elif "last time seen" in col:
+            col_map["last_seen"] = i
 
     # Parse data rows
     for line in lines[1:]:
@@ -144,7 +144,7 @@ def _parse_ap_section(lines: list[str]) -> list[WiFiObservation]:
             reader = csv.reader(io.StringIO(line))
             parts = next(reader)
         except Exception:
-            parts = line.split(',')
+            parts = line.split(",")
 
         parts = [p.strip() for p in parts]
 
@@ -153,58 +153,58 @@ def _parse_ap_section(lines: list[str]) -> list[WiFiObservation]:
 
         try:
             # Get BSSID
-            bssid_idx = col_map.get('bssid', 0)
+            bssid_idx = col_map.get("bssid", 0)
             bssid = parts[bssid_idx].upper() if bssid_idx < len(parts) else None
-            if not bssid or not re.match(r'^[0-9A-F:]{17}$', bssid):
+            if not bssid or not re.match(r"^[0-9A-F:]{17}$", bssid):
                 continue
 
             # Get channel
             channel = None
-            chan_idx = col_map.get('channel', 3)
+            chan_idx = col_map.get("channel", 3)
             if chan_idx < len(parts):
                 chan_str = parts[chan_idx].strip()
-                if chan_str.lstrip('-').isdigit():
+                if chan_str.lstrip("-").isdigit():
                     channel = int(chan_str)
                     if channel < 0:
                         channel = abs(channel)  # Negative indicates not currently on channel
 
             # Get power/RSSI
             rssi = None
-            power_idx = col_map.get('power', 8)
+            power_idx = col_map.get("power", 8)
             if power_idx < len(parts):
                 power_str = parts[power_idx].strip()
-                if power_str.lstrip('-').isdigit():
+                if power_str.lstrip("-").isdigit():
                     rssi = int(power_str)
                     if rssi > 0:
                         rssi = -rssi  # Should be negative
 
             # Get security
-            privacy_idx = col_map.get('privacy', 5)
-            privacy = parts[privacy_idx].strip() if privacy_idx < len(parts) else ''
+            privacy_idx = col_map.get("privacy", 5)
+            privacy = parts[privacy_idx].strip() if privacy_idx < len(parts) else ""
             security = _parse_airodump_security(privacy)
 
             # Get cipher
-            cipher_idx = col_map.get('cipher', 6)
-            cipher_str = parts[cipher_idx].strip() if cipher_idx < len(parts) else ''
+            cipher_idx = col_map.get("cipher", 6)
+            cipher_str = parts[cipher_idx].strip() if cipher_idx < len(parts) else ""
             cipher = _parse_airodump_cipher(cipher_str)
 
             # Get auth
-            auth_idx = col_map.get('auth', 7)
-            auth_str = parts[auth_idx].strip() if auth_idx < len(parts) else ''
+            auth_idx = col_map.get("auth", 7)
+            auth_str = parts[auth_idx].strip() if auth_idx < len(parts) else ""
             auth = _parse_airodump_auth(auth_str)
 
             # Get ESSID (usually last column, might contain commas)
             essid = None
-            essid_idx = col_map.get('essid', len(parts) - 1)
+            essid_idx = col_map.get("essid", len(parts) - 1)
             if essid_idx < len(parts):
                 essid = parts[essid_idx].strip()
                 # Handle special markers
-                if essid in ('', '<length: 0>', '<length:  0>'):
+                if essid in ("", "<length: 0>", "<length:  0>"):
                     essid = None
 
             # Get beacon count
             beacon_count = 0
-            beacon_idx = col_map.get('beacons', 9)
+            beacon_idx = col_map.get("beacons", 9)
             if beacon_idx < len(parts):
                 beacon_str = parts[beacon_idx].strip()
                 if beacon_str.isdigit():
@@ -212,7 +212,7 @@ def _parse_ap_section(lines: list[str]) -> list[WiFiObservation]:
 
             # Get data count (IVs)
             data_count = 0
-            data_idx = col_map.get('data', 10)
+            data_idx = col_map.get("data", 10)
             if data_idx < len(parts):
                 data_str = parts[data_idx].strip()
                 if data_str.isdigit():
@@ -251,25 +251,25 @@ def _parse_client_section(lines: list[str]) -> list[dict]:
 
     # Parse header
     header = lines[0]
-    header_parts = [h.strip().lower() for h in header.split(',')]
+    header_parts = [h.strip().lower() for h in header.split(",")]
 
     # Find column indices
     col_map = {}
     for i, col in enumerate(header_parts):
-        if 'station mac' in col:
-            col_map['mac'] = i
-        elif 'power' in col:
-            col_map['power'] = i
-        elif 'packets' in col or '# packets' in col:
-            col_map['packets'] = i
-        elif 'bssid' in col:
-            col_map['bssid'] = i
-        elif 'probed' in col:
-            col_map['probed'] = i
-        elif 'first time seen' in col:
-            col_map['first_seen'] = i
-        elif 'last time seen' in col:
-            col_map['last_seen'] = i
+        if "station mac" in col:
+            col_map["mac"] = i
+        elif "power" in col:
+            col_map["power"] = i
+        elif "packets" in col or "# packets" in col:
+            col_map["packets"] = i
+        elif "bssid" in col:
+            col_map["bssid"] = i
+        elif "probed" in col:
+            col_map["probed"] = i
+        elif "first time seen" in col:
+            col_map["first_seen"] = i
+        elif "last time seen" in col:
+            col_map["last_seen"] = i
 
     # Parse data rows
     for line in lines[1:]:
@@ -277,7 +277,7 @@ def _parse_client_section(lines: list[str]) -> list[dict]:
         if not line:
             continue
 
-        parts = line.split(',')
+        parts = line.split(",")
         parts = [p.strip() for p in parts]
 
         if len(parts) < 3:
@@ -285,24 +285,24 @@ def _parse_client_section(lines: list[str]) -> list[dict]:
 
         try:
             # Get MAC
-            mac_idx = col_map.get('mac', 0)
+            mac_idx = col_map.get("mac", 0)
             mac = parts[mac_idx].upper() if mac_idx < len(parts) else None
-            if not mac or not re.match(r'^[0-9A-F:]{17}$', mac):
+            if not mac or not re.match(r"^[0-9A-F:]{17}$", mac):
                 continue
 
             # Get power/RSSI
             rssi = None
-            power_idx = col_map.get('power', 3)
+            power_idx = col_map.get("power", 3)
             if power_idx < len(parts):
                 power_str = parts[power_idx].strip()
-                if power_str.lstrip('-').isdigit():
+                if power_str.lstrip("-").isdigit():
                     rssi = int(power_str)
                     if rssi > 0:
                         rssi = -rssi
 
             # Get packets
             packets = 0
-            packets_idx = col_map.get('packets', 4)
+            packets_idx = col_map.get("packets", 4)
             if packets_idx < len(parts):
                 packets_str = parts[packets_idx].strip()
                 if packets_str.isdigit():
@@ -310,14 +310,14 @@ def _parse_client_section(lines: list[str]) -> list[dict]:
 
             # Get associated BSSID
             bssid = None
-            bssid_idx = col_map.get('bssid', 5)
+            bssid_idx = col_map.get("bssid", 5)
             if bssid_idx < len(parts):
                 bssid = parts[bssid_idx].strip().upper()
-                if bssid == '(NOT ASSOCIATED)' or not re.match(r'^[0-9A-F:]{17}$', bssid):
+                if bssid == "(NOT ASSOCIATED)" or not re.match(r"^[0-9A-F:]{17}$", bssid):
                     bssid = None
 
             # Get probed ESSIDs (remaining columns)
-            probed_idx = col_map.get('probed', 6)
+            probed_idx = col_map.get("probed", 6)
             probed_essids = []
             if probed_idx < len(parts):
                 for essid in parts[probed_idx:]:
@@ -325,13 +325,15 @@ def _parse_client_section(lines: list[str]) -> list[dict]:
                     if essid and essid not in probed_essids:
                         probed_essids.append(essid)
 
-            clients.append({
-                'mac': mac,
-                'rssi': rssi,
-                'packets': packets,
-                'bssid': bssid,
-                'probed_essids': probed_essids,
-            })
+            clients.append(
+                {
+                    "mac": mac,
+                    "rssi": rssi,
+                    "packets": packets,
+                    "bssid": bssid,
+                    "probed_essids": probed_essids,
+                }
+            )
 
         except Exception as e:
             logger.debug(f"Error parsing client line: {line!r} - {e}")
@@ -343,17 +345,17 @@ def _parse_airodump_security(privacy: str) -> str:
     """Parse airodump privacy field to security type."""
     privacy = privacy.upper()
 
-    if not privacy or privacy in ('', 'OPN', 'OPEN'):
+    if not privacy or privacy in ("", "OPN", "OPEN"):
         return SECURITY_OPEN
-    elif 'WPA3' in privacy:
+    elif "WPA3" in privacy:
         return SECURITY_WPA3
-    elif 'WPA2' in privacy and 'WPA' in privacy:
+    elif "WPA2" in privacy and "WPA" in privacy:
         return SECURITY_WPA_WPA2
-    elif 'WPA2' in privacy:
+    elif "WPA2" in privacy:
         return SECURITY_WPA2
-    elif 'WPA' in privacy:
+    elif "WPA" in privacy:
         return SECURITY_WPA
-    elif 'WEP' in privacy:
+    elif "WEP" in privacy:
         return SECURITY_WEP
 
     return SECURITY_UNKNOWN
@@ -363,11 +365,11 @@ def _parse_airodump_cipher(cipher: str) -> str:
     """Parse airodump cipher field."""
     cipher = cipher.upper()
 
-    if 'CCMP' in cipher:
+    if "CCMP" in cipher:
         return CIPHER_CCMP
-    elif 'TKIP' in cipher:
+    elif "TKIP" in cipher:
         return CIPHER_TKIP
-    elif 'WEP' in cipher:
+    elif "WEP" in cipher:
         return CIPHER_WEP
 
     return CIPHER_UNKNOWN
@@ -377,15 +379,15 @@ def _parse_airodump_auth(auth: str) -> str:
     """Parse airodump authentication field."""
     auth = auth.upper()
 
-    if 'SAE' in auth:
+    if "SAE" in auth:
         return AUTH_SAE
-    elif 'PSK' in auth:
+    elif "PSK" in auth:
         return AUTH_PSK
-    elif 'MGT' in auth or 'EAP' in auth or '802.1X' in auth:
+    elif "MGT" in auth or "EAP" in auth or "802.1X" in auth:
         return AUTH_EAP
-    elif 'OWE' in auth:
+    elif "OWE" in auth:
         return AUTH_OWE
-    elif 'OPN' in auth or 'OPEN' in auth:
+    elif "OPN" in auth or "OPEN" in auth:
         return AUTH_OPEN
 
     return AUTH_UNKNOWN

@@ -15,12 +15,13 @@ from typing import Any
 from utils.database import add_correlation
 from utils.database import get_correlations as db_get_correlations
 
-logger = logging.getLogger('intercept.correlation')
+logger = logging.getLogger("intercept.correlation")
 
 
 @dataclass
 class DeviceObservation:
     """A single observation of a device."""
+
     mac: str
     first_seen: datetime
     last_seen: datetime
@@ -39,12 +40,7 @@ class DeviceCorrelator:
     3. They share the same OUI/manufacturer (bonus confidence)
     """
 
-    def __init__(
-        self,
-        time_window_seconds: int = 30,
-        min_confidence: float = 0.5,
-        rssi_threshold: int = 20
-    ):
+    def __init__(self, time_window_seconds: int = 30, min_confidence: float = 0.5, rssi_threshold: int = 20):
         """
         Initialize correlator.
 
@@ -57,11 +53,7 @@ class DeviceCorrelator:
         self.min_confidence = min_confidence
         self.rssi_threshold = rssi_threshold
 
-    def correlate(
-        self,
-        wifi_devices: dict[str, dict[str, Any]],
-        bt_devices: dict[str, dict[str, Any]]
-    ) -> list[dict]:
+    def correlate(self, wifi_devices: dict[str, dict[str, Any]], bt_devices: dict[str, dict[str, Any]]) -> list[dict]:
         """
         Find correlations between WiFi and Bluetooth devices.
 
@@ -75,26 +67,28 @@ class DeviceCorrelator:
         correlations = []
 
         for wifi_mac, wifi_data in wifi_devices.items():
-            wifi_obs = self._to_observation(wifi_mac, wifi_data, 'wifi')
+            wifi_obs = self._to_observation(wifi_mac, wifi_data, "wifi")
             if not wifi_obs:
                 continue
 
             for bt_mac, bt_data in bt_devices.items():
-                bt_obs = self._to_observation(bt_mac, bt_data, 'bluetooth')
+                bt_obs = self._to_observation(bt_mac, bt_data, "bluetooth")
                 if not bt_obs:
                     continue
 
                 confidence = self._calculate_confidence(wifi_obs, bt_obs)
 
                 if confidence >= self.min_confidence:
-                    correlations.append({
-                        'wifi_mac': wifi_mac,
-                        'wifi_name': wifi_obs.name,
-                        'bt_mac': bt_mac,
-                        'bt_name': bt_obs.name,
-                        'confidence': round(confidence, 2),
-                        'reason': self._get_correlation_reason(wifi_obs, bt_obs)
-                    })
+                    correlations.append(
+                        {
+                            "wifi_mac": wifi_mac,
+                            "wifi_name": wifi_obs.name,
+                            "bt_mac": bt_mac,
+                            "bt_name": bt_obs.name,
+                            "confidence": round(confidence, 2),
+                            "reason": self._get_correlation_reason(wifi_obs, bt_obs),
+                        }
+                    )
 
                     # Persist high-confidence correlations
                     if confidence >= 0.7:
@@ -103,73 +97,56 @@ class DeviceCorrelator:
                                 wifi_mac=wifi_mac,
                                 bt_mac=bt_mac,
                                 confidence=confidence,
-                                metadata={
-                                    'wifi_name': wifi_obs.name,
-                                    'bt_name': bt_obs.name
-                                }
+                                metadata={"wifi_name": wifi_obs.name, "bt_name": bt_obs.name},
                             )
                         except Exception as e:
                             logger.debug(f"Failed to persist correlation: {e}")
 
         # Sort by confidence (highest first)
-        correlations.sort(key=lambda x: x['confidence'], reverse=True)
+        correlations.sort(key=lambda x: x["confidence"], reverse=True)
 
         return correlations
 
-    def _to_observation(
-        self,
-        mac: str,
-        data: dict[str, Any],
-        device_type: str
-    ) -> DeviceObservation | None:
+    def _to_observation(self, mac: str, data: dict[str, Any], device_type: str) -> DeviceObservation | None:
         """Convert device dict to observation."""
         try:
             # Handle different timestamp formats
-            first_seen = data.get('first_seen') or data.get('firstSeen')
-            last_seen = data.get('last_seen') or data.get('lastSeen')
+            first_seen = data.get("first_seen") or data.get("firstSeen")
+            last_seen = data.get("last_seen") or data.get("lastSeen")
 
             if isinstance(first_seen, str):
-                first_seen = datetime.fromisoformat(first_seen.replace('Z', '+00:00'))
+                first_seen = datetime.fromisoformat(first_seen.replace("Z", "+00:00"))
             elif isinstance(first_seen, (int, float)):
                 first_seen = datetime.fromtimestamp(first_seen / 1000)
             else:
                 first_seen = datetime.now()
 
             if isinstance(last_seen, str):
-                last_seen = datetime.fromisoformat(last_seen.replace('Z', '+00:00'))
+                last_seen = datetime.fromisoformat(last_seen.replace("Z", "+00:00"))
             elif isinstance(last_seen, (int, float)):
                 last_seen = datetime.fromtimestamp(last_seen / 1000)
             else:
                 last_seen = datetime.now()
 
             # Get RSSI (different field names)
-            rssi = data.get('rssi') or data.get('power') or data.get('signal')
+            rssi = data.get("rssi") or data.get("power") or data.get("signal")
             if rssi is not None:
                 rssi = int(rssi)
 
             # Get name
-            name = data.get('name') or data.get('essid') or data.get('ssid')
+            name = data.get("name") or data.get("essid") or data.get("ssid")
 
             # Get manufacturer
-            manufacturer = data.get('manufacturer') or data.get('vendor')
+            manufacturer = data.get("manufacturer") or data.get("vendor")
 
             return DeviceObservation(
-                mac=mac,
-                first_seen=first_seen,
-                last_seen=last_seen,
-                rssi=rssi,
-                name=name,
-                manufacturer=manufacturer
+                mac=mac, first_seen=first_seen, last_seen=last_seen, rssi=rssi, name=name, manufacturer=manufacturer
             )
         except Exception as e:
             logger.debug(f"Failed to parse device {mac}: {e}")
             return None
 
-    def _calculate_confidence(
-        self,
-        wifi: DeviceObservation,
-        bt: DeviceObservation
-    ) -> float:
+    def _calculate_confidence(self, wifi: DeviceObservation, bt: DeviceObservation) -> float:
         """
         Calculate correlation confidence score.
 
@@ -227,11 +204,7 @@ class DeviceCorrelator:
 
         return min(confidence, 1.0)
 
-    def _get_correlation_reason(
-        self,
-        wifi: DeviceObservation,
-        bt: DeviceObservation
-    ) -> str:
+    def _get_correlation_reason(self, wifi: DeviceObservation, bt: DeviceObservation) -> str:
         """Generate human-readable reason for correlation."""
         reasons = []
 
@@ -263,7 +236,7 @@ def get_correlations(
     wifi_devices: dict[str, dict] | None = None,
     bt_devices: dict[str, dict] | None = None,
     min_confidence: float = 0.5,
-    include_historical: bool = True
+    include_historical: bool = True,
 ) -> list[dict]:
     """
     Get device correlations.
@@ -291,23 +264,23 @@ def get_correlations(
             for h in historical:
                 # Avoid duplicates
                 existing = next(
-                    (r for r in results
-                     if r['wifi_mac'] == h['wifi_mac'] and r['bt_mac'] == h['bt_mac']),
-                    None
+                    (r for r in results if r["wifi_mac"] == h["wifi_mac"] and r["bt_mac"] == h["bt_mac"]), None
                 )
                 if not existing:
-                    results.append({
-                        'wifi_mac': h['wifi_mac'],
-                        'bt_mac': h['bt_mac'],
-                        'confidence': h['confidence'],
-                        'reason': 'historical correlation',
-                        'first_seen': h['first_seen'],
-                        'last_seen': h['last_seen']
-                    })
+                    results.append(
+                        {
+                            "wifi_mac": h["wifi_mac"],
+                            "bt_mac": h["bt_mac"],
+                            "confidence": h["confidence"],
+                            "reason": "historical correlation",
+                            "first_seen": h["first_seen"],
+                            "last_seen": h["last_seen"],
+                        }
+                    )
         except Exception as e:
             logger.debug(f"Failed to get historical correlations: {e}")
 
     # Sort by confidence
-    results.sort(key=lambda x: x['confidence'], reverse=True)
+    results.sort(key=lambda x: x["confidence"], reverse=True)
 
     return results

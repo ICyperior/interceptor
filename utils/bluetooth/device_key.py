@@ -119,6 +119,6 @@ def extract_key_type(device_key: str) -> str:
     Returns:
         The key type ('id', 'mac', or 'fp').
     """
-    if ':' in device_key:
-        return device_key.split(':', 1)[0]
-    return 'unknown'
+    if ":" in device_key:
+        return device_key.split(":", 1)[0]
+    return "unknown"

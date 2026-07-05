@@ -21,45 +21,45 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-logger = logging.getLogger('intercept.tscm.ble')
+logger = logging.getLogger("intercept.tscm.ble")
 
 # Manufacturer company IDs (Bluetooth SIG assigned)
 COMPANY_IDS = {
-    0x004C: 'Apple',
-    0x02E5: 'Espressif',
-    0x0059: 'Nordic Semiconductor',
-    0x000D: 'Texas Instruments',
-    0x0075: 'Samsung',
-    0x00E0: 'Google',
-    0x0006: 'Microsoft',
-    0x01DA: 'Tile',
+    0x004C: "Apple",
+    0x02E5: "Espressif",
+    0x0059: "Nordic Semiconductor",
+    0x000D: "Texas Instruments",
+    0x0075: "Samsung",
+    0x00E0: "Google",
+    0x0006: "Microsoft",
+    0x01DA: "Tile",
 }
 
 # Known tracker signatures
 TRACKER_SIGNATURES = {
     # Apple AirTag detection patterns
-    'airtag': {
-        'company_id': 0x004C,
-        'data_patterns': [
-            b'\x12\x19',  # AirTag/Find My advertisement prefix
-            b'\x07\x19',  # Offline Finding
+    "airtag": {
+        "company_id": 0x004C,
+        "data_patterns": [
+            b"\x12\x19",  # AirTag/Find My advertisement prefix
+            b"\x07\x19",  # Offline Finding
         ],
-        'name_patterns': ['airtag', 'findmy', 'find my'],
+        "name_patterns": ["airtag", "findmy", "find my"],
     },
     # Tile tracker
-    'tile': {
-        'company_id': 0x01DA,
-        'name_patterns': ['tile'],
+    "tile": {
+        "company_id": 0x01DA,
+        "name_patterns": ["tile"],
     },
     # Samsung SmartTag
-    'smarttag': {
-        'company_id': 0x0075,
-        'name_patterns': ['smarttag', 'smart tag', 'galaxy smart'],
+    "smarttag": {
+        "company_id": 0x0075,
+        "name_patterns": ["smarttag", "smart tag", "galaxy smart"],
     },
     # ESP32/ESP8266
-    'espressif': {
-        'company_id': 0x02E5,
-        'name_patterns': ['esp32', 'esp8266', 'espressif'],
+    "espressif": {
+        "company_id": 0x02E5,
+        "name_patterns": ["esp32", "esp8266", "espressif"],
     },
 }
 
@@ -67,6 +67,7 @@ TRACKER_SIGNATURES = {
 @dataclass
 class BLEDevice:
     """Represents a detected BLE device with full advertisement data."""
+
     mac: str
     name: Optional[str] = None
     rssi: Optional[int] = None
@@ -92,22 +93,22 @@ class BLEDevice:
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
-            'mac': self.mac,
-            'name': self.name or 'Unknown',
-            'rssi': self.rssi,
-            'manufacturer_id': self.manufacturer_id,
-            'manufacturer_name': self.manufacturer_name,
-            'service_uuids': self.service_uuids,
-            'tx_power': self.tx_power,
-            'is_connectable': self.is_connectable,
-            'is_airtag': self.is_airtag,
-            'is_tile': self.is_tile,
-            'is_smarttag': self.is_smarttag,
-            'is_espressif': self.is_espressif,
-            'is_tracker': self.is_tracker,
-            'tracker_type': self.tracker_type,
-            'detection_count': self.detection_count,
-            'type': 'ble',
+            "mac": self.mac,
+            "name": self.name or "Unknown",
+            "rssi": self.rssi,
+            "manufacturer_id": self.manufacturer_id,
+            "manufacturer_name": self.manufacturer_name,
+            "service_uuids": self.service_uuids,
+            "tx_power": self.tx_power,
+            "is_connectable": self.is_connectable,
+            "is_airtag": self.is_airtag,
+            "is_tile": self.is_tile,
+            "is_smarttag": self.is_smarttag,
+            "is_espressif": self.is_espressif,
+            "is_tracker": self.is_tracker,
+            "tracker_type": self.tracker_type,
+            "detection_count": self.detection_count,
+            "type": "ble",
         }
 
 
@@ -128,6 +129,7 @@ class BLEScanner:
         """Check if bleak library is available."""
         try:
             import bleak
+
             return True
         except ImportError:
             logger.warning("bleak library not available - using fallback scanning")
@@ -177,7 +179,7 @@ class BLEScanner:
                     if adv_data.manufacturer_data:
                         for company_id, data in adv_data.manufacturer_data.items():
                             ble_device.manufacturer_id = company_id
-                            ble_device.manufacturer_name = COMPANY_IDS.get(company_id, f'Unknown ({hex(company_id)})')
+                            ble_device.manufacturer_name = COMPANY_IDS.get(company_id, f"Unknown ({hex(company_id)})")
                             # Handle various data types safely
                             try:
                                 if isinstance(data, (bytes, bytearray, list, tuple)):
@@ -259,19 +261,19 @@ class BLEScanner:
                 if data[0] == 0x12 and data[1] == 0x19:
                     device.is_airtag = True
                     device.is_tracker = True
-                    device.tracker_type = 'AirTag'
+                    device.tracker_type = "AirTag"
                     logger.info(f"AirTag detected: {device.mac}")
                 elif data[0] == 0x07:  # Offline Finding
                     device.is_airtag = True
                     device.is_tracker = True
-                    device.tracker_type = 'AirTag (Offline)'
+                    device.tracker_type = "AirTag (Offline)"
                     logger.info(f"AirTag (offline mode) detected: {device.mac}")
 
         # Tile tracker
         elif company_id == 0x01DA:  # Tile
             device.is_tile = True
             device.is_tracker = True
-            device.tracker_type = 'Tile'
+            device.tracker_type = "Tile"
             logger.info(f"Tile tracker detected: {device.mac}")
 
         # Samsung SmartTag
@@ -279,13 +281,13 @@ class BLEScanner:
             # Check if it's specifically a SmartTag
             device.is_smarttag = True
             device.is_tracker = True
-            device.tracker_type = 'SmartTag'
+            device.tracker_type = "SmartTag"
             logger.info(f"Samsung SmartTag detected: {device.mac}")
 
         # Espressif (ESP32/ESP8266)
         elif company_id == 0x02E5:  # Espressif
             device.is_espressif = True
-            device.tracker_type = 'ESP32/ESP8266'
+            device.tracker_type = "ESP32/ESP8266"
             logger.info(f"ESP32/ESP8266 device detected: {device.mac}")
 
     def _check_name_patterns(self, device: BLEDevice):
@@ -297,24 +299,24 @@ class BLEScanner:
 
         # Check each tracker type
         for tracker_type, sig in TRACKER_SIGNATURES.items():
-            patterns = sig.get('name_patterns', [])
+            patterns = sig.get("name_patterns", [])
             for pattern in patterns:
                 if pattern in name_lower:
-                    if tracker_type == 'airtag':
+                    if tracker_type == "airtag":
                         device.is_airtag = True
                         device.is_tracker = True
-                        device.tracker_type = 'AirTag'
-                    elif tracker_type == 'tile':
+                        device.tracker_type = "AirTag"
+                    elif tracker_type == "tile":
                         device.is_tile = True
                         device.is_tracker = True
-                        device.tracker_type = 'Tile'
-                    elif tracker_type == 'smarttag':
+                        device.tracker_type = "Tile"
+                    elif tracker_type == "smarttag":
                         device.is_smarttag = True
                         device.is_tracker = True
-                        device.tracker_type = 'SmartTag'
-                    elif tracker_type == 'espressif':
+                        device.tracker_type = "SmartTag"
+                    elif tracker_type == "espressif":
                         device.is_espressif = True
-                        device.tracker_type = 'ESP32/ESP8266'
+                        device.tracker_type = "ESP32/ESP8266"
 
                     logger.info(f"Tracker identified by name: {device.name} -> {tracker_type}")
                     return
@@ -326,7 +328,7 @@ class BLEScanner:
         """
         system = platform.system()
 
-        if system == 'Darwin':
+        if system == "Darwin":
             return self._scan_macos(duration)
         else:
             return self._scan_linux(duration)
@@ -337,20 +339,20 @@ class BLEScanner:
 
         try:
             import json
+
             result = subprocess.run(
-                ['system_profiler', 'SPBluetoothDataType', '-json'],
-                capture_output=True, text=True, timeout=15
+                ["system_profiler", "SPBluetoothDataType", "-json"], capture_output=True, text=True, timeout=15
             )
             data = json.loads(result.stdout)
-            bt_data = data.get('SPBluetoothDataType', [{}])[0]
+            bt_data = data.get("SPBluetoothDataType", [{}])[0]
 
             # Get connected/paired devices
-            for section in ['device_connected', 'device_title']:
+            for section in ["device_connected", "device_title"]:
                 section_data = bt_data.get(section, {})
                 if isinstance(section_data, dict):
                     for name, info in section_data.items():
                         if isinstance(info, dict):
-                            mac = info.get('device_address', '').upper()
+                            mac = info.get("device_address", "").upper()
                             if mac:
                                 device = BLEDevice(
                                     mac=mac,
@@ -374,26 +376,23 @@ class BLEScanner:
         seen_macs = set()
 
         # Method 1: Try btmgmt for BLE devices
-        if shutil.which('btmgmt'):
+        if shutil.which("btmgmt"):
             try:
                 logger.info("Trying btmgmt find...")
-                result = subprocess.run(
-                    ['btmgmt', 'find'],
-                    capture_output=True, text=True, timeout=duration + 5
-                )
+                result = subprocess.run(["btmgmt", "find"], capture_output=True, text=True, timeout=duration + 5)
 
-                for line in result.stdout.split('\n'):
-                    if 'dev_found' in line.lower() or ('type' in line.lower() and ':' in line):
+                for line in result.stdout.split("\n"):
+                    if "dev_found" in line.lower() or ("type" in line.lower() and ":" in line):
                         mac_match = re.search(
-                            r'([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:'
-                            r'[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})',
-                            line
+                            r"([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:"
+                            r"[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})",
+                            line,
                         )
                         if mac_match:
                             mac = mac_match.group(1).upper()
                             if mac not in seen_macs:
                                 seen_macs.add(mac)
-                                name_match = re.search(r'name\s+(.+?)(?:\s|$)', line, re.I)
+                                name_match = re.search(r"name\s+(.+?)(?:\s|$)", line, re.I)
                                 name = name_match.group(1) if name_match else None
 
                                 device = BLEDevice(mac=mac, name=name)
@@ -405,28 +404,26 @@ class BLEScanner:
                 logger.warning(f"btmgmt failed: {e}")
 
         # Method 2: Try hcitool lescan
-        if not devices and shutil.which('hcitool'):
+        if not devices and shutil.which("hcitool"):
             try:
                 logger.info("Trying hcitool lescan...")
                 # Start lescan in background
                 process = subprocess.Popen(
-                    ['hcitool', 'lescan', '--duplicates'],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True
+                    ["hcitool", "lescan", "--duplicates"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
                 )
 
                 import time
+
                 time.sleep(duration)
                 process.terminate()
 
                 stdout, _ = process.communicate(timeout=2)
 
-                for line in stdout.split('\n'):
+                for line in stdout.split("\n"):
                     mac_match = re.search(
-                        r'([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:'
-                        r'[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})',
-                        line
+                        r"([0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:"
+                        r"[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2})",
+                        line,
                     )
                     if mac_match:
                         mac = mac_match.group(1).upper()
@@ -434,9 +431,9 @@ class BLEScanner:
                             seen_macs.add(mac)
                             # Extract name (comes after MAC)
                             parts = line.strip().split()
-                            name = ' '.join(parts[1:]) if len(parts) > 1 else None
+                            name = " ".join(parts[1:]) if len(parts) > 1 else None
 
-                            device = BLEDevice(mac=mac, name=name if name != '(unknown)' else None)
+                            device = BLEDevice(mac=mac, name=name if name != "(unknown)" else None)
                             self._check_name_patterns(device)
                             devices.append(device)
 

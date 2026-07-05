@@ -15,6 +15,7 @@ from typing import Any, Callable
 @dataclass
 class _QueueFanoutChannel:
     """Internal fanout state for a source queue."""
+
     source_queue: queue.Queue
     source_timeout: float
     subscribers: set[queue.Queue] = field(default_factory=set)
@@ -154,7 +155,7 @@ def sse_stream_fanout(
 
     # Send an immediate keepalive so the browser receives response headers
     # right away (Werkzeug dev server buffers headers until first body byte).
-    yield format_sse({'type': 'keepalive'})
+    yield format_sse({"type": "keepalive"})
 
     try:
         while True:
@@ -171,7 +172,7 @@ def sse_stream_fanout(
             except queue.Empty:
                 now = time.time()
                 if now - last_keepalive >= keepalive_interval:
-                    yield format_sse({'type': 'keepalive'})
+                    yield format_sse({"type": "keepalive"})
                     last_keepalive = now
     finally:
         unsubscribe()
@@ -228,7 +229,7 @@ def format_sse(data: dict[str, Any] | str, event: str | None = None) -> str:
     lines.append("")
     lines.append("")
 
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 def clear_queue(q: queue.Queue) -> int:

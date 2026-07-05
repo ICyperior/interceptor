@@ -17,21 +17,21 @@ class HackRFCommandBuilder(CommandBuilder):
 
     CAPABILITIES = SDRCapabilities(
         sdr_type=SDRType.HACKRF,
-        freq_min_mhz=1.0,        # 1 MHz
-        freq_max_mhz=6000.0,     # 6 GHz
+        freq_min_mhz=1.0,  # 1 MHz
+        freq_max_mhz=6000.0,  # 6 GHz
         gain_min=0.0,
-        gain_max=102.0,          # LNA (0-40) + VGA (0-62)
+        gain_max=102.0,  # LNA (0-40) + VGA (0-62)
         sample_rates=[2000000, 4000000, 8000000, 10000000, 20000000],
         supports_bias_t=True,
         supports_ppm=False,
-        tx_capable=True
+        tx_capable=True,
     )
 
     def _build_device_string(self, device: SDRDevice) -> str:
         """Build SoapySDR device string for HackRF."""
-        if device.serial and device.serial != 'N/A':
-            return f'driver=hackrf,serial={device.serial}'
-        return 'driver=hackrf'
+        if device.serial and device.serial != "N/A":
+            return f"driver=hackrf,serial={device.serial}"
+        return "driver=hackrf"
 
     def _split_gain(self, gain: float) -> tuple[int, int]:
         """
@@ -61,7 +61,7 @@ class HackRFCommandBuilder(CommandBuilder):
         ppm: int | None = None,
         modulation: str = "fm",
         squelch: int | None = None,
-        bias_t: bool = False
+        bias_t: bool = False,
     ) -> list[str]:
         """
         Build SoapySDR rx_fm command for FM demodulation.
@@ -70,36 +70,35 @@ class HackRFCommandBuilder(CommandBuilder):
         """
         device_str = self._build_device_string(device)
 
-        rx_fm_path = get_tool_path('rx_fm') or 'rx_fm'
+        rx_fm_path = get_tool_path("rx_fm") or "rx_fm"
         cmd = [
             rx_fm_path,
-            '-d', device_str,
-            '-f', f'{frequency_mhz}M',
-            '-M', modulation,
-            '-s', str(sample_rate),
+            "-d",
+            device_str,
+            "-f",
+            f"{frequency_mhz}M",
+            "-M",
+            modulation,
+            "-s",
+            str(sample_rate),
         ]
 
         if gain is not None and gain > 0:
             lna, vga = self._split_gain(gain)
-            cmd.extend(['-g', f'LNA={lna},VGA={vga}'])
+            cmd.extend(["-g", f"LNA={lna},VGA={vga}"])
 
         if squelch is not None and squelch > 0:
-            cmd.extend(['-l', str(squelch)])
+            cmd.extend(["-l", str(squelch)])
 
         if bias_t:
-            cmd.extend(['-T'])
+            cmd.extend(["-T"])
 
         # Output to stdout
-        cmd.append('-')
+        cmd.append("-")
 
         return cmd
 
-    def build_adsb_command(
-        self,
-        device: SDRDevice,
-        gain: float | None = None,
-        bias_t: bool = False
-    ) -> list[str]:
+    def build_adsb_command(self, device: SDRDevice, gain: float | None = None, bias_t: bool = False) -> list[str]:
         """
         Build dump1090/readsb command with SoapySDR support for ADS-B decoding.
 
@@ -107,19 +106,13 @@ class HackRFCommandBuilder(CommandBuilder):
         """
         device_str = self._build_device_string(device)
 
-        cmd = [
-            'readsb',
-            '--net',
-            '--device-type', 'soapysdr',
-            '--device', device_str,
-            '--quiet'
-        ]
+        cmd = ["readsb", "--net", "--device-type", "soapysdr", "--device", device_str, "--quiet"]
 
         if gain is not None:
-            cmd.extend(['--gain', str(int(gain))])
+            cmd.extend(["--gain", str(int(gain))])
 
         if bias_t:
-            cmd.extend(['--enable-bias-t'])
+            cmd.extend(["--enable-bias-t"])
 
         return cmd
 
@@ -129,7 +122,7 @@ class HackRFCommandBuilder(CommandBuilder):
         frequency_mhz: float = 433.92,
         gain: float | None = None,
         ppm: int | None = None,
-        bias_t: bool = False
+        bias_t: bool = False,
     ) -> list[str]:
         """
         Build rtl_433 command with SoapySDR support for ISM band decoding.
@@ -142,17 +135,12 @@ class HackRFCommandBuilder(CommandBuilder):
         # Build device string with optional bias-t setting
         device_str = self._build_device_string(device)
         if bias_t:
-            device_str = f'{device_str},bias_t=1'
+            device_str = f"{device_str},bias_t=1"
 
-        cmd = [
-            'rtl_433',
-            '-d', device_str,
-            '-f', f'{frequency_mhz}M',
-            '-F', 'json'
-        ]
+        cmd = ["rtl_433", "-d", device_str, "-f", f"{frequency_mhz}M", "-F", "json"]
 
         if gain is not None and gain > 0:
-            cmd.extend(['-g', str(int(gain))])
+            cmd.extend(["-g", str(int(gain))])
 
         return cmd
 
@@ -173,21 +161,24 @@ class HackRFCommandBuilder(CommandBuilder):
         device_str = self._build_device_string(device)
 
         cmd = [
-            'AIS-catcher',
-            '-d', f'soapysdr -d {device_str}',
-            '-S', str(tcp_port),
-            '-o', '5',
-            '-q',
+            "AIS-catcher",
+            "-d",
+            f"soapysdr -d {device_str}",
+            "-S",
+            str(tcp_port),
+            "-o",
+            "5",
+            "-q",
         ]
 
         if gain is not None and gain > 0:
-            cmd.extend(['-gr', 'tuner', str(int(gain))])
+            cmd.extend(["-gr", "tuner", str(int(gain))])
 
         if bias_t:
-            cmd.extend(['-gr', 'biastee', '1'])
+            cmd.extend(["-gr", "biastee", "1"])
 
         if udp_host and udp_port:
-            cmd.extend(['-u', udp_host, str(udp_port)])
+            cmd.extend(["-u", udp_host, str(udp_port)])
 
         return cmd
 
@@ -199,7 +190,7 @@ class HackRFCommandBuilder(CommandBuilder):
         gain: float | None = None,
         ppm: int | None = None,
         bias_t: bool = False,
-        output_format: str = 'cu8',
+        output_format: str = "cu8",
     ) -> list[str]:
         """
         Build rx_sdr command for raw I/Q capture with HackRF.
@@ -209,24 +200,28 @@ class HackRFCommandBuilder(CommandBuilder):
         device_str = self._build_device_string(device)
         freq_hz = int(frequency_mhz * 1e6)
 
-        rx_sdr_path = get_tool_path('rx_sdr') or 'rx_sdr'
+        rx_sdr_path = get_tool_path("rx_sdr") or "rx_sdr"
         cmd = [
             rx_sdr_path,
-            '-d', device_str,
-            '-f', str(freq_hz),
-            '-s', str(sample_rate),
-            '-F', 'CU8',
+            "-d",
+            device_str,
+            "-f",
+            str(freq_hz),
+            "-s",
+            str(sample_rate),
+            "-F",
+            "CU8",
         ]
 
         if gain is not None and gain > 0:
             lna, vga = self._split_gain(gain)
-            cmd.extend(['-g', f'LNA={lna},VGA={vga}'])
+            cmd.extend(["-g", f"LNA={lna},VGA={vga}"])
 
         if bias_t:
-            cmd.append('-T')
+            cmd.append("-T")
 
         # Output to stdout
-        cmd.append('-')
+        cmd.append("-")
 
         return cmd
 
