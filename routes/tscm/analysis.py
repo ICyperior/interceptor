@@ -28,6 +28,22 @@ from utils.tscm.correlation import get_correlation_engine
 
 logger = logging.getLogger('intercept.tscm')
 
+_VALID_CATEGORIES = {'high_interest', 'needs_review', 'informational'}
+
+
+def _parse_categories_param(raw: str) -> list[str] | None:
+    """Parse a comma-separated `categories` query param into a validated list.
+
+    Returns None (meaning "all") when the param is absent or covers all three
+    categories, so callers can skip filtering in the common case.
+    """
+    if not raw:
+        return None
+    cats = [c.strip() for c in raw.split(',') if c.strip() in _VALID_CATEGORIES]
+    if not cats or set(cats) == _VALID_CATEGORIES:
+        return None
+    return cats
+
 
 # =============================================================================
 # Threat Endpoints
@@ -264,6 +280,8 @@ def get_pdf_report():
         if not sweep:
             return jsonify({'status': 'error', 'message': 'Sweep not found'}), 404
 
+        categories = _parse_categories_param(request.args.get('categories', ''))
+
         # Get data for report
         correlation = get_correlation_engine()
         profiles = [p.to_dict() for p in correlation.device_profiles.values()]
@@ -278,7 +296,8 @@ def get_pdf_report():
             sweep_data=sweep,
             device_profiles=profiles,
             capabilities=caps,
-            timelines=timelines
+            timelines=timelines,
+            categories=categories,
         )
 
         pdf_content = get_pdf_report(report)
@@ -319,6 +338,8 @@ def get_technical_annex():
         if not sweep:
             return jsonify({'status': 'error', 'message': 'Sweep not found'}), 404
 
+        categories = _parse_categories_param(request.args.get('categories', ''))
+
         # Get data for report
         correlation = get_correlation_engine()
         profiles = [p.to_dict() for p in correlation.device_profiles.values()]
@@ -333,7 +354,8 @@ def get_technical_annex():
             sweep_data=sweep,
             device_profiles=profiles,
             capabilities=caps,
-            timelines=timelines
+            timelines=timelines,
+            categories=categories,
         )
 
         if format_type == 'csv':

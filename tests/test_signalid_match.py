@@ -113,9 +113,9 @@ class TestMatchSignals:
     def test_multi_range_signal_matched_by_any_range(self):
         from utils.signal_db import match_signals
         # POCSAG has ranges in 138-175 MHz and 450-470 MHz
-        # 162 MHz is in the first range (maritime VHF area, but also POCSAG territory)
-        results_vhf = match_signals(frequency_mhz=155.0)
-        results_uhf = match_signals(frequency_mhz=455.0)
+        # Use a high limit so the expanded DB doesn't push it out of the window
+        results_vhf = match_signals(frequency_mhz=155.0, limit=20)
+        results_uhf = match_signals(frequency_mhz=455.0, limit=20)
         vhf_names = [r["name"] for r in results_vhf]
         uhf_names = [r["name"] for r in results_uhf]
         assert "POCSAG Pager" in vhf_names
@@ -124,7 +124,8 @@ class TestMatchSignals:
     def test_region_mismatch_does_not_exclude_signal(self):
         from utils.signal_db import match_signals
         # PMR446 is EU/UK only; should still appear with US region but may score lower
-        results = match_signals(frequency_mhz=446.09375, region="US")
+        # Use a high limit since the expanded DB has more signals at 446 MHz
+        results = match_signals(frequency_mhz=446.09375, region="US", limit=20)
         names = [r["name"] for r in results]
         assert "PMR446 (Licence-Free UHF)" in names
 

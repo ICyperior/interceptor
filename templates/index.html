@@ -12260,6 +12260,7 @@
                     // Clear and reset the signal timeline for new sweep
                     SignalTimeline.clear();
                     document.getElementById('tscmReportBtn').style.display = 'none';
+                    document.getElementById('tscmReportCategoryFilter').style.display = 'none';
 
                     // Show warnings if any devices unavailable
                     if (scanResult.warnings && scanResult.warnings.length > 0) {
@@ -12361,9 +12362,10 @@
             document.getElementById('stopTscmBtn').style.display = 'none';
             document.getElementById('tscmProgress').style.display = 'none';
 
-            // Show report button if we have any data
+            // Show report button and category filter if we have any data
             const hasData = tscmWifiDevices.length > 0 || tscmBtDevices.length > 0 || tscmRfSignals.length > 0;
             document.getElementById('tscmReportBtn').style.display = hasData ? 'block' : 'none';
+            document.getElementById('tscmReportCategoryFilter').style.display = hasData ? 'block' : 'none';
 
             return postStopRequest(endpoint, timeoutMs);
         }
@@ -12383,18 +12385,30 @@
                 ...tscmRfSignals.map(d => ({ ...d, protocol: 'RF' }))
             ];
 
-            const highInterest = allDevices.filter(d => d.classification === 'high_interest' || d.score >= 6);
-            const needsReview = allDevices.filter(d => d.classification === 'review' || (d.score >= 3 && d.score < 6));
-            const informational = allDevices.filter(d => d.classification === 'informational' || d.score < 3);
+            const allHighInterest = allDevices.filter(d => d.classification === 'high_interest' || d.score >= 6);
+            const allNeedsReview = allDevices.filter(d => d.classification === 'review' || (d.score >= 3 && d.score < 6));
+            const allInformational = allDevices.filter(d => d.classification === 'informational' || d.score < 3);
 
-            // Determine overall assessment
+            // Apply category filter from sidebar checkboxes
+            const incHighInterest = document.getElementById('tscmCatHighInterest')?.checked ?? true;
+            const incNeedsReview = document.getElementById('tscmCatNeedsReview')?.checked ?? true;
+            const incInformational = document.getElementById('tscmCatInformational')?.checked ?? false;
+            const highInterest = incHighInterest ? allHighInterest : [];
+            const needsReview = incNeedsReview ? allNeedsReview : [];
+            const informational = incInformational ? allInformational : [];
+
+            const categoryNote = (!incHighInterest || !incNeedsReview || !incInformational)
+                ? `<div style="font-size:11px; color:#6b7280; margin-top:8px;">Filtered: showing ${[incHighInterest && 'High Interest', incNeedsReview && 'Needs Review', incInformational && 'Informational'].filter(Boolean).join(', ') || 'none'} only</div>`
+                : '';
+
+            // Determine overall assessment (based on all data, not filter)
             let assessment = 'LOW CONCERN';
             let assessmentClass = 'informational';
-            if (highInterest.length > 0) {
-                assessment = `ELEVATED CONCERN: ${highInterest.length} high-interest item(s) detected requiring immediate attention`;
+            if (allHighInterest.length > 0) {
+                assessment = `ELEVATED CONCERN: ${allHighInterest.length} high-interest item(s) detected requiring immediate attention`;
                 assessmentClass = 'high-interest';
-            } else if (needsReview.length > 0) {
-                assessment = `MODERATE CONCERN: ${needsReview.length} item(s) requiring further review`;
+            } else if (allNeedsReview.length > 0) {
+                assessment = `MODERATE CONCERN: ${allNeedsReview.length} item(s) requiring further review`;
                 assessmentClass = 'needs-review';
             } else {
                 assessment = 'LOW CONCERN: No anomalies flagged by automated scan. Manual inspection recommended for comprehensive assessment.';
@@ -12765,6 +12779,7 @@
             <div class="assessment ${assessmentClass}">
                 <strong>Assessment:</strong> ${assessment}
             </div>
+            ${categoryNote}
         </div>
 
         ${highInterest.length > 0 ? `
@@ -16216,9 +16231,18 @@
         }
 
         // Report Downloads
+        function _tscmCategoryParam() {
+            const cats = [];
+            if (document.getElementById('tscmCatHighInterest')?.checked) cats.push('high_interest');
+            if (document.getElementById('tscmCatNeedsReview')?.checked) cats.push('needs_review');
+            if (document.getElementById('tscmCatInformational')?.checked) cats.push('informational');
+            return cats.length < 3 ? `categories=${cats.join(',')}` : '';
+        }
+
         async function tscmDownloadPdf() {
             try {
-                const response = await fetch('/tscm/report/pdf');
+                const catParam = _tscmCategoryParam();
+                const response = await fetch(`/tscm/report/pdf${catParam ? '?' + catParam : ''}`);
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = URL.createObjectURL(blob);
@@ -16241,7 +16265,8 @@
 
         async function tscmDownloadAnnex(format) {
             try {
-                const response = await fetch(`/tscm/report/annex?format=${format}`);
+                const catParam = _tscmCategoryParam();
+                const response = await fetch(`/tscm/report/annex?format=${format}${catParam ? '&' + catParam : ''}`);
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = URL.createObjectURL(blob);

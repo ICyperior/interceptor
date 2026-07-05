@@ -847,6 +847,7 @@ def generate_report(
     baseline_diff: dict | None = None,
     meeting_summaries: list[dict] | None = None,
     correlations: list[dict] | None = None,
+    categories: list[str] | None = None,
 ) -> TSCMReport:
     """
     Generate a complete TSCM report from sweep data.
@@ -881,6 +882,17 @@ def generate_report(
 
     # Capabilities
     builder.add_capabilities(capabilities)
+
+    # Apply category filter before building findings
+    if categories:
+        _cat_map = {'needs_review': {'review', 'needs_review'}}
+        allowed = set()
+        for c in categories:
+            allowed |= _cat_map.get(c, {c})
+        device_profiles = [
+            p for p in device_profiles
+            if p.get('risk_level', 'informational') in allowed
+        ]
 
     # Add findings from profiles
     builder.add_findings_from_profiles(device_profiles)
