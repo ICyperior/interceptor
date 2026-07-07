@@ -561,7 +561,11 @@ install_python_deps() {
   progress "Installing Python dependencies"
 
   info "Installing core packages..."
-  $PIP install $PIP_OPTS "flask>=3.0.0" "flask-wtf>=1.2.0" "flask-compress>=1.15" \
+  # --ignore-installed forces packages into the venv even if they already
+  # exist in ~/.local (user site-packages). Without this, pip sees them as
+  # satisfied and skips the venv install, causing the health check to fail
+  # because it runs with 'python -s' which excludes ~/.local.
+  $PIP install $PIP_OPTS --ignore-installed "flask>=3.0.0" "flask-wtf>=1.2.0" "flask-compress>=1.15" \
     "flask-limiter>=2.5.4" "requests>=2.28.0" \
     "Werkzeug>=3.1.5" "pyserial>=3.5" || true
 
@@ -2081,8 +2085,25 @@ do_health_check() {
       ok "Critical Python packages (flask, requests, flask-compress, flask-wtf) — OK"
       ((pass++)) || true
     else
-      fail "Critical Python packages missing in venv"
-      ((fails++)) || true
+      # Packages may be in ~/.local instead of the venv (pip skipped the venv
+      # install if it found them already satisfied in user site-packages).
+      # Attempt a silent fix before reporting failure.
+      warn "Core packages not in venv — attempting auto-fix..."
+      if venv/bin/pip install --quiet --ignore-installed \
+          "flask>=3.0.0" "flask-wtf>=1.2.0" "flask-compress>=1.15" \
+          "flask-limiter>=2.5.4" "requests>=2.28.0" "Werkzeug>=3.1.5" 2>/dev/null \
+        && venv/bin/python -s -c "import flask; import requests; import flask_compress; import flask_wtf" 2>/dev/null; then
+        ok "Critical Python packages — fixed automatically"
+        ((pass++)) || true
+      else
+        fail "Critical Python packages missing in venv"
+        echo ""
+        echo "  This usually means packages are installed in ~/.local but not the venv."
+        echo "  Fix with:"
+        echo "    venv/bin/pip install --ignore-installed flask flask-wtf flask-compress flask-limiter requests"
+        echo ""
+        ((fails++)) || true
+      fi
     fi
   else
     fail "Python venv not found — run Install first"
