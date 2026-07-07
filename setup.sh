@@ -552,7 +552,28 @@ install_python_deps() {
     PIP_OPTS="$PIP_OPTS --prefer-binary"
   fi
 
-  if ! $PIP install $PIP_OPTS --upgrade pip setuptools wheel; then
+  # pip wrapper that filters the send2trash malformed-metadata WARNING.
+  # send2trash ships broken extras metadata on some systems, causing pip to
+  # print a WARNING on every single invocation. We suppress those three lines
+  # while preserving all other output and pip's real exit code.
+  _pip_run() {
+    $PIP "$@" 2>&1 | \
+      grep -Ev "^WARNING: Error parsing dependencies of send2trash|sys-platform.*darwin.*objc| +~\^"
+    return "${PIPESTATUS[0]}"
+  }
+
+  # Silent variant for optional packages: shows nothing on success (suppresses
+  # "Requirement already satisfied" walls), shows filtered output on failure.
+  _pip_optional() {
+    local out rc
+    out=$($PIP install $PIP_OPTS -q "$@" 2>&1) && return 0
+    rc=$?
+    printf '%s\n' "$out" | \
+      grep -Ev "Error parsing dependencies of send2trash|sys-platform.*darwin.*objc| +~\^"
+    return "$rc"
+  }
+
+  if ! _pip_run install $PIP_OPTS --upgrade pip setuptools wheel; then
     warn "pip/setuptools/wheel upgrade failed - continuing with existing versions"
   else
     ok "Upgraded pip tooling"
@@ -565,7 +586,7 @@ install_python_deps() {
   # exist in ~/.local (user site-packages). Without this, pip sees them as
   # satisfied and skips the venv install, causing the health check to fail
   # because it runs with 'python -s' which excludes ~/.local.
-  $PIP install $PIP_OPTS --ignore-installed "flask>=3.0.0" "flask-wtf>=1.2.0" "flask-compress>=1.15" \
+  _pip_run install $PIP_OPTS --ignore-installed "flask>=3.0.0" "flask-wtf>=1.2.0" "flask-compress>=1.15" \
     "flask-limiter>=2.5.4" "requests>=2.28.0" \
     "Werkzeug>=3.1.5" "pyserial>=3.5" || true
 
@@ -597,7 +618,7 @@ install_python_deps() {
     extra_opts=""
     case " $binary_only_pkgs " in *" $pkg_name "*) extra_opts="--only-binary :all:" ;; esac
     info "  Installing ${pkg_name}..."
-    if ! $PIP install $PIP_OPTS $extra_opts "$pkg"; then
+    if ! _pip_optional $extra_opts "$pkg"; then
       warn "${pkg_name} failed to install (optional - related features may be unavailable)"
     fi
   done < requirements.txt
