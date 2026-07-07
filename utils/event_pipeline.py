@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from utils.alerts import get_alert_manager
+from utils.mqtt import publish as mqtt_publish
 from utils.recording import get_recording_manager
 from utils.temporal_patterns import get_pattern_detector
 
@@ -52,6 +53,12 @@ def process_event(mode: str, event: dict | Any, event_type: str | None = None) -
         get_alert_manager().process_event(mode, event, event_type)
     except Exception:
         # Alert failures should never break streaming
+        pass
+
+    try:
+        mqtt_publish(mode, event, event_type)
+    except Exception:
+        # MQTT failures should never break streaming
         pass
 
 

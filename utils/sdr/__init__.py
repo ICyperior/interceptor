@@ -32,6 +32,7 @@ from .hackrf import HackRFCommandBuilder
 from .limesdr import LimeSDRCommandBuilder
 from .rtlsdr import RTLSDRCommandBuilder
 from .sdrplay import SDRPlayCommandBuilder
+from .usrp import USRPCommandBuilder
 from .validation import (
     SDRValidationError,
     get_capabilities_for_type,
@@ -53,6 +54,7 @@ class SDRFactory:
         SDRType.HACKRF: HackRFCommandBuilder,
         SDRType.AIRSPY: AirspyCommandBuilder,
         SDRType.SDRPLAY: SDRPlayCommandBuilder,
+        SDRType.USRP: USRPCommandBuilder,
     }
 
     @classmethod
@@ -211,6 +213,7 @@ __all__ = [
     "HackRFCommandBuilder",
     "AirspyCommandBuilder",
     "SDRPlayCommandBuilder",
+    "USRPCommandBuilder",
     # Validation
     "SDRValidationError",
     "validate_frequency",

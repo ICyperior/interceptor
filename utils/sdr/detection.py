@@ -53,6 +53,7 @@ def _get_capabilities_for_type(sdr_type: SDRType) -> SDRCapabilities:
     from .limesdr import LimeSDRCommandBuilder
     from .rtlsdr import RTLSDRCommandBuilder
     from .sdrplay import SDRPlayCommandBuilder
+    from .usrp import USRPCommandBuilder
 
     builders = {
         SDRType.RTL_SDR: RTLSDRCommandBuilder,
@@ -60,6 +61,7 @@ def _get_capabilities_for_type(sdr_type: SDRType) -> SDRCapabilities:
         SDRType.HACKRF: HackRFCommandBuilder,
         SDRType.AIRSPY: AirspyCommandBuilder,
         SDRType.SDRPLAY: SDRPlayCommandBuilder,
+        SDRType.USRP: USRPCommandBuilder,
     }
 
     builder_class = builders.get(sdr_type)
@@ -90,8 +92,8 @@ def _driver_to_sdr_type(driver: str) -> SDRType | None:
         "airspy": SDRType.AIRSPY,
         "airspyhf": SDRType.AIRSPY,  # Airspy HF+ uses same builder
         "sdrplay": SDRType.SDRPLAY,
+        "uhd": SDRType.USRP,
         # Future support
-        # 'uhd': SDRType.USRP,
         # 'bladerf': SDRType.BLADE_RF,
     }
     return mapping.get(driver.lower())

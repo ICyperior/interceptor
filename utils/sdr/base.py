@@ -20,8 +20,8 @@ class SDRType(Enum):
     HACKRF = "hackrf"
     AIRSPY = "airspy"
     SDRPLAY = "sdrplay"
+    USRP = "usrp"
     # Future support
-    # USRP = "usrp"
     # BLADE_RF = "bladerf"
 
 

@@ -2,6 +2,15 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.30.0] - 2026-07-07
+
+### Added
+- **APRS station export** — `GET /aprs/export?format=json|csv` downloads all currently tracked APRS stations, consistent with the existing WiFi/Bluetooth/AIS export pattern.
+- **USRP support** — Ettus USRP devices (N200, B200, B210) are now detected and usable via the SoapyUHD bridge. FM demod, ADS-B, ISM, AIS, and I/Q capture all supported through the existing SoapySDR toolchain.
+- **MQTT data export** — Optional MQTT publisher that broadcasts decoded events from every module to a configurable broker. Disabled by default; set `INTERCEPT_MQTT_BROKER` to enable. Topics follow the pattern `<prefix>/<module>/<event_type>` (e.g. `intercept/aprs/packet`). Configure with `INTERCEPT_MQTT_PORT`, `INTERCEPT_MQTT_USER`, `INTERCEPT_MQTT_PASSWORD`, `INTERCEPT_MQTT_TOPIC_PREFIX`, `INTERCEPT_MQTT_RETAIN`.
+
+---
+
 ## [2.29.0] - 2026-07-05
 
 ### Added

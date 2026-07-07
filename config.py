@@ -7,10 +7,19 @@ import os
 import sys
 
 # Application version
-VERSION = "2.29.0"
+VERSION = "2.30.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.30.0",
+        "date": "July 2026",
+        "highlights": [
+            "Feat: APRS station export — download all tracked stations as JSON or CSV via /aprs/export",
+            "Feat: USRP support — Ettus USRP N200/B200/B210 detected and usable via SoapyUHD bridge",
+            "Feat: MQTT data export — publish decoded events from all modules to a configurable broker (set INTERCEPT_MQTT_BROKER to enable)",
+        ],
+    },
     {
         "version": "2.29.0",
         "date": "July 2026",
@@ -533,6 +542,14 @@ UPDATE_CHECK_INTERVAL_HOURS = _get_env_int("UPDATE_CHECK_INTERVAL_HOURS", 6)
 ALERT_WEBHOOK_URL = _get_env("ALERT_WEBHOOK_URL", "")
 ALERT_WEBHOOK_SECRET = _get_env("ALERT_WEBHOOK_SECRET", "")
 ALERT_WEBHOOK_TIMEOUT = _get_env_int("ALERT_WEBHOOK_TIMEOUT", 5)
+
+# MQTT data export (optional — disabled when MQTT_BROKER is empty)
+MQTT_BROKER = _get_env("MQTT_BROKER", "")
+MQTT_PORT = _get_env_int("MQTT_PORT", 1883)
+MQTT_USER = _get_env("MQTT_USER", "")
+MQTT_PASSWORD = _get_env("MQTT_PASSWORD", "")
+MQTT_TOPIC_PREFIX = _get_env("MQTT_TOPIC_PREFIX", "intercept")
+MQTT_RETAIN = _get_env_bool("MQTT_RETAIN", False)
 
 # Admin credentials
 ADMIN_USERNAME = _get_env("ADMIN_USERNAME", "admin")

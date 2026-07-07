@@ -1653,6 +1653,48 @@ def get_stations() -> Response:
     return jsonify({"stations": list(aprs_stations.values()), "count": len(aprs_stations)})
 
 
+@aprs_bp.route("/export")
+def export_data() -> Response:
+    """Export tracked APRS stations as JSON or CSV.
+
+    Query params:
+        format: 'json' or 'csv' (default: json)
+    """
+    export_format = request.args.get("format", "json").lower()
+    stations = list(aprs_stations.values())
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    if export_format == "csv":
+        import io
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Callsign", "Latitude", "Longitude", "Symbol", "Packet Type", "Last Seen"])
+        for s in stations:
+            writer.writerow(
+                [
+                    s.get("callsign", ""),
+                    s.get("lat", ""),
+                    s.get("lon", ""),
+                    s.get("symbol", ""),
+                    s.get("packet_type", ""),
+                    s.get("last_seen", ""),
+                ]
+            )
+        response = Response(output.getvalue(), mimetype="text/csv")
+        response.headers["Content-Disposition"] = f"attachment; filename=aprs_stations_{timestamp}.csv"
+        return response
+
+    data = {
+        "stations": stations,
+        "count": len(stations),
+        "exported_at": datetime.now().isoformat(),
+    }
+    response = Response(json.dumps(data, indent=2), mimetype="application/json")
+    response.headers["Content-Disposition"] = f"attachment; filename=aprs_stations_{timestamp}.json"
+    return response
+
+
 @aprs_bp.route("/data")
 def aprs_data() -> Response:
     """Get APRS data snapshot for remote controller polling compatibility."""

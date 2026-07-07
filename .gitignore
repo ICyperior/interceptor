@@ -60,6 +60,17 @@ data/radiosonde/
 # SDR capture files (large IQ recordings)
 data/subghz/captures/
 
+# Kismet capture files
+*.kismet
+*.kismet.json
+
+# ADS-B aircraft database (downloaded at runtime)
+aircraft_db.json
+aircraft_db_meta.json
+
+# SoapySDR build directory (compiled during setup, contains its own .git)
+SoapySDR/
+
 # Env files
 .env
 .env.*
