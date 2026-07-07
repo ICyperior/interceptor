@@ -1664,6 +1664,87 @@ def adsb_history_export():
     return response
 
 
+@adsb_bp.route("/history/playback")
+def adsb_history_playback():
+    """Return time-bucketed snapshots for map playback.
+
+    Query params:
+        since_minutes: window size in minutes (default 60, max 1440)
+        bucket_seconds: bucket width in seconds (default 30, min 10, max 300)
+
+    Returns one position per aircraft per bucket (latest within bucket),
+    structured as a list of {t, aircraft:[]} frames ready for animation.
+    """
+    if not ADSB_HISTORY_ENABLED or not PSYCOPG2_AVAILABLE:
+        return api_error("ADS-B history is disabled", 503)
+    _ensure_history_schema()
+
+    since_minutes = _parse_int_param(request.args.get("since_minutes"), 60, 1, 1440)
+    bucket_seconds = _parse_int_param(request.args.get("bucket_seconds"), 30, 10, 300)
+    window = f"{since_minutes} minutes"
+
+    sql = """
+        WITH bucketed AS (
+            SELECT
+                (EXTRACT(EPOCH FROM captured_at)::bigint / %(bkt)s) * %(bkt)s AS bucket_epoch,
+                icao,
+                callsign,
+                lat,
+                lon,
+                altitude,
+                heading,
+                speed,
+                ROW_NUMBER() OVER (
+                    PARTITION BY (EXTRACT(EPOCH FROM captured_at)::bigint / %(bkt)s), icao
+                    ORDER BY captured_at DESC
+                ) AS rn
+            FROM adsb_snapshots
+            WHERE captured_at >= NOW() - INTERVAL %(window)s
+              AND lat IS NOT NULL
+              AND lon IS NOT NULL
+        )
+        SELECT bucket_epoch, icao, callsign, lat, lon, altitude, heading, speed
+        FROM bucketed
+        WHERE rn = 1
+        ORDER BY bucket_epoch ASC, icao ASC
+    """
+
+    try:
+        with _get_history_connection() as conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(sql, {"bkt": bucket_seconds, "window": window})
+            rows = cur.fetchall()
+
+        # Group rows into frames keyed by bucket timestamp
+        frames: dict[int, list] = {}
+        for row in rows:
+            epoch = int(row["bucket_epoch"])
+            frames.setdefault(epoch, []).append(
+                {
+                    "icao": row["icao"],
+                    "callsign": row["callsign"] or "",
+                    "lat": float(row["lat"]),
+                    "lon": float(row["lon"]),
+                    "alt": row["altitude"],
+                    "hdg": row["heading"],
+                    "spd": row["speed"],
+                }
+            )
+
+        buckets = [{"t": epoch, "aircraft": aircraft} for epoch, aircraft in sorted(frames.items())]
+
+        return jsonify(
+            {
+                "buckets": buckets,
+                "bucket_seconds": bucket_seconds,
+                "since_minutes": since_minutes,
+                "count": len(buckets),
+            }
+        )
+    except Exception as exc:
+        logger.warning("ADS-B history playback query failed: %s", exc)
+        return api_error("History database unavailable", 503)
+
+
 @adsb_bp.route("/history/prune", methods=["POST"])
 def adsb_history_prune():
     """Delete ADS-B history for a selected time range or entire dataset."""

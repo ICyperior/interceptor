@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.32.0] - 2026-07-07
+
+### Added
+- **ADS-B historical playback** — new Playback tab on the ADS-B history page. Loads time-bucketed snapshots from the Postgres history database and animates aircraft positions on a Leaflet map. Controls: configurable time window (15 min – 24 h), bucket step (10 s – 5 min), play/pause, speed multiplier (1×–20×), and a time scrubber. Requires the `history` Docker profile or `INTERCEPT_ADSB_HISTORY_ENABLED=true`. Backed by new `GET /adsb/history/playback` endpoint.
+
+---
+
 ## [2.31.0] - 2026-07-07
 
 ### Added

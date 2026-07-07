@@ -16,6 +16,9 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}?v={{ version }}&r=maptheme17">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/help-modal.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_history.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/map-utils.css') }}">
+    <script defer src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
 </head>
 <body>
     <div class="radar-bg"></div>
@@ -145,6 +148,10 @@
                 </div>
             </div>
             <button class="primary-btn" id="refreshBtn">Refresh</button>
+            <div class="view-toggle">
+                <button class="view-btn active" id="viewDataBtn" type="button">Data</button>
+                <button class="view-btn" id="viewPlaybackBtn" type="button">&#9654; Playback</button>
+            </div>
             <div class="status-pill" id="historyStatus">
                 {% if history_enabled %}
                 HISTORY ONLINE
@@ -218,6 +225,62 @@
                 </div>
             </div>
         </section>
+
+        <!-- ── PLAYBACK SECTION ─────────────────────────────── -->
+        <section class="playback-section" id="playbackSection" style="display:none;">
+            <div class="playback-map" id="playbackMap"></div>
+            <div class="playback-controls">
+                <div class="playback-ctrl-row">
+                    <div class="control-group">
+                        <label for="playbackWindowSelect">Window</label>
+                        <select id="playbackWindowSelect">
+                            <option value="15">15 min</option>
+                            <option value="60" selected>1 hour</option>
+                            <option value="360">6 hours</option>
+                            <option value="1440">24 hours</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="playbackBucketSelect">Step</label>
+                        <select id="playbackBucketSelect">
+                            <option value="10">10 s</option>
+                            <option value="30" selected>30 s</option>
+                            <option value="60">1 min</option>
+                            <option value="300">5 min</option>
+                        </select>
+                    </div>
+                    <button class="primary-btn" id="playbackLoadBtn" type="button">Load</button>
+                    <button class="primary-btn" id="playbackPlayBtn" type="button" disabled>&#9654; Play</button>
+                    <div class="control-group">
+                        <label for="playbackSpeedSelect">Speed</label>
+                        <select id="playbackSpeedSelect">
+                            <option value="1">1×</option>
+                            <option value="2">2×</option>
+                            <option value="5" selected>5×</option>
+                            <option value="10">10×</option>
+                            <option value="20">20×</option>
+                        </select>
+                    </div>
+                    <div class="playback-counters">
+                        <span class="playback-label">Aircraft</span>
+                        <span class="playback-value" id="playbackAircraftCount">--</span>
+                    </div>
+                    <div class="playback-counters">
+                        <span class="playback-label">Frames</span>
+                        <span class="playback-value" id="playbackFrameCount">--</span>
+                    </div>
+                    <div class="status-pill" id="playbackStatus">READY</div>
+                </div>
+                <div class="playback-scrubber-row">
+                    <span class="playback-time" id="playbackTimeStart">--</span>
+                    <input type="range" id="playbackScrubber" min="0" max="0" value="0" step="1" disabled>
+                    <span class="playback-time" id="playbackTimeEnd">--</span>
+                </div>
+                <div class="playback-current-time" id="playbackCurrentTime">--</div>
+            </div>
+        </section>
+        <!-- ── END PLAYBACK ──────────────────────────────────── -->
+
     </main>
 
     <div class="modal-backdrop" id="aircraftModalBackdrop" aria-hidden="true">
@@ -1101,5 +1164,214 @@
 
     <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}?v={{ version }}&r=maptheme17"></script>
     <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/map-utils.js') }}"></script>
+    <script>
+    // ── ADS-B HISTORY PLAYBACK ────────────────────────────────────────────
+    (function () {
+        const viewDataBtn      = document.getElementById('viewDataBtn');
+        const viewPlaybackBtn  = document.getElementById('viewPlaybackBtn');
+        const contentGrid      = document.querySelector('.content-grid');
+        const playbackSection  = document.getElementById('playbackSection');
+        const playbackLoadBtn  = document.getElementById('playbackLoadBtn');
+        const playbackPlayBtn  = document.getElementById('playbackPlayBtn');
+        const playbackScrubber = document.getElementById('playbackScrubber');
+        const playbackStatus   = document.getElementById('playbackStatus');
+        const playbackAircraftCount = document.getElementById('playbackAircraftCount');
+        const playbackFrameCount    = document.getElementById('playbackFrameCount');
+        const playbackTimeStart     = document.getElementById('playbackTimeStart');
+        const playbackTimeEnd       = document.getElementById('playbackTimeEnd');
+        const playbackCurrentTime   = document.getElementById('playbackCurrentTime');
+
+        let pbMap = null;
+        let buckets = [];
+        let markers = {};
+        let frameIndex = 0;
+        let playing = false;
+        let playTimer = null;
+
+        // ── View toggle ───────────────────────────────────────────────────
+        viewDataBtn.addEventListener('click', () => {
+            viewDataBtn.classList.add('active');
+            viewPlaybackBtn.classList.remove('active');
+            contentGrid.style.display = '';
+            playbackSection.style.display = 'none';
+            stopPlayback();
+        });
+
+        viewPlaybackBtn.addEventListener('click', () => {
+            viewPlaybackBtn.classList.add('active');
+            viewDataBtn.classList.remove('active');
+            contentGrid.style.display = 'none';
+            playbackSection.style.display = 'flex';
+            initPlaybackMap();
+        });
+
+        // ── Map init ──────────────────────────────────────────────────────
+        function initPlaybackMap() {
+            if (pbMap) { pbMap.invalidateSize(); return; }
+            pbMap = MapUtils.init('playbackMap', { zoom: 6 });
+        }
+
+        // ── Load data ─────────────────────────────────────────────────────
+        playbackLoadBtn.addEventListener('click', loadPlayback);
+
+        async function loadPlayback() {
+            if (!pbMap) initPlaybackMap();
+            stopPlayback();
+            clearMarkers();
+
+            const minutes = document.getElementById('playbackWindowSelect').value;
+            const bucket  = document.getElementById('playbackBucketSelect').value;
+            playbackStatus.textContent = 'LOADING…';
+            playbackStatus.className = 'status-pill loading';
+
+            try {
+                const resp = await fetch(`/adsb/history/playback?since_minutes=${minutes}&bucket_seconds=${bucket}`);
+                if (!resp.ok) throw new Error(resp.statusText);
+                const data = await resp.json();
+                buckets = data.buckets || [];
+
+                if (!buckets.length) {
+                    playbackStatus.textContent = 'NO DATA';
+                    playbackStatus.className = 'status-pill warn';
+                    playbackFrameCount.textContent = '0';
+                    playbackAircraftCount.textContent = '0';
+                    return;
+                }
+
+                playbackScrubber.max   = buckets.length - 1;
+                playbackScrubber.value = 0;
+                playbackScrubber.disabled = false;
+                playbackPlayBtn.disabled  = false;
+                frameIndex = 0;
+
+                const startEpoch = buckets[0].t;
+                const endEpoch   = buckets[buckets.length - 1].t;
+                playbackTimeStart.textContent = epochToStr(startEpoch);
+                playbackTimeEnd.textContent   = epochToStr(endEpoch);
+
+                const maxAircraft = Math.max(...buckets.map(b => b.aircraft.length));
+                playbackFrameCount.textContent    = buckets.length;
+                playbackAircraftCount.textContent = maxAircraft;
+
+                playbackStatus.textContent = 'READY';
+                playbackStatus.className   = 'status-pill';
+                renderFrame(0);
+            } catch (e) {
+                playbackStatus.textContent = 'ERROR';
+                playbackStatus.className   = 'status-pill error';
+                console.error('Playback load error:', e);
+            }
+        }
+
+        // ── Scrubber ──────────────────────────────────────────────────────
+        playbackScrubber.addEventListener('input', () => {
+            frameIndex = parseInt(playbackScrubber.value);
+            renderFrame(frameIndex);
+        });
+
+        // ── Play / Pause ──────────────────────────────────────────────────
+        playbackPlayBtn.addEventListener('click', () => {
+            playing ? stopPlayback() : startPlayback();
+        });
+
+        function startPlayback() {
+            if (!buckets.length) return;
+            playing = true;
+            playbackPlayBtn.textContent = '⏸ Pause';
+            playbackStatus.textContent  = 'PLAYING';
+            playbackStatus.className    = 'status-pill active';
+            if (frameIndex >= buckets.length - 1) frameIndex = 0;
+            step();
+        }
+
+        function stopPlayback() {
+            playing = false;
+            clearTimeout(playTimer);
+            playbackPlayBtn.textContent = '▶ Play';
+            if (buckets.length) {
+                playbackStatus.textContent = 'PAUSED';
+                playbackStatus.className   = 'status-pill';
+            }
+        }
+
+        function step() {
+            if (!playing) return;
+            renderFrame(frameIndex);
+            playbackScrubber.value = frameIndex;
+            if (frameIndex < buckets.length - 1) {
+                frameIndex++;
+                const speed = parseInt(document.getElementById('playbackSpeedSelect').value);
+                const bucketSec = buckets.length > 1 ? (buckets[1].t - buckets[0].t) : 30;
+                const delay = Math.max(50, (bucketSec / speed) * 1000);
+                playTimer = setTimeout(step, delay);
+            } else {
+                stopPlayback();
+                playbackStatus.textContent = 'DONE';
+            }
+        }
+
+        // ── Render a frame ────────────────────────────────────────────────
+        function renderFrame(idx) {
+            if (!buckets[idx]) return;
+            const bucket = buckets[idx];
+            playbackCurrentTime.textContent = epochToStr(bucket.t);
+
+            const seen = new Set();
+            for (const ac of bucket.aircraft) {
+                seen.add(ac.icao);
+                const latlng = [ac.lat, ac.lon];
+                if (markers[ac.icao]) {
+                    markers[ac.icao].setLatLng(latlng);
+                    markers[ac.icao].setTooltipContent(acLabel(ac));
+                } else {
+                    const icon = L.divIcon({
+                        className: 'pb-aircraft-icon',
+                        html: headingArrow(ac.hdg),
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9],
+                    });
+                    const m = L.marker(latlng, { icon })
+                        .bindTooltip(acLabel(ac), { permanent: false, direction: 'top', offset: [0, -10] })
+                        .addTo(pbMap);
+                    markers[ac.icao] = m;
+                }
+            }
+
+            // Remove aircraft that aren't in this frame
+            for (const icao of Object.keys(markers)) {
+                if (!seen.has(icao)) {
+                    pbMap.removeLayer(markers[icao]);
+                    delete markers[icao];
+                }
+            }
+
+            playbackAircraftCount.textContent = Object.keys(markers).length;
+        }
+
+        function clearMarkers() {
+            for (const m of Object.values(markers)) { if (pbMap) pbMap.removeLayer(m); }
+            markers = {};
+        }
+
+        // ── Helpers ───────────────────────────────────────────────────────
+        function epochToStr(epoch) {
+            return new Date(epoch * 1000).toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+        }
+
+        function acLabel(ac) {
+            const id = ac.callsign || ac.icao;
+            const alt = ac.alt != null ? ` ${ac.alt.toLocaleString()}ft` : '';
+            return `<span class="pb-tooltip">${id}${alt}</span>`;
+        }
+
+        function headingArrow(hdg) {
+            const deg = hdg != null ? hdg : 0;
+            return `<svg viewBox="0 0 18 18" width="18" height="18" style="transform:rotate(${deg}deg)">
+                <polygon points="9,1 13,17 9,13 5,17" fill="var(--accent-cyan)" stroke="var(--bg-card)" stroke-width="1"/>
+            </svg>`;
+        }
+    })();
+    </script>
 </body>
 </html>

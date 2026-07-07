@@ -746,3 +746,138 @@ html[data-ui-tier="lean"] {
     --border-glow: transparent;
     --grid-line: transparent;
 }
+
+/* ── View toggle ───────────────────────────────────────────────────────── */
+.view-toggle {
+    display: flex;
+    gap: 2px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.view-btn {
+    padding: 6px 14px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.view-btn.active,
+.view-btn:hover {
+    background: var(--accent-cyan);
+    color: #000;
+}
+
+/* ── Playback section ──────────────────────────────────────────────────── */
+.playback-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    height: calc(100vh - 320px);
+    min-height: 420px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 0 var(--page-gutter, 16px);
+}
+
+.playback-map {
+    flex: 1;
+    min-height: 300px;
+    background: var(--bg-card);
+}
+
+.playback-controls {
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.playback-ctrl-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.playback-scrubber-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.playback-scrubber-row input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent-cyan);
+    cursor: pointer;
+}
+
+.playback-scrubber-row input[type="range"]:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.playback-time {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    min-width: 140px;
+}
+
+.playback-time:last-child { text-align: right; }
+
+.playback-current-time {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent-cyan);
+    text-align: center;
+    letter-spacing: 0.05em;
+}
+
+.playback-counters {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 52px;
+}
+
+.playback-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-secondary);
+}
+
+.playback-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+/* Aircraft markers on playback map */
+.pb-aircraft-icon {
+    background: none;
+    border: none;
+}
+
+.pb-tooltip {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #fff;
+    white-space: nowrap;
+}
+
+.status-pill.loading { background: var(--accent-yellow, #f0a500); color: #000; }
+.status-pill.active  { background: var(--accent-cyan);  color: #000; }
+.status-pill.warn    { background: var(--accent-orange, #e06c00); color: #fff; }
+.status-pill.error   { background: var(--accent-red, #c0392b); color: #fff; }

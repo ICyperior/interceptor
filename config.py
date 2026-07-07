@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.31.0"
+VERSION = "2.32.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.32.0",
+        "date": "July 2026",
+        "highlights": [
+            "Feat: ADS-B historical playback — replay past aircraft positions on an interactive map with play/pause, speed control, and time scrubber (requires history profile)",
+        ],
+    },
     {
         "version": "2.31.0",
         "date": "July 2026",
