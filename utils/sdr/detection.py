@@ -49,7 +49,9 @@ def _get_capabilities_for_type(sdr_type: SDRType) -> SDRCapabilities:
     """Get default capabilities for an SDR type."""
     # Import here to avoid circular imports
     from .airspy import AirspyCommandBuilder
+    from .bladerf import BladeRFCommandBuilder
     from .hackrf import HackRFCommandBuilder
+    from .hydrasdr import HydraSDRCommandBuilder
     from .limesdr import LimeSDRCommandBuilder
     from .rtlsdr import RTLSDRCommandBuilder
     from .sdrplay import SDRPlayCommandBuilder
@@ -62,6 +64,8 @@ def _get_capabilities_for_type(sdr_type: SDRType) -> SDRCapabilities:
         SDRType.AIRSPY: AirspyCommandBuilder,
         SDRType.SDRPLAY: SDRPlayCommandBuilder,
         SDRType.USRP: USRPCommandBuilder,
+        SDRType.BLADE_RF: BladeRFCommandBuilder,
+        SDRType.HYDRA_SDR: HydraSDRCommandBuilder,
     }
 
     builder_class = builders.get(sdr_type)
@@ -93,8 +97,8 @@ def _driver_to_sdr_type(driver: str) -> SDRType | None:
         "airspyhf": SDRType.AIRSPY,  # Airspy HF+ uses same builder
         "sdrplay": SDRType.SDRPLAY,
         "uhd": SDRType.USRP,
-        # Future support
-        # 'bladerf': SDRType.BLADE_RF,
+        "bladerf": SDRType.BLADE_RF,
+        "hydrasdr": SDRType.HYDRA_SDR,
     }
     return mapping.get(driver.lower())
 

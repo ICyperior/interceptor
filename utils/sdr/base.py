@@ -21,8 +21,8 @@ class SDRType(Enum):
     AIRSPY = "airspy"
     SDRPLAY = "sdrplay"
     USRP = "usrp"
-    # Future support
-    # BLADE_RF = "bladerf"
+    BLADE_RF = "bladerf"
+    HYDRA_SDR = "hydrasdr"
 
 
 @dataclass

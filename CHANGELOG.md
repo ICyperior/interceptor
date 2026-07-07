@@ -2,6 +2,14 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.31.0] - 2026-07-07
+
+### Added
+- **BladeRF support** — bladeRF 2.0 micro (47 MHz – 6 GHz) and bladeRF x40/x115 (300 MHz – 3.8 GHz) detected and usable via SoapyBladeRF. TX capable. Supports FM demod, ADS-B, ISM, AIS, and I/Q capture.
+- **HydraSDR RFOne support** — Detected and usable via SoapyHydraSDR (24 MHz – 1800 MHz, RX only, 10 MHz instantaneous bandwidth). Supports FM demod, ADS-B, ISM, AIS, and I/Q capture.
+
+---
+
 ## [2.30.0] - 2026-07-07
 
 ### Added

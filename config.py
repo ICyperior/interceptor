@@ -7,10 +7,18 @@ import os
 import sys
 
 # Application version
-VERSION = "2.30.0"
+VERSION = "2.31.0"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.31.0",
+        "date": "July 2026",
+        "highlights": [
+            "Feat: BladeRF support — bladeRF 2.0 micro and x40/x115 detected and usable via SoapyBladeRF (47 MHz – 6 GHz, TX capable)",
+            "Feat: HydraSDR RFOne support — detected and usable via SoapyHydraSDR (24 MHz – 1800 MHz, RX only)",
+        ],
+    },
     {
         "version": "2.30.0",
         "date": "July 2026",

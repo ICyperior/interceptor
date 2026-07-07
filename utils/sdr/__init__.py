@@ -27,8 +27,10 @@ from typing import Optional
 
 from .airspy import AirspyCommandBuilder
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType
+from .bladerf import BladeRFCommandBuilder
 from .detection import detect_all_devices, invalidate_device_cache, probe_rtlsdr_device
 from .hackrf import HackRFCommandBuilder
+from .hydrasdr import HydraSDRCommandBuilder
 from .limesdr import LimeSDRCommandBuilder
 from .rtlsdr import RTLSDRCommandBuilder
 from .sdrplay import SDRPlayCommandBuilder
@@ -55,6 +57,8 @@ class SDRFactory:
         SDRType.AIRSPY: AirspyCommandBuilder,
         SDRType.SDRPLAY: SDRPlayCommandBuilder,
         SDRType.USRP: USRPCommandBuilder,
+        SDRType.BLADE_RF: BladeRFCommandBuilder,
+        SDRType.HYDRA_SDR: HydraSDRCommandBuilder,
     }
 
     @classmethod
@@ -214,6 +218,8 @@ __all__ = [
     "AirspyCommandBuilder",
     "SDRPlayCommandBuilder",
     "USRPCommandBuilder",
+    "BladeRFCommandBuilder",
+    "HydraSDRCommandBuilder",
     # Validation
     "SDRValidationError",
     "validate_frequency",
