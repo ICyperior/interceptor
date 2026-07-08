@@ -281,6 +281,9 @@ class IQBus:
             "limesdr": SDRType.LIME_SDR,
             "airspy": SDRType.AIRSPY,
             "sdrplay": SDRType.SDRPLAY,
+            "usrp": SDRType.USRP,
+            "bladerf": SDRType.BLADE_RF,
+            "hydrasdr": SDRType.HYDRA_SDR,
         }
         sdr_type = type_map.get(self._sdr_type.lower(), SDRType.RTL_SDR)
         builder = SDRFactory.get_builder(sdr_type)

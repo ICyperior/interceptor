@@ -62,6 +62,9 @@ MAX_BANDWIDTH = {
     SDRType.LIME_SDR: 20000000,
     SDRType.AIRSPY: 10000000,
     SDRType.SDRPLAY: 2000000,
+    SDRType.USRP: 25000000,
+    SDRType.BLADE_RF: 40000000,
+    SDRType.HYDRA_SDR: 10000000,
 }
 
 
@@ -330,6 +333,9 @@ def _resolve_sdr_type(sdr_type_str: str) -> SDRType:
         "lime_sdr": SDRType.LIME_SDR,
         "airspy": SDRType.AIRSPY,
         "sdrplay": SDRType.SDRPLAY,
+        "usrp": SDRType.USRP,
+        "bladerf": SDRType.BLADE_RF,
+        "hydrasdr": SDRType.HYDRA_SDR,
     }
     return mapping.get(sdr_type_str.lower(), SDRType.RTL_SDR)
 

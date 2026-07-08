@@ -54,7 +54,7 @@ def start_audio() -> Response:
     if frequency <= 0:
         return jsonify({"status": "error", "message": "frequency is required"}), 400
 
-    valid_sdr_types = ["rtlsdr", "hackrf", "airspy", "limesdr", "sdrplay"]
+    valid_sdr_types = ["rtlsdr", "hackrf", "airspy", "limesdr", "sdrplay", "usrp", "bladerf", "hydrasdr"]
     if sdr_type not in valid_sdr_types:
         return jsonify({"status": "error", "message": f"Invalid sdr_type. Use: {', '.join(valid_sdr_types)}"}), 400
 
