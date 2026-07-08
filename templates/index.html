@@ -660,6 +660,9 @@
                             <option value="limesdr">LimeSDR</option>
                             <option value="hackrf">HackRF</option>
                             <option value="airspy">Airspy</option>
+                            <option value="usrp">USRP</option>
+                            <option value="bladerf">BladeRF</option>
+                            <option value="hydrasdr">HydraSDR RFOne</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -6224,7 +6227,10 @@
             'sdrplay': { name: 'SDRplay', freq_min: 0.001, freq_max: 2000, gain_min: 0, gain_max: 59 },
             'limesdr': { name: 'LimeSDR', freq_min: 0.1, freq_max: 3800, gain_min: 0, gain_max: 73 },
             'hackrf': { name: 'HackRF', freq_min: 1, freq_max: 6000, gain_min: 0, gain_max: 102 }, // LNA(40)+VGA(62)
-            'airspy': { name: 'Airspy', freq_min: 24, freq_max: 1800, gain_min: 0, gain_max: 45 }  // LNA(15)+Mix(15)+VGA(15)
+            'airspy': { name: 'Airspy', freq_min: 24, freq_max: 1800, gain_min: 0, gain_max: 45 },  // LNA(15)+Mix(15)+VGA(15)
+            'usrp': { name: 'USRP', freq_min: 1, freq_max: 6000, gain_min: 0, gain_max: 76 },
+            'bladerf': { name: 'BladeRF', freq_min: 47, freq_max: 6000, gain_min: 0, gain_max: 66 },
+            'hydrasdr': { name: 'HydraSDR RFOne', freq_min: 24, freq_max: 1800, gain_min: 0, gain_max: 21 }
         };
 
         // Current device list with SDR type info
