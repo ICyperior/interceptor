@@ -527,49 +527,6 @@ class DSCDecoder:
         if eos is None:
             return None  # message not complete yet
 
-        def decode_mmsi(syms):
-            if len(syms) != 5 or any(s < 0 or s > 99 for s in syms):
-                return None
-            digits = "".join(f"{s:02d}" for s in syms)
-            return digits[:9]
-
-        def decode_position(syms):
-            """
-            Decode 5 coordinate symbols into a position dict, per ITU-R
-            M.493 Annex 1 Sec 8.1.2/8.2.3 (Table A1-2), confirmed
-            consistent across M.493-8 through -15. 10 digits total:
-            digit 1 = quadrant (0=NE, 1=NW, 2=SE, 3=SW), digits 2-5 =
-            latitude (2 degrees + 2 minutes), digits 6-10 = longitude
-            (3 degrees + 2 minutes). All-9s (9999999999) is the spec-
-            defined "position not available" sentinel.
-
-            Returns a dict with "lat"/"lon" as signed decimal degrees
-            (matching the pre-existing message["position"] shape this
-            decoder's downstream consumers - parser.py/routes/dsc.py -
-            expect) plus human-readable degree/minute text fields.
-            Returns None if the position is unavailable or malformed.
-            """
-            if len(syms) != 5 or any(s < 0 or s > 99 for s in syms):
-                return None
-            digits = "".join(f"{s:02d}" for s in syms)
-            if digits == "9999999999":
-                return None
-            quadrant = int(digits[0])
-            lat_deg = int(digits[1:3])
-            lat_min = int(digits[3:5])
-            lon_deg = int(digits[5:8])
-            lon_min = int(digits[8:10])
-            lat_sign = 1 if quadrant in (0, 1) else -1  # NE, NW -> North
-            lon_sign = 1 if quadrant in (0, 2) else -1  # NE, SE -> East
-            lat = lat_sign * (lat_deg + lat_min / 60.0)
-            lon = lon_sign * (lon_deg + lon_min / 60.0)
-            return {
-                "lat": round(lat, 6),
-                "lon": round(lon, 6),
-                "lat_text": f"{lat_deg:02d}°{lat_min:02d}'{'N' if lat_sign > 0 else 'S'}",
-                "lon_text": f"{lon_deg:03d}°{lon_min:02d}'{'E' if lon_sign > 0 else 'W'}",
-            }
-
         message = {
             "type": "dsc",
             "format": format_code,
@@ -581,11 +538,11 @@ class DSCDecoder:
         if is_distress_ack:
             message["format_text"] = "DISTRESS_ACK_OR_SELF_CANCEL"
         if "address" in fields:
-            message["dest_mmsi"] = decode_mmsi(fields["address"])
+            message["dest_mmsi"] = self._decode_mmsi(fields["address"])
         if "self_id" in fields:
-            message["source_mmsi"] = decode_mmsi(fields["self_id"])
+            message["source_mmsi"] = self._decode_mmsi(fields["self_id"])
         if "ship_in_distress_id" in fields:
-            ship_mmsi = decode_mmsi(fields["ship_in_distress_id"])
+            ship_mmsi = self._decode_mmsi(fields["ship_in_distress_id"])
             message["ship_in_distress_mmsi"] = ship_mmsi
             if "source_mmsi" not in message:
                 # for a self-cancel, transmitting station IS the ship in
@@ -603,7 +560,7 @@ class DSCDecoder:
                 message["nature_text"] = NATURE_TEXT.get(nature_val, f"UNKNOWN-{nature_val}")
             if "coordinates" in fields:
                 message["coordinates_raw"] = fields["coordinates"]
-                message["position"] = decode_position(fields["coordinates"])
+                message["position"] = self._decode_position(fields["coordinates"])
             if "time" in fields:
                 message["time_raw"] = fields["time"]
         if "telecommand" in fields:
@@ -718,143 +675,95 @@ class DSCDecoder:
         return (f"format={format_code}, all fields complete, but no valid EOS "
                 f"found in remaining {len(dedup) - idx} symbols")
 
-    def _diagnose_decode_failure(self) -> str:
+    def _decode_mmsi(self, symbols: list[int]) -> str | None:
         """
-        Explain exactly why the current message_bits buffer failed to
-        decode, for logging at timeout. Mirrors _try_decode_message's
-        logic but reports where it stopped instead of returning None
-        silently - normal accumulation still returns None quietly (this
-        is only called once, at the moment of timeout, not on every
-        partial-accumulation call).
+        Decode 5 symbols into a 9-digit MMSI string.
+
+        Per ITU-R M.493-16: identities are transmitted as five
+        characters C5C4C3C2C1, comprising ten digits X1...X10, "whereas
+        digit X10 is always the digit 0" (unless M.1080 extended
+        addressing is in use, not handled here). X10 is the LAST digit
+        of the sequence, not the first - so the real 9-digit MMSI is
+        digits 1-9, dropping the trailing padding digit. Confirmed
+        against real over-the-air captures: this produces MMSIs with
+        recognizable, valid Maritime Identification Digits (e.g. "338"
+        = USA) consistently across independent real recordings.
+
+        Args:
+            symbols: 5 raw symbol values (0-99 each)
+
+        Returns:
+            9-digit MMSI string, or None if malformed input.
         """
-        FORMAT_SPECIFIERS = {102, 112, 114, 116, 120, 123}
-        FIELD_LAYOUTS = {
-            120: [("address", 5), ("category", 1), ("self_id", 5),
-                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
-            123: [("address", 5), ("category", 1), ("self_id", 5),
-                  ("telecommand", 2), ("frequency_1", 3)],
-            116: [("category", 1), ("self_id", 5), ("telecommand", 2),
-                  ("frequency_1", 3)],
-            114: [("address", 5), ("category", 1), ("self_id", 5),
-                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
-            102: [("address", 5), ("category", 1), ("self_id", 5),
-                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
-            112: [("self_id", 5), ("nature", 1), ("coordinates", 5),
-                  ("time", 2), ("telecommand_msg4", 1)],
+        if len(symbols) != 5 or any(s < 0 or s > 99 for s in symbols):
+            return None
+        digits = "".join(f"{s:02d}" for s in symbols)
+        return digits[:9]
+
+    def _decode_position(self, symbols: list[int]) -> dict | None:
+        """
+        Decode 5 coordinate symbols into a position dict, per ITU-R
+        M.493 Annex 1 Sec 8.1.2/8.2.3 (Table A1-2), confirmed
+        consistent across M.493-8 through -15. 10 digits total:
+        digit 1 = quadrant (0=NE, 1=NW, 2=SE, 3=SW), digits 2-5 =
+        latitude (2 degrees + 2 minutes), digits 6-10 = longitude
+        (3 degrees + 2 minutes). All-9s (9999999999) is the spec-
+        defined "position not available" sentinel.
+
+        Physically-impossible values (degrees/minutes outside valid
+        range - e.g. from a residual bit error the diversity-combining
+        fallback in _process_bit didn't catch) are NOT silently
+        discarded or clamped: the computed position is still returned
+        (a partial position can still be useful - e.g. for search and
+        rescue, where even an approximate position beats none at all),
+        but flagged via "position_uncertain"/"position_issue" so
+        downstream consumers can decide how much to trust it rather
+        than being silently given a wrong-but-plausible-looking value.
+
+        Returns a dict with "lat"/"lon" as signed decimal degrees
+        (matching the pre-existing message["position"] shape this
+        decoder's downstream consumers - parser.py/routes/dsc.py -
+        expect) plus human-readable degree/minute text fields and the
+        uncertainty flag described above. Returns None only if the
+        position is unavailable (all-9s sentinel) or the input itself
+        is malformed (wrong length/out-of-range symbols).
+
+        Args:
+            symbols: 5 raw symbol values (0-99 each)
+        """
+        if len(symbols) != 5 or any(s < 0 or s > 99 for s in symbols):
+            return None
+        digits = "".join(f"{s:02d}" for s in symbols)
+        if digits == "9999999999":
+            return None
+        quadrant = int(digits[0])
+        lat_deg = int(digits[1:3])
+        lat_min = int(digits[3:5])
+        lon_deg = int(digits[5:8])
+        lon_min = int(digits[8:10])
+
+        issues = []
+        if lat_deg > 90:
+            issues.append(f"latitude degrees ({lat_deg}) exceeds valid range (0-90)")
+        if lon_deg > 180:
+            issues.append(f"longitude degrees ({lon_deg}) exceeds valid range (0-180)")
+        if lat_min > 59:
+            issues.append(f"latitude minutes ({lat_min}) exceeds valid range (0-59)")
+        if lon_min > 59:
+            issues.append(f"longitude minutes ({lon_min}) exceeds valid range (0-59)")
+
+        lat_sign = 1 if quadrant in (0, 1) else -1  # NE, NW -> North
+        lon_sign = 1 if quadrant in (0, 2) else -1  # NE, SE -> East
+        lat = lat_sign * (lat_deg + lat_min / 60.0)
+        lon = lon_sign * (lon_deg + lon_min / 60.0)
+        return {
+            "lat": round(lat, 6),
+            "lon": round(lon, 6),
+            "lat_text": f"{lat_deg:02d}°{lat_min:02d}'{'N' if lat_sign > 0 else 'S'}",
+            "lon_text": f"{lon_deg:03d}°{lon_min:02d}'{'E' if lon_sign > 0 else 'W'}",
+            "position_uncertain": bool(issues),
+            "position_issue": "; ".join(issues) if issues else None,
         }
-        VALID_EOS = {117, 122, 127}
-
-        num_symbols = len(self.message_bits) // 10
-        symbols = [self._bits_to_symbol(self.message_bits[i * 10:i * 10 + 10]) for i in range(num_symbols)]
-        invalid_count = sum(1 for s in symbols if s == -1)
-
-        anchor = None
-        for i in range(len(symbols) - 2):
-            if symbols[i] in FORMAT_SPECIFIERS and symbols[i] == symbols[i + 2]:
-                anchor = i
-                break
-        if anchor is None:
-            return (f"no anchor found ({num_symbols} symbols, {invalid_count} invalid, "
-                    f"first 15 symbols={symbols[:15]})")
-
-        dedup = symbols[anchor::2]
-        dedup_b = symbols[anchor + 1::2]
-
-        def value_at(k):
-            primary = dedup[k] if k < len(dedup) else -1
-            if primary != -1:
-                return primary
-            fb = k + 2
-            return dedup_b[fb] if 0 <= fb < len(dedup_b) else -1
-
-        format_code = value_at(0)
-        layout = FIELD_LAYOUTS.get(format_code)
-        if layout is None:
-            return f"anchor found at {anchor}, but format specifier {format_code} not recognized"
-
-        idx = 2
-        for name, count in layout:
-            if idx + count > len(dedup):
-                have = len(dedup) - idx
-                return (f"format={format_code}, stalled waiting for field "
-                        f"'{name}' (need {count} symbols, have {max(have, 0)})")
-            idx += count
-
-        for k in range(idx, len(dedup)):
-            if value_at(k) in VALID_EOS:
-                return "all fields complete, EOS found - should have decoded (unexpected)"
-
-        return (f"format={format_code}, all fields complete, but no valid EOS "
-                f"found in remaining {len(dedup) - idx} symbols")
-
-    def _diagnose_decode_failure(self) -> str:
-        """
-        Explain exactly why the current message_bits buffer failed to
-        decode, for logging at timeout. Mirrors _try_decode_message's
-        logic but reports where it stopped instead of returning None
-        silently - normal accumulation still returns None quietly (this
-        is only called once, at the moment of timeout, not on every
-        partial-accumulation call).
-        """
-        FORMAT_SPECIFIERS = {102, 112, 114, 116, 120, 123}
-        FIELD_LAYOUTS = {
-            120: [("address", 5), ("category", 1), ("self_id", 5),
-                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
-            123: [("address", 5), ("category", 1), ("self_id", 5),
-                  ("telecommand", 2), ("frequency_1", 3)],
-            116: [("category", 1), ("self_id", 5), ("telecommand", 2),
-                  ("frequency_1", 3)],
-            114: [("address", 5), ("category", 1), ("self_id", 5),
-                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
-            102: [("address", 5), ("category", 1), ("self_id", 5),
-                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
-            112: [("self_id", 5), ("nature", 1), ("coordinates", 5),
-                  ("time", 2), ("telecommand_msg4", 1)],
-        }
-        VALID_EOS = {117, 122, 127}
-
-        num_symbols = len(self.message_bits) // 10
-        symbols = [self._bits_to_symbol(self.message_bits[i * 10:i * 10 + 10]) for i in range(num_symbols)]
-        invalid_count = sum(1 for s in symbols if s == -1)
-
-        anchor = None
-        for i in range(len(symbols) - 2):
-            if symbols[i] in FORMAT_SPECIFIERS and symbols[i] == symbols[i + 2]:
-                anchor = i
-                break
-        if anchor is None:
-            return (f"no anchor found ({num_symbols} symbols, {invalid_count} invalid, "
-                    f"first 15 symbols={symbols[:15]})")
-
-        dedup = symbols[anchor::2]
-        dedup_b = symbols[anchor + 1::2]
-
-        def value_at(k):
-            primary = dedup[k] if k < len(dedup) else -1
-            if primary != -1:
-                return primary
-            fb = k + 2
-            return dedup_b[fb] if 0 <= fb < len(dedup_b) else -1
-
-        format_code = value_at(0)
-        layout = FIELD_LAYOUTS.get(format_code)
-        if layout is None:
-            return f"anchor found at {anchor}, but format specifier {format_code} not recognized"
-
-        idx = 2
-        for name, count in layout:
-            if idx + count > len(dedup):
-                have = len(dedup) - idx
-                return (f"format={format_code}, stalled waiting for field "
-                        f"'{name}' (need {count} symbols, have {max(have, 0)})")
-            idx += count
-
-        for k in range(idx, len(dedup)):
-            if value_at(k) in VALID_EOS:
-                return "all fields complete, EOS found - should have decoded (unexpected)"
-
-        return (f"format={format_code}, all fields complete, but no valid EOS "
-                f"found in remaining {len(dedup) - idx} symbols")
 
     def _bits_to_symbol(self, bits: list[int]) -> int:
         """
