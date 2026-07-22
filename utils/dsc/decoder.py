@@ -374,6 +374,26 @@ class DSCDecoder:
             109: "PIRACY_ARMED_ROBBERY",
             110: "MAN_OVERBOARD",
         }
+        # Telecommand values (Table 11/12), confirmed directly against
+        # spec text. This is not the full table - only values we've
+        # actually cited are included; anything else reports as
+        # UNKNOWN-<code> rather than a guess. 126 ("no information") is
+        # by far the most common value for the second telecommand slot,
+        # since most calls don't use it for anything.
+        TELECOMMAND_TEXT = {
+            100: "F3E/G3E ALL MODES TP",
+            101: "F3E/G3E DUPLEX TP",
+            118: "TEST",
+            121: "POSITION_OR_LOCATION_UPDATING",
+            126: "NO_INFORMATION",
+        }
+        # EOS (end of sequence) meaning, per ITU-R M.493 Sec 9, confirmed
+        # directly against spec text.
+        EOS_TEXT = {
+            117: "ACKNOWLEDGEMENT_REQUESTED",
+            122: "ACKNOWLEDGEMENT_REPLY",
+            127: "NO_ACKNOWLEDGEMENT_REQUIRED",
+        }
         VALID_EOS = {117, 122, 127}
         # Field layouts per format specifier: (field_name, symbol_count),
         # in transmission order after the format specifier. Per Table 5
@@ -513,11 +533,49 @@ class DSCDecoder:
             digits = "".join(f"{s:02d}" for s in syms)
             return digits[:9]
 
+        def decode_position(syms):
+            """
+            Decode 5 coordinate symbols into a position dict, per ITU-R
+            M.493 Annex 1 Sec 8.1.2/8.2.3 (Table A1-2), confirmed
+            consistent across M.493-8 through -15. 10 digits total:
+            digit 1 = quadrant (0=NE, 1=NW, 2=SE, 3=SW), digits 2-5 =
+            latitude (2 degrees + 2 minutes), digits 6-10 = longitude
+            (3 degrees + 2 minutes). All-9s (9999999999) is the spec-
+            defined "position not available" sentinel.
+
+            Returns a dict with "lat"/"lon" as signed decimal degrees
+            (matching the pre-existing message["position"] shape this
+            decoder's downstream consumers - parser.py/routes/dsc.py -
+            expect) plus human-readable degree/minute text fields.
+            Returns None if the position is unavailable or malformed.
+            """
+            if len(syms) != 5 or any(s < 0 or s > 99 for s in syms):
+                return None
+            digits = "".join(f"{s:02d}" for s in syms)
+            if digits == "9999999999":
+                return None
+            quadrant = int(digits[0])
+            lat_deg = int(digits[1:3])
+            lat_min = int(digits[3:5])
+            lon_deg = int(digits[5:8])
+            lon_min = int(digits[8:10])
+            lat_sign = 1 if quadrant in (0, 1) else -1  # NE, NW -> North
+            lon_sign = 1 if quadrant in (0, 2) else -1  # NE, SE -> East
+            lat = lat_sign * (lat_deg + lat_min / 60.0)
+            lon = lon_sign * (lon_deg + lon_min / 60.0)
+            return {
+                "lat": round(lat, 6),
+                "lon": round(lon, 6),
+                "lat_text": f"{lat_deg:02d}°{lat_min:02d}'{'N' if lat_sign > 0 else 'S'}",
+                "lon_text": f"{lon_deg:03d}°{lon_min:02d}'{'E' if lon_sign > 0 else 'W'}",
+            }
+
         message = {
             "type": "dsc",
             "format": format_code,
             "format_text": FORMAT_TEXT.get(format_code, f"UNKNOWN-{format_code}"),
             "eos": eos,
+            "eos_text": EOS_TEXT.get(eos, f"UNKNOWN-{eos}"),
             "timestamp": datetime.utcnow().isoformat() + "Z",
         }
         if is_distress_ack:
@@ -545,12 +603,189 @@ class DSCDecoder:
                 message["nature_text"] = NATURE_TEXT.get(nature_val, f"UNKNOWN-{nature_val}")
             if "coordinates" in fields:
                 message["coordinates_raw"] = fields["coordinates"]
+                message["position"] = decode_position(fields["coordinates"])
             if "time" in fields:
                 message["time_raw"] = fields["time"]
         if "telecommand" in fields:
             message["telecommand"] = fields["telecommand"]
+            message["telecommand_text"] = [
+                TELECOMMAND_TEXT.get(t, f"UNKNOWN-{t}") for t in fields["telecommand"]
+            ]
+
+        # Plain-English summary, built from the fields actually present -
+        # different message types (individual/group/area, all ships,
+        # distress alert, distress ack/self-cancel) have different fields,
+        # so this is assembled per-type rather than one fixed template.
+        eos_phrase = {
+            117: "requesting acknowledgement",
+            122: "acknowledging a previous call",
+            127: "no acknowledgement required",
+        }.get(eos, "unknown EOS")
+        tc_phrase = message.get("telecommand_text", [None])[0]
+        tc_phrase = f", purpose: {tc_phrase}" if tc_phrase and tc_phrase != "NO_INFORMATION" else ""
+
+        if is_distress_ack:
+            message["summary"] = (
+                f"Distress self-cancel/acknowledgement from {message.get('source_mmsi')} "
+                f"for vessel {message.get('ship_in_distress_mmsi')} "
+                f"(original distress nature: {message.get('nature_text', 'unknown')})"
+            )
+        elif format_code == 112:
+            message["summary"] = (
+                f"DISTRESS ALERT from {message.get('source_mmsi')} - "
+                f"nature: {message.get('nature_text', 'unknown')}"
+            )
+        elif "dest_mmsi" in message:
+            message["summary"] = (
+                f"{message.get('category', 'UNKNOWN')} individual/group call from "
+                f"{message.get('source_mmsi')} to {message.get('dest_mmsi')}, "
+                f"{eos_phrase}{tc_phrase}"
+            )
+        else:
+            message["summary"] = (
+                f"{message.get('category', 'UNKNOWN')} broadcast from "
+                f"{message.get('source_mmsi')} to all ships, {eos_phrase}{tc_phrase}"
+            )
 
         return message
+
+    def _diagnose_decode_failure(self) -> str:
+        """
+        Explain exactly why the current message_bits buffer failed to
+        decode, for logging at timeout. Mirrors _try_decode_message's
+        logic but reports where it stopped instead of returning None
+        silently - normal accumulation still returns None quietly (this
+        is only called once, at the moment of timeout, not on every
+        partial-accumulation call).
+        """
+        FORMAT_SPECIFIERS = {102, 112, 114, 116, 120, 123}
+        FIELD_LAYOUTS = {
+            120: [("address", 5), ("category", 1), ("self_id", 5),
+                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
+            123: [("address", 5), ("category", 1), ("self_id", 5),
+                  ("telecommand", 2), ("frequency_1", 3)],
+            116: [("category", 1), ("self_id", 5), ("telecommand", 2),
+                  ("frequency_1", 3)],
+            114: [("address", 5), ("category", 1), ("self_id", 5),
+                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
+            102: [("address", 5), ("category", 1), ("self_id", 5),
+                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
+            112: [("self_id", 5), ("nature", 1), ("coordinates", 5),
+                  ("time", 2), ("telecommand_msg4", 1)],
+        }
+        VALID_EOS = {117, 122, 127}
+
+        num_symbols = len(self.message_bits) // 10
+        symbols = [self._bits_to_symbol(self.message_bits[i * 10:i * 10 + 10]) for i in range(num_symbols)]
+        invalid_count = sum(1 for s in symbols if s == -1)
+
+        anchor = None
+        for i in range(len(symbols) - 2):
+            if symbols[i] in FORMAT_SPECIFIERS and symbols[i] == symbols[i + 2]:
+                anchor = i
+                break
+        if anchor is None:
+            return (f"no anchor found ({num_symbols} symbols, {invalid_count} invalid, "
+                    f"first 15 symbols={symbols[:15]})")
+
+        dedup = symbols[anchor::2]
+        dedup_b = symbols[anchor + 1::2]
+
+        def value_at(k):
+            primary = dedup[k] if k < len(dedup) else -1
+            if primary != -1:
+                return primary
+            fb = k + 2
+            return dedup_b[fb] if 0 <= fb < len(dedup_b) else -1
+
+        format_code = value_at(0)
+        layout = FIELD_LAYOUTS.get(format_code)
+        if layout is None:
+            return f"anchor found at {anchor}, but format specifier {format_code} not recognized"
+
+        idx = 2
+        for name, count in layout:
+            if idx + count > len(dedup):
+                have = len(dedup) - idx
+                return (f"format={format_code}, stalled waiting for field "
+                        f"'{name}' (need {count} symbols, have {max(have, 0)})")
+            idx += count
+
+        for k in range(idx, len(dedup)):
+            if value_at(k) in VALID_EOS:
+                return "all fields complete, EOS found - should have decoded (unexpected)"
+
+        return (f"format={format_code}, all fields complete, but no valid EOS "
+                f"found in remaining {len(dedup) - idx} symbols")
+
+    def _diagnose_decode_failure(self) -> str:
+        """
+        Explain exactly why the current message_bits buffer failed to
+        decode, for logging at timeout. Mirrors _try_decode_message's
+        logic but reports where it stopped instead of returning None
+        silently - normal accumulation still returns None quietly (this
+        is only called once, at the moment of timeout, not on every
+        partial-accumulation call).
+        """
+        FORMAT_SPECIFIERS = {102, 112, 114, 116, 120, 123}
+        FIELD_LAYOUTS = {
+            120: [("address", 5), ("category", 1), ("self_id", 5),
+                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
+            123: [("address", 5), ("category", 1), ("self_id", 5),
+                  ("telecommand", 2), ("frequency_1", 3)],
+            116: [("category", 1), ("self_id", 5), ("telecommand", 2),
+                  ("frequency_1", 3)],
+            114: [("address", 5), ("category", 1), ("self_id", 5),
+                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
+            102: [("address", 5), ("category", 1), ("self_id", 5),
+                  ("telecommand", 2), ("frequency_1", 3), ("frequency_2", 3)],
+            112: [("self_id", 5), ("nature", 1), ("coordinates", 5),
+                  ("time", 2), ("telecommand_msg4", 1)],
+        }
+        VALID_EOS = {117, 122, 127}
+
+        num_symbols = len(self.message_bits) // 10
+        symbols = [self._bits_to_symbol(self.message_bits[i * 10:i * 10 + 10]) for i in range(num_symbols)]
+        invalid_count = sum(1 for s in symbols if s == -1)
+
+        anchor = None
+        for i in range(len(symbols) - 2):
+            if symbols[i] in FORMAT_SPECIFIERS and symbols[i] == symbols[i + 2]:
+                anchor = i
+                break
+        if anchor is None:
+            return (f"no anchor found ({num_symbols} symbols, {invalid_count} invalid, "
+                    f"first 15 symbols={symbols[:15]})")
+
+        dedup = symbols[anchor::2]
+        dedup_b = symbols[anchor + 1::2]
+
+        def value_at(k):
+            primary = dedup[k] if k < len(dedup) else -1
+            if primary != -1:
+                return primary
+            fb = k + 2
+            return dedup_b[fb] if 0 <= fb < len(dedup_b) else -1
+
+        format_code = value_at(0)
+        layout = FIELD_LAYOUTS.get(format_code)
+        if layout is None:
+            return f"anchor found at {anchor}, but format specifier {format_code} not recognized"
+
+        idx = 2
+        for name, count in layout:
+            if idx + count > len(dedup):
+                have = len(dedup) - idx
+                return (f"format={format_code}, stalled waiting for field "
+                        f"'{name}' (need {count} symbols, have {max(have, 0)})")
+            idx += count
+
+        for k in range(idx, len(dedup)):
+            if value_at(k) in VALID_EOS:
+                return "all fields complete, EOS found - should have decoded (unexpected)"
+
+        return (f"format={format_code}, all fields complete, but no valid EOS "
+                f"found in remaining {len(dedup) - idx} symbols")
 
     def _diagnose_decode_failure(self) -> str:
         """
@@ -658,166 +893,6 @@ class DSCDecoder:
             return -1
 
         return value
-
-    def _decode_symbols(self, symbols: list[int]) -> dict | None:
-        """
-        Decode DSC symbol sequence to message.
-
-        Message structure (symbols):
-        0: Format specifier
-        1-5: Address/MMSI (encoded)
-        6-10: Self-ID/MMSI (encoded)
-        11+: Variable fields depending on format
-        Last: EOS (127)
-
-        Args:
-            symbols: List of decoded symbol values
-
-        Returns:
-            Decoded message dict or None if invalid
-        """
-        if len(symbols) < 12:
-            return None
-
-        try:
-            # Format specifier (first non-phasing symbol)
-            format_code = symbols[0]
-            format_text = FORMAT_CODES.get(format_code, f"UNKNOWN-{format_code}")
-
-            # Derive category from format specifier per ITU-R M.493
-            if format_code == 120:
-                category = "DISTRESS"
-            elif format_code == 123:
-                category = "ALL_SHIPS_URGENCY_SAFETY"
-            elif format_code == 102:
-                category = "ALL_SHIPS"
-            elif format_code == 116:
-                category = "GROUP"
-            elif format_code == 112:
-                category = "INDIVIDUAL"
-            elif format_code == 114:
-                category = "INDIVIDUAL_ACK"
-            else:
-                category = FORMAT_CODES.get(format_code, "UNKNOWN")
-
-            # Decode MMSI from symbols 1-5 (destination/address)
-            dest_mmsi = self._decode_mmsi(symbols[1:6])
-            if dest_mmsi is None:
-                return None
-
-            # Decode self-ID from symbols 6-10 (source)
-            source_mmsi = self._decode_mmsi(symbols[6:11])
-            if source_mmsi is None:
-                return None
-
-            message = {
-                "type": "dsc",
-                "format": format_code,
-                "format_text": format_text,
-                "category": category,
-                "source_mmsi": source_mmsi,
-                "dest_mmsi": dest_mmsi,
-                "timestamp": datetime.utcnow().isoformat() + "Z",
-            }
-
-            # Parse additional fields based on format
-            remaining = symbols[11:-1]  # Exclude EOS
-
-            if category in ("DISTRESS", "DISTRESS_RELAY"):
-                # Distress messages have nature and position
-                if len(remaining) >= 1:
-                    message["nature"] = remaining[0]
-                    message["nature_text"] = DISTRESS_NATURE_CODES.get(remaining[0], f"UNKNOWN-{remaining[0]}")
-
-                # Try to decode position
-                if len(remaining) >= 11:
-                    position = self._decode_position(remaining[1:11])
-                    if position:
-                        message["position"] = position
-
-            # Telecommand fields (last two before EOS) — only for formats
-            # that carry telecommand fields per ITU-R M.493
-            if format_code in TELECOMMAND_FORMATS and len(remaining) >= 2:
-                message["telecommand1"] = remaining[-2]
-                message["telecommand2"] = remaining[-1]
-
-            # Add raw data for debugging
-            message["raw"] = "".join(f"{s:03d}" for s in symbols)
-
-            logger.info(f"Decoded DSC: {category} from {source_mmsi}")
-            return message
-
-        except Exception as e:
-            logger.warning(f"DSC decode error: {e}")
-            return None
-
-    def _decode_mmsi(self, symbols: list[int]) -> str | None:
-        """
-        Decode MMSI from 5 DSC symbols.
-
-        Each symbol represents 2 BCD digits (00-99).
-        5 symbols = 10 digits, but MMSI is 9 digits (first symbol has leading 0).
-        Returns None if any symbol is out of valid BCD range.
-        """
-        if len(symbols) < 5:
-            return None
-
-        digits = []
-        for sym in symbols:
-            if sym < 0 or sym > 99:
-                return None
-            # Each symbol is 2 BCD digits
-            digits.append(f"{sym:02d}")
-
-        mmsi = "".join(digits)
-        # MMSI is 9 digits - trim the leading digit from the 10-digit
-        # BCD result since the first symbol's high digit is always 0
-        if len(mmsi) > 9:
-            mmsi = mmsi[1:]
-
-        return mmsi.zfill(9)
-
-    def _decode_position(self, symbols: list[int]) -> dict | None:
-        """
-        Decode position from 10 DSC symbols.
-
-        Position encoding (ITU-R M.493):
-        - Quadrant (10=NE, 11=NW, 00=SE, 01=SW)
-        - Latitude degrees (2 digits)
-        - Latitude minutes (2 digits)
-        - Longitude degrees (3 digits)
-        - Longitude minutes (2 digits)
-        """
-        if len(symbols) < 10:
-            return None
-
-        try:
-            # Quadrant indicator
-            quadrant = symbols[0]
-            lat_sign = 1 if quadrant in (10, 11) else -1
-            lon_sign = 1 if quadrant in (10, 0) else -1
-
-            # Latitude degrees and minutes
-            lat_deg = symbols[1] if symbols[1] <= 90 else 0
-            lat_min = symbols[2] if symbols[2] < 60 else 0
-
-            # Longitude degrees (3 digits from 2 symbols)
-            lon_deg_high = symbols[3] if symbols[3] < 10 else 0
-            lon_deg_low = symbols[4] if symbols[4] < 100 else 0
-            lon_deg = lon_deg_high * 100 + lon_deg_low
-            if lon_deg > 180:
-                lon_deg = 0
-
-            lon_min = symbols[5] if symbols[5] < 60 else 0
-
-            lat = lat_sign * (lat_deg + lat_min / 60.0)
-            lon = lon_sign * (lon_deg + lon_min / 60.0)
-
-            return {"lat": round(lat, 6), "lon": round(lon, 6)}
-
-        except Exception:
-            return None
-
 
 def read_audio_stdin() -> Generator[bytes, None, None]:
     """
