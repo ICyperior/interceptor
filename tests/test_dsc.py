@@ -527,22 +527,20 @@ class TestDSCDecoder:
 
     def test_decode_mmsi_valid(self, decoder):
         """Test MMSI decoding from symbols."""
-        # Each symbol is 2 BCD digits
-        # To encode MMSI 232123456, we need:
-        # 02-32-12-34-56 -> symbols [2, 32, 12, 34, 56]
-        symbols = [2, 32, 12, 34, 56]
+        # 5 symbols, transmitted C5C4C3C2C1, are 10 digits X1...X10.
+        # Per ITU-R M.493-16: "digit X10 is always the digit 0" - X10 is
+        # the LAST digit, so the real 9-digit MMSI is digits 1-9.
+        # Uses a real MMSI seen throughout this decoder's over-the-air testing.
+        symbols = [33, 82, 16, 79, 40]
         result = decoder._decode_mmsi(symbols)
-        assert result == "232123456"
-
+        assert result == "338216794"
     def test_decode_mmsi_with_leading_zeros(self, decoder):
-        """Test MMSI decoding handles leading zeros."""
-        # Coast station: 002320001
-        # Padded to 10 digits: 0002320001
-        # BCD pairs: 00-02-32-00-01 -> [0, 2, 32, 0, 1]
-        symbols = [0, 2, 32, 0, 1]
+        """Test MMSI decoding handles leading zeros (coast station)."""
+        # Coast station MMSI 002275100 (CROSS Gris Nez, a real coast
+        # station seen in real DSC traffic during this decoder's testing)
+        symbols = [0, 22, 75, 10, 0]
         result = decoder._decode_mmsi(symbols)
-        assert result == "002320001"
-
+        assert result == "002275100"
     def test_decode_mmsi_short_symbols(self, decoder):
         """Test MMSI decoding returns None for short symbol list."""
         result = decoder._decode_mmsi([1, 2, 3])
@@ -550,57 +548,59 @@ class TestDSCDecoder:
 
     def test_decode_mmsi_invalid_symbols(self, decoder):
         """Test MMSI decoding returns None for out-of-range symbols."""
-        # Symbols > 99 should cause decode to fail
         symbols = [100, 32, 12, 34, 56]
         result = decoder._decode_mmsi(symbols)
         assert result is None
-
     def test_decode_position_northeast(self, decoder):
         """Test position decoding for NE quadrant."""
-        # Quadrant 10 = NE (lat+, lon+)
-        # Position: 51°30'N, 0°10'E
-        # lon_deg = symbols[3]*100 + symbols[4] = 0, lon_min = symbols[5] = 10
-        symbols = [10, 51, 30, 0, 0, 10, 0, 0, 0, 0]
+        # Quadrant 0 = NE per ITU-R M.493 Annex 1 Sec 8.1.2 (single digit,
+        # not a 2-digit symbol value). Position: 51 deg 30'N, 000 deg 10'E
+        symbols = [5, 13, 0, 0, 10]
         result = decoder._decode_position(symbols)
-
         assert result is not None
         assert result["lat"] == pytest.approx(51.5, rel=0.01)
         assert result["lon"] == pytest.approx(0.1667, rel=0.01)
-
     def test_decode_position_northwest(self, decoder):
         """Test position decoding for NW quadrant."""
-        # Quadrant 11 = NW (lat+, lon-)
-        # Position: 40°42'N, 74°00'W (NYC area)
-        symbols = [11, 40, 42, 0, 74, 0, 0, 0, 0, 0]
+        # Quadrant 1 = NW. Position: 40 deg 42'N, 074 deg 00'W (NYC area)
+        symbols = [14, 4, 20, 74, 0]
         result = decoder._decode_position(symbols)
-
         assert result is not None
         assert result["lat"] > 0  # North
         assert result["lon"] < 0  # West
-
     def test_decode_position_southeast(self, decoder):
         """Test position decoding for SE quadrant."""
-        # Quadrant 0 = SE (lat-, lon+)
-        symbols = [0, 33, 51, 1, 51, 12, 0, 0, 0, 0]
+        # Quadrant 2 = SE. Position: 33 deg 51'S, 151 deg 12'E (Sydney area)
+        symbols = [23, 35, 11, 51, 12]
         result = decoder._decode_position(symbols)
-
         assert result is not None
         assert result["lat"] < 0  # South
         assert result["lon"] > 0  # East
-
     def test_decode_position_short_symbols(self, decoder):
         """Test position decoding handles short symbol list."""
         result = decoder._decode_position([10, 51, 30])
         assert result is None
 
     def test_decode_position_invalid_values(self, decoder):
-        """Test position decoding handles invalid values gracefully."""
-        # Latitude > 90 should be treated as 0
-        symbols = [10, 95, 30, 0, 10, 0, 0, 0, 0, 0]
+        """Test position decoding flags (not silently discards or
+        clamps) physically-impossible values.
+
+        Design: a partial/uncertain position can still be valuable
+        (e.g. for search and rescue, where an approximate position
+        beats none at all) - so out-of-range components are NOT
+        discarded, but the result is explicitly flagged via
+        position_uncertain/position_issue so downstream consumers know
+        not to trust it blindly. Constructed so degrees genuinely
+        decode to 95 (impossible) - see position_issue for exact
+        derivation.
+        """
+        symbols = [9, 50, 30, 0, 10]
         result = decoder._decode_position(symbols)
         assert result is not None
-        assert result["lat"] == pytest.approx(0.5, rel=0.01)  # 0 deg + 30 min
-
+        assert result["position_uncertain"] is True
+        assert "latitude degrees" in result["position_issue"]
+        # the longitude portion is unaffected and still usable
+        assert result["lon"] == pytest.approx(0.1667, rel=0.01)
     def test_bits_to_symbol(self, decoder):
         """Test bit to symbol conversion."""
         # Symbol value is first 7 bits (LSB first)
@@ -622,8 +622,14 @@ class TestDSCDecoder:
         assert decoder._detect_dot_pattern() is True
 
     def test_detect_dot_pattern_insufficient(self, decoder):
-        """Test dot pattern not detected with insufficient alternations."""
-        decoder.bit_buffer = [1, 0] * 40  # Only 80 bits, below 200 threshold
+        """Test dot pattern not detected with insufficient bits buffered.
+
+        VHF DSC uses a 20-bit dot pattern (checked within a 24-bit
+        window) - not the old HF/MF 200-bit/100-alternation threshold.
+        16 bits is below the minimum window needed to even attempt
+        detection.
+        """
+        decoder.bit_buffer = [1, 0] * 8  # 16 bits, below the 24-bit window
         assert decoder._detect_dot_pattern() is False
 
     def test_detect_dot_pattern_not_alternating(self, decoder):
@@ -631,20 +637,26 @@ class TestDSCDecoder:
         decoder.bit_buffer = [1, 1, 1, 1, 0, 0, 0, 0] * 5
         assert decoder._detect_dot_pattern() is False
 
-    def test_bounded_phasing_strip(self, decoder):
-        """Test that >7 phasing symbols causes decode to return None."""
-        # Build message bits: 10 phasing symbols (120) + format + data
-        # Each symbol is 10 bits. Phasing symbol 120 = 0b1111000 LSB first
-        # 120 in 7 bits LSB-first: 0,0,0,1,1,1,1 + 3 check bits
-        # 120 = 0b1111000 -> LSB first: 0,0,0,1,1,1,1 -> ones=4 (even) -> check [0,0,0]
-        phasing_bits = [0, 0, 0, 1, 1, 1, 1, 0, 0, 0]  # symbol 120
-        # 10 phasing symbols (>7 max)
-        decoder.message_bits = phasing_bits * 10
-        # Add some non-phasing symbols after (enough for a message)
-        # Symbol 112 (INDIVIDUAL) = 0b1110000 LSB-first: 0,0,0,0,1,1,1 -> ones=3 (odd) -> need odd check
-        # For simplicity, just add enough bits for the decoder to attempt
-        for _ in range(20):
-            decoder.message_bits.extend([0, 0, 0, 0, 1, 1, 1, 1, 0, 0])
+    def test_no_anchor_returns_none(self, decoder):
+        """Test that a symbol stream with no valid, repeating format
+        specifier never produces a decode.
+
+        Replaces the old test_bounded_phasing_strip, which tested the
+        pre-fix-9 flat-parser's phasing-symbol-counting logic (bounding
+        a linear strip to <=7 symbols). That mechanism no longer exists
+        - fix 9 replaced it with anchor detection (the first position
+        where a real format-specifier value repeats 2 symbol-positions
+        later). This test exercises the equivalent safety property
+        (malformed/non-message data never produces a bogus decode)
+        against the actual current mechanism: symbol 126 is a real,
+        valid ten-unit-code value but is never a format specifier, so
+        no anchor can ever be found no matter how much data accumulates.
+        """
+        # Symbol 126 = info bits [0,1,1,1,1,1,1] (LSB first) + check
+        # bits [0,0,1] (MSB first, encoding 1 B-element) - a genuinely
+        # valid, check-bit-correct symbol, just never a format specifier.
+        symbol_126_bits = [0, 1, 1, 1, 1, 1, 1, 0, 0, 1]
+        decoder.message_bits = symbol_126_bits * 60  # 60 symbols, plenty
         result = decoder._try_decode_message()
         assert result is None
 
