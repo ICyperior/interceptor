@@ -111,6 +111,10 @@ def start_audio() -> Response:
                 with contextlib.suppress(Exception):
                     scanner_proc_ref.kill()
         with contextlib.suppress(Exception):
+            # SIGTERM first so rtl_power can close its USB handle cleanly.
+            subprocess.run(["pkill", "rtl_power"], capture_output=True, timeout=0.5)
+        time.sleep(0.2)
+        with contextlib.suppress(Exception):
             subprocess.run(["pkill", "-9", "rtl_power"], capture_output=True, timeout=0.5)
         time.sleep(0.5)
 

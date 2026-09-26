@@ -32,7 +32,7 @@ _HACKRF_CACHE_TTL_SECONDS = 3.0
 # A short TTL cache avoids duplicate subprocess storms.
 _all_devices_cache: list[SDRDevice] = []
 _all_devices_cache_ts: float = 0.0
-_ALL_DEVICES_CACHE_TTL_SECONDS = 5.0
+_ALL_DEVICES_CACHE_TTL_SECONDS = 30.0
 
 
 def _hackrf_probe_blocked() -> bool:
@@ -109,6 +109,13 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
 
     This uses the native rtl_test tool for best compatibility with
     existing RTL-SDR installations.
+
+    rtl_test prints the device list immediately on startup (~50-100ms)
+    then enters an indefinite tuner benchmark loop. We use Popen + read
+    lines until we have what we need, then send SIGINT to stop it
+    gracefully — this avoids the 5s blocking timeout and the SIGKILL
+    that subprocess.run() would send on TimeoutExpired (which leaves
+    USB endpoints in a stalled state).
     """
     devices: list[SDRDevice] = []
 
@@ -117,41 +124,97 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
         logger.debug("rtl_test not found, skipping RTL-SDR detection")
         return devices
 
+    import os
+    import platform
+    import signal
+
+    env = os.environ.copy()
+
+    if platform.system() == "Darwin":
+        lib_paths = ["/usr/local/lib", "/opt/homebrew/lib"]
+        current_ld = env.get("DYLD_LIBRARY_PATH", "")
+        env["DYLD_LIBRARY_PATH"] = ":".join(lib_paths + [current_ld] if current_ld else lib_paths)
+
+    # Use Popen so we can read output as it arrives and stop rtl_test
+    # as soon as we have the device list, rather than blocking for the
+    # full benchmark timeout (5s) and having subprocess.run() send SIGKILL.
+    proc = subprocess.Popen(
+        [rtl_test_path, "-t"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+    )
+
     try:
-        import os
-        import platform
+        import select
 
-        env = os.environ.copy()
+        deadline = time.monotonic() + 5.0
+        device_pattern = re.compile(
+            r"(\d+):\s+(.+?),\s*SN:\s*(\S+)\s*$"
+        )
+        found_count_match = re.compile(r"Found (\d+) device")
 
-        if platform.system() == "Darwin":
-            lib_paths = ["/usr/local/lib", "/opt/homebrew/lib"]
-            current_ld = env.get("DYLD_LIBRARY_PATH", "")
-            env["DYLD_LIBRARY_PATH"] = ":".join(lib_paths + [current_ld] if current_ld else lib_paths)
+        # Read stderr line by line until we see device info or hit the deadline.
+        # rtl_test prints device info to stderr.
+        collected_output = ""
+        stderr = proc.stderr
+        if stderr is not None:
+            stderr_fd = stderr.fileno()
+            while time.monotonic() < deadline:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                ready, _, _ = select.select([stderr_fd], [], [], min(remaining, 0.1))
+                if ready:
+                    line = stderr.readline()
+                    if not line:
+                        break  # EOF — process closed stderr
+                    collected_output += line
+                    # Stop as soon as we have at least one device line parsed —
+                    # no need to wait for the benchmark loop after that.
+                    # Also stop on "Found 0 device(s)" since there is nothing more to read.
+                    if device_pattern.search(line):
+                        break
+                    if found_count_match.search(line):
+                        m = found_count_match.search(line)
+                        if m and int(m.group(1)) == 0:
+                            break  # nothing to enumerate, bail out early
+                if proc.poll() is not None:
+                    break  # Process exited on its own
+
+        # If we stopped early because we found devices, send SIGINT so
+        # librtlsdr can release the USB interface cleanly rather than
+        # having proc.kill() (SIGKILL) bypass libusb_release_interface.
+        if proc.poll() is None:
+            try:
+                proc.send_signal(signal.SIGINT)
+            except OSError:
+                pass
+
+        # Wait for graceful exit; fall back to SIGKILL if it hangs.
         try:
-            result = subprocess.run(
-                [rtl_test_path, "-t"],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                timeout=5,
-                env=env,
-            )
+            proc.wait(timeout=2.0)
         except subprocess.TimeoutExpired:
-            logger.warning("rtl_test timed out after 5s")
-            return []
-        output = result.stderr + result.stdout
+            try:
+                proc.kill()
+            except OSError:
+                pass
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                proc.wait(timeout=1.0)
+
+        output = collected_output + (proc.stdout.read() if proc.stdout else "") + (proc.stderr.read() if proc.stderr else "")
 
         # Parse device info from rtl_test output
         # Format: "0:  Realtek, RTL2838UHIDIR, SN: 00000001"
         # Require a non-empty serial to avoid matching malformed lines like "SN:".
-        device_pattern = r"(\d+):\s+(.+?),\s*SN:\s*(\S+)\s*$"
-
         from .rtlsdr import RTLSDRCommandBuilder
 
         for line in output.split("\n"):
             line = line.strip()
-            match = re.match(device_pattern, line)
+            match = device_pattern.match(line)
             if match:
                 devices.append(
                     SDRDevice(
@@ -166,7 +229,7 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
 
         # Fallback: if we found devices but couldn't parse details
         if not devices:
-            found_match = re.search(r"Found (\d+) device", output)
+            found_match = found_count_match.search(output)
             if found_match:
                 count = int(found_match.group(1))
                 for i in range(count):
@@ -181,10 +244,19 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
                         )
                     )
 
-    except subprocess.TimeoutExpired:
-        logger.warning("rtl_test timed out")
     except Exception as e:
         logger.debug(f"RTL-SDR detection error: {e}")
+        # Make sure the process is dead even on exception.
+        if proc.poll() is None:
+            try:
+                proc.kill()
+            except OSError:
+                pass
+    finally:
+        if proc.poll() is None:
+            with contextlib.suppress(OSError):
+                proc.kill()
+        proc.wait()
 
     return devices
 
@@ -446,6 +518,7 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
     try:
         import os
         import platform
+        import signal
 
         env = os.environ.copy()
 
@@ -473,37 +546,55 @@ def probe_rtlsdr_device(device_index: int) -> str | None:
         deadline = time.monotonic() + 3.0
 
         try:
-            while time.monotonic() < deadline:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    break
-                # Wait for stderr output with timeout
-                ready, _, _ = select.select([proc.stderr], [], [], min(remaining, 0.1))
-                if ready:
-                    line = proc.stderr.readline()
-                    if not line:
-                        break  # EOF — process closed stderr
-                    # Check for no-device messages first (before success check,
-                    # since "No supported devices found" also contains "Found" + "device")
-                    if "no supported devices" in line.lower() or "no matching devices" in line.lower():
-                        error_found = True
+            stderr = proc.stderr
+            if stderr is not None:
+                stderr_fd = stderr.fileno()
+                while time.monotonic() < deadline:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
                         break
-                    if "usb_claim_interface" in line or "Failed to open" in line:
-                        error_found = True
-                        break
-                    if "Found" in line and "device" in line.lower():
-                        # Device opened successfully — no need to wait longer
-                        device_found = True
-                        break
-                if proc.poll() is not None:
-                    break  # Process exited
-            if not device_found and not error_found and proc.poll() is not None and proc.returncode != 0:
-                # rtl_test exited with error and we never saw a success message
-                error_found = True
+                    # Wait for stderr output with timeout
+                    ready, _, _ = select.select([stderr_fd], [], [], min(remaining, 0.1))
+                    if ready:
+                        line = stderr.readline()
+                        if not line:
+                            break  # EOF — process closed stderr
+                        # Check for no-device messages first (before success check,
+                        # since "No supported devices found" also contains "Found" + "device")
+                        if "no supported devices" in line.lower() or "no matching devices" in line.lower():
+                            error_found = True
+                            break
+                        if "usb_claim_interface" in line or "Failed to open" in line:
+                            error_found = True
+                            break
+                        if "Found" in line and "device" in line.lower():
+                            # Device opened successfully — no need to wait longer
+                            device_found = True
+                            break
+                    if proc.poll() is not None:
+                        break  # Process exited
+                if not device_found and not error_found and proc.poll() is not None and proc.returncode != 0:
+                    # rtl_test exited with error and we never saw a success message
+                    error_found = True
         finally:
-            with contextlib.suppress(OSError):
-                proc.kill()
-            proc.wait()
+            if proc.poll() is None:
+                # Send SIGINT first so librtlsdr can release the USB interface
+                # cleanly via libusb_release_interface / libusb_close, rather
+                # than having proc.kill() (SIGKILL) bypass those cleanup handlers
+                # and leave USB endpoints in a stalled state.
+                try:
+                    proc.send_signal(signal.SIGINT)
+                except OSError:
+                    pass
+                try:
+                    proc.wait(timeout=2.0)
+                except subprocess.TimeoutExpired:
+                    try:
+                        proc.kill()
+                    except OSError:
+                        pass
+                    with contextlib.suppress(subprocess.TimeoutExpired):
+                        proc.wait(timeout=1.0)
             if device_found:
                 # Allow the kernel to fully release the USB interface
                 # before the caller opens the device with dump1090/rtl_fm/etc.
@@ -538,6 +629,17 @@ def detect_all_devices(force: bool = False) -> list[SDRDevice]:
     global _all_devices_cache, _all_devices_cache_ts
 
     now = time.time()
+
+    # If an SDR is actively streaming, skip USB bus probing entirely —
+    # running rtl_test / SoapySDRUtil while a decoder holds the device
+    # causes usb_claim_interface error -6 and capture abortions.
+    # Return the cached list (or an empty list if never probed).
+    if not force and _is_sdr_in_use():
+        logger.debug("SDR in use — returning cached device list, skipping USB probe")
+        if _all_devices_cache_ts and (now - _all_devices_cache_ts) < _ALL_DEVICES_CACHE_TTL_SECONDS:
+            return list(_all_devices_cache)
+        return list(_all_devices_cache) if _all_devices_cache else []
+
     if not force and _all_devices_cache_ts and (now - _all_devices_cache_ts) < _ALL_DEVICES_CACHE_TTL_SECONDS:
         logger.debug("Returning cached device list (%d device(s))", len(_all_devices_cache))
         return list(_all_devices_cache)
@@ -583,6 +685,63 @@ def get_cached_devices() -> list[SDRDevice] | None:
     if _all_devices_cache_ts == 0.0:
         return None
     return list(_all_devices_cache)
+
+
+def _is_sdr_in_use() -> bool:
+    """Check whether any SDR is currently being used by an active decoder mode.
+
+    When an SDR is actively streaming (e.g. rtl_433, dump1090, rtl_fm audio),
+    re-running rtl_test or SoapySDRUtil --find on the same USB bus collides with
+    the active capture and causes usb_claim_interface error -6 / SIGILL crashes.
+
+    Checks the app's SDR device registry first (the authoritative source), then
+    falls back to checking well-known module-level process variables for legacy
+    code paths that may not yet use the claim/release API.
+    """
+    # Primary check: the app's SDR device registry.
+    try:
+        from app import get_sdr_device_status
+
+        status = get_sdr_device_status()
+        if status:
+            return True
+    except Exception:
+        pass
+
+    # Fallback: check well-known active processes from other modules.
+    # These are module-level Popen instances that may predate the claim API.
+    active_checks = [
+        ("routes.sensor", "sensor_process"),
+        ("routes.sensor", "current_process"),
+        ("routes.adsb", "adsb_process"),
+        ("routes.rtlamr", "rtlamr_process"),
+        ("routes.rtlamr", "rtl_tcp_process"),
+        ("routes.ais", "ais_process"),
+        ("routes.acars", "acars_process"),
+        ("routes.vdl2", "vdl2_process"),
+        ("routes.aprs", "aprs_process"),
+        ("routes.weather_sat", "radiosonde_process"),
+        ("routes.morse", "morse_process"),
+        ("routes.listening_post", "audio_running"),
+    ]
+    for mod_name, attr_name in active_checks:
+        try:
+            mod = __import__(mod_name, fromlist=[attr_name])
+            attr = getattr(mod, attr_name, None)
+            if attr is None:
+                continue
+            if attr_name == "audio_running":
+                if bool(attr):
+                    return True
+            elif hasattr(attr, "poll"):
+                if attr.poll() is None:
+                    return True
+            elif isinstance(attr, (int, float)) and attr:
+                return True
+        except Exception:
+            pass
+
+    return False
 
 
 def invalidate_device_cache() -> None:

@@ -479,25 +479,57 @@ def _stop_audio_stream_internal():
 
     had_processes = audio_process is not None or audio_rtl_process is not None
 
-    # Kill the pipeline processes and their groups
+    # Kill the pipeline processes and their groups.
+    # Send SIGTERM first so rtl_fm / rx_fm can run their librtlsdr cleanup
+    # handlers (libusb_release_interface / libusb_close) and release the USB
+    # endpoint cleanly.  Only fall back to SIGKILL if the process does not
+    # exit within the timeout — SIGKILL bypasses those handlers and leaves
+    # USB interfaces in a stalled state (usb_claim_interface error -6).
     if audio_process:
         try:
-            # Kill entire process group (SDR demod + ffmpeg)
-            try:
-                os.killpg(os.getpgid(audio_process.pid), signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
+            pgid = os.getpgid(audio_process.pid)
+        except (ProcessLookupError, PermissionError):
+            pgid = None
+        try:
+            if pgid is not None:
+                os.killpg(pgid, signal.SIGTERM)
+            else:
+                audio_process.terminate()
+            audio_process.wait(timeout=PROCESS_TERMINATE_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            if pgid is not None:
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    audio_process.kill()
+            else:
                 audio_process.kill()
-            audio_process.wait(timeout=0.5)
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                audio_process.wait(timeout=1.0)
         except Exception:
             pass
 
     if audio_rtl_process:
         try:
-            try:
-                os.killpg(os.getpgid(audio_rtl_process.pid), signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
+            pgid = os.getpgid(audio_rtl_process.pid)
+        except (ProcessLookupError, PermissionError):
+            pgid = None
+        try:
+            if pgid is not None:
+                os.killpg(pgid, signal.SIGTERM)
+            else:
+                audio_rtl_process.terminate()
+            audio_rtl_process.wait(timeout=PROCESS_TERMINATE_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            if pgid is not None:
+                try:
+                    os.killpg(pgid, signal.SIGKILL)
+                except (ProcessLookupError, PermissionError):
+                    audio_rtl_process.kill()
+            else:
                 audio_rtl_process.kill()
-            audio_rtl_process.wait(timeout=0.5)
+            with contextlib.suppress(subprocess.TimeoutExpired):
+                audio_rtl_process.wait(timeout=1.0)
         except Exception:
             pass
 
