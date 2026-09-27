@@ -970,6 +970,12 @@
                                         <div class="wifi-detail-bssid" id="wifiDetailBssid">—</div>
                                     </div>
 
+                                    <div class="wifi-detail-actions">
+                                        <button type="button" class="wifi-detail-action" onclick="WiFiMode.captureSelected()" title="Capture this network's WPA handshake (monitor mode required)">Capture Handshake</button>
+                                        <button type="button" class="wifi-detail-action" onclick="WiFiMode.locateNetwork()" title="Locate this network">Locate</button>
+                                        <button type="button" class="wifi-detail-action wifi-detail-action--danger" onclick="WiFiMode.deauthSelected()" title="Send deauth to this network — authorized testing only">Deauth</button>
+                                    </div>
+
                                     <div class="wifi-detail-signal-bar">
                                         <div class="wifi-detail-signal-labels">
                                             <span>Signal</span>

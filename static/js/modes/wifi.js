@@ -1254,6 +1254,35 @@ const WiFiMode = (function() {
         }
     }
 
+    /**
+     * Capture the WPA handshake for the selected network — one click, no
+     * copy/paste. Delegates to the existing captureHandshake(bssid, channel).
+     */
+    function captureSelected() {
+        if (!selectedBssid) return;
+        const network = networks.get(selectedBssid) || {};
+        if (typeof captureHandshake === 'function') {
+            captureHandshake(selectedBssid, network.channel);
+        } else {
+            console.warn('captureHandshake unavailable');
+        }
+    }
+
+    /**
+     * Send deauth to the selected network. Reuses the existing sendDeauth()
+     * flow (keeps the manual target field in sync) so there's one code path.
+     */
+    function deauthSelected() {
+        if (!selectedBssid) return;
+        if (typeof sendDeauth !== 'function') {
+            console.warn('sendDeauth unavailable');
+            return;
+        }
+        const el = document.getElementById('targetBssid');
+        if (el) el.value = selectedBssid;
+        sendDeauth();
+    }
+
     function selectNetwork(bssid) {
         selectedBssid = bssid;
 
@@ -1897,6 +1926,8 @@ const WiFiMode = (function() {
         stopScan,
         selectNetwork,
         locateNetwork,
+        captureSelected,
+        deauthSelected,
         closeDetail,
         setFilter: setNetworkFilter,
         exportData,
