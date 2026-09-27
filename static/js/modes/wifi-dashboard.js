@@ -1767,6 +1767,33 @@ async function captureHandshake(bssid, channel) {
     }
 }
 
+// Force a handshake: deauth clients on the target so they reconnect. Runs
+// alongside the active capture (aireplay-ng is one-shot, separate from airodump).
+async function forceHandshake() {
+    if (!activeCapture) {
+        showInfo('No active handshake capture');
+        return;
+    }
+    const confirmed = await AppFeedback.confirmAction({
+        title: 'Force Handshake',
+        message: 'Send deauth packets to ' + activeCapture.bssid + ' so clients reconnect and produce a handshake? Only on networks you own or are authorized to test.',
+        confirmLabel: 'Send Deauth',
+        confirmClass: 'btn-danger'
+    });
+    if (!confirmed) return;
+    try {
+        const r = await fetch('/wifi/deauth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bssid: activeCapture.bssid, client: 'FF:FF:FF:FF:FF:FF', count: 5 })
+        });
+        const d = await r.json();
+        showInfo(d.message || 'Deauth sent — watching for the handshake…');
+    } catch (e) {
+        showError('Deauth failed: ' + e.message);
+    }
+}
+
 // Check handshake capture status
 function checkCaptureStatus() {
     if (!activeCapture) {
@@ -1817,6 +1844,20 @@ function checkCaptureStatus() {
                 // Store the captured file for later use
                 activeCapture.captured = true;
                 activeCapture.capturedFile = data.file;
+
+                // Offer downloads: hashcat .hc22000 (for offline cracking) and raw .cap
+                const exportDiv = document.getElementById('captureExport');
+                if (exportDiv) {
+                    const encFile = encodeURIComponent(data.file);
+                    exportDiv.style.display = 'flex';
+                    exportDiv.innerHTML =
+                        '<a class="preset-btn" href="/wifi/handshake/export?file=' + encFile + '&format=hc22000" ' +
+                        'style="flex:1;font-size:10px;padding:4px;text-align:center;text-decoration:none;" ' +
+                        'title="Download hashcat .hc22000 for offline cracking">Export (hashcat)</a>' +
+                        '<a class="preset-btn" href="/wifi/handshake/export?file=' + encFile + '&format=cap" ' +
+                        'style="flex:1;font-size:10px;padding:4px;text-align:center;text-decoration:none;" ' +
+                        'title="Download the raw .cap capture">Download .cap</a>';
+                }
             } else if (data.file_exists) {
                 const sizeKB = (data.file_size / 1024).toFixed(1);
                 let extra = '';

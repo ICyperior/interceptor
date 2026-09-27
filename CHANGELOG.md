@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.48] - 2026-09-27
+
+### Added
+
+- **WiFi: guided handshake capture + export.** During an active handshake capture you can now click “Force handshake (deauth clients)” to nudge associated clients into reconnecting so a handshake is produced (confirmation-gated; authorized testing only). Once a valid handshake is captured, the panel offers one-click export as a hashcat `hc22000` file (via hcxpcapngtool) or the raw `.cap`. UI wiring plus a `/wifi/handshake/export` download endpoint over the existing capture handlers.
+
 ## [2.33.47] - 2026-09-27
 
 ### Changed
