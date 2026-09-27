@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.44"
+VERSION = "2.33.45"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.45",
+        "date": "September 2026",
+        "highlights": [
+            "Space weather now shows clear \"source unreachable\" messages (and a banner) when the server can\u2019t reach NOAA/HamQSL, instead of misleading empty panels.",
+        ],
+    },
     {
         "version": "2.33.44",
         "date": "September 2026",

@@ -2801,6 +2801,8 @@
 
                 <!-- Space Weather Dashboard -->
                 <div id="spaceWeatherVisuals" class="sw-visuals-container" style="display: none;">
+                    <!-- Shown when the server can't reach the upstream data sources -->
+                    <div id="swOfflineBanner" class="sw-offline-banner" style="display: none;"></div>
                     <!-- Header metrics strip -->
                     <div class="sw-header-strip">
                         <div class="sw-header-stat">
@@ -2863,7 +2865,7 @@
                         </div>
                         <div class="sw-chart-card">
                             <div class="sw-chart-title">X-Ray Flux (GOES)</div>
-                            <div class="sw-chart-wrap"><canvas id="swXrayChart"></canvas></div>
+                            <div class="sw-chart-wrap"><canvas id="swXrayChart"></canvas><div class="sw-chart-msg" id="swXrayMsg" style="display: none;"></div></div>
                         </div>
                         <div class="sw-chart-card">
                             <div class="sw-chart-title">Flare Probability</div>
