@@ -14,7 +14,7 @@ import threading
 import time
 from typing import Any
 
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, jsonify, request, send_file
 
 import app as app_module
 from data.oui import get_manufacturer
@@ -869,6 +869,50 @@ def capture_handshake():
             return jsonify({"status": "started", "capture_file": capture_path + "-01.cap"})
         except Exception as e:
             return api_error(str(e))
+
+
+@wifi_bp.route("/handshake/export")
+def export_handshake():
+    """Download a captured handshake — hashcat .hc22000 (default) or raw .cap.
+
+    For authorized WiFi testing: exports a capture this app made so it can be
+    cracked offline.
+    """
+    capture_file = request.args.get("file", "")
+    fmt = request.args.get("format", "hc22000")
+
+    if not capture_file.startswith("/tmp/intercept_handshake_") or ".." in capture_file:
+        return api_error("Invalid capture file path")
+    if not os.path.exists(capture_file):
+        return api_error("Capture file not found", 404)
+
+    if fmt == "cap":
+        return send_file(
+            capture_file,
+            as_attachment=True,
+            download_name="handshake.cap",
+            mimetype="application/vnd.tcpdump.pcap",
+        )
+
+    tool = get_tool_path("hcxpcapngtool")
+    if not tool:
+        return api_error("hcxpcapngtool not installed (install hcxtools) — download the .cap instead")
+
+    hash_file = capture_file + ".hc22000"
+    try:
+        subprocess.run([tool, "-o", hash_file, capture_file], capture_output=True, text=True, timeout=15)
+    except (subprocess.SubprocessError, OSError) as e:
+        return api_error(f"Conversion failed: {e}")
+
+    if not os.path.exists(hash_file) or os.path.getsize(hash_file) == 0:
+        return api_error("No convertible WPA handshake/PMKID found in the capture yet")
+
+    return send_file(
+        hash_file,
+        as_attachment=True,
+        download_name="handshake.hc22000",
+        mimetype="text/plain",
+    )
 
 
 @wifi_bp.route("/handshake/status", methods=["POST"])

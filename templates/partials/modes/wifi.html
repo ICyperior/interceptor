@@ -146,6 +146,9 @@
                                 <span style="color: var(--text-dim);">Status:</span>
                                 <span id="captureStatus" style="font-weight: bold;">--</span>
                             </div>
+                            <button class="preset-btn" onclick="forceHandshake()" title="Deauth clients so they reconnect and produce a handshake (authorized testing only)" style="width: 100%; font-size: 10px; padding: 5px; margin-bottom: 8px; border-color: var(--accent-orange); color: var(--accent-orange);">
+                                Force handshake (deauth clients)
+                            </button>
                             <div style="display: flex; gap: 8px;">
                                 <button class="preset-btn" onclick="checkCaptureStatus()" style="flex: 1; font-size: 10px; padding: 4px;">
                                     Check Status
@@ -154,6 +157,7 @@
                                     Stop Capture
                                 </button>
                             </div>
+                            <div id="captureExport" style="display: none; margin-top: 8px; gap: 8px;"></div>
                         </div>
                     </div>
 
