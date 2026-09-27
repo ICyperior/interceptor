@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.41"
+VERSION = "2.33.42"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.42",
+        "date": "September 2026",
+        "highlights": [
+            "Meshtastic dashboard: new searchable Nodes tab lists every known node (including those with no map position), with SNR/battery/last-heard; click a node to centre the map on it (#270).",
+        ],
+    },
     {
         "version": "2.33.41",
         "date": "September 2026",

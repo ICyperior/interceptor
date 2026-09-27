@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.42] - 2026-09-27
+
+### Added
+
+- **Meshtastic dashboard: searchable Nodes tab (#270).** A new Nodes tab (between Messages and Channels) lists every node the device knows \u2014 including the many that report no position and so never appeared on the map \u2014 with name, id, SNR, battery and last-heard. Search by name or id, and click a node to centre the map on it (or see a note if it has no position).
+
 ## [2.33.41] - 2026-09-27
 
 ### Fixed
