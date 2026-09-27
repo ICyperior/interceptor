@@ -4059,7 +4059,7 @@ header h1 .tagline {
 
 .wifi-detail-bssid {
     font-size: 10px;
-    font-family: monospace;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
     color: var(--text-dim);
 }
 
@@ -4193,7 +4193,7 @@ header h1 .tagline {
 }
 
 .wifi-client-mac {
-    font-family: monospace;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
     font-size: 12px;
     color: var(--text-primary);
 }
@@ -4496,7 +4496,7 @@ header h1 .tagline {
 }
 
 .bt-detail-address {
-    font-family: var(--font-mono);
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
     font-size: 10px;
     color: var(--accent-cyan);
 }
@@ -5495,7 +5495,7 @@ header h1 .tagline {
 .bt-modal-stat-value {
     font-size: 13px;
     color: var(--text-primary, #e0e0e0);
-    font-family: monospace;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
 }
 
 .bt-modal-badge {
@@ -5546,7 +5546,7 @@ header h1 .tagline {
 .bt-modal-rssi-value {
     font-size: 36px;
     font-weight: 700;
-    font-family: monospace;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
 }
 
 .bt-modal-rssi-label {
