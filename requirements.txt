@@ -26,7 +26,10 @@ Pillow>=9.0.0
 pyserial>=3.5
 
 # Meshtastic mesh network support (optional - only needed for Meshtastic features)
-meshtastic>=2.0.0
+# >=2.7.9: earlier releases (e.g. 2.7.7/2.7.8) cap packaging<25.0, which pip
+# reports as a conflict against modern packaging (26.x). 2.7.9 relaxed it to
+# packaging>=24.0. The old warning was cosmetic (install still succeeded).
+meshtastic>=2.7.9
 # meshcore 2.3.0+ required for EventType.STATS_CORE; needs Python 3.10+
 meshcore>=2.3.0
 
