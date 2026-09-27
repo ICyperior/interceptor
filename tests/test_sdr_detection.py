@@ -17,16 +17,82 @@ def _clear_detection_caches():
     yield
 
 
-@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
-@patch("utils.sdr.detection.subprocess.run")
-def test_detect_rtlsdr_devices_filters_empty_serial_entries(mock_run, _mock_tool_path):
-    """Ignore malformed rtl_test rows that have an empty SN field."""
-    mock_result = MagicMock()
-    mock_result.stdout = ""
-    mock_result.stderr = "Found 3 device(s):\n  0:  ??C?, , SN:\n  1:  ??C?, , SN:\n  2:  RTLSDRBlog, Blog V4, SN: 1\n"
-    mock_run.return_value = mock_result
+# ---- RTL-SDR detection tests (Popen-based) ----
 
-    devices = detect_rtlsdr_devices()
+_RTL_SERIAL_OUTPUT = [
+    "Found 3 device(s):",
+    "  0:  ??C?, , SN:",
+    "  1:  ??C?, , SN:",
+    "  2:  RTLSDRBlog, Blog V4, SN: 1",
+]
+
+
+def _make_rtl_test_mock(device_lines, *, exit_after_lines=None):
+    """Return a Popen mock for rtl_test -t.
+
+    stderr emits ``device_lines`` via readline() then returns ``""``.
+    ``exit_after_lines`` (optional int) makes poll() return a code after
+    that many readline calls.
+    """
+    mock = MagicMock()
+    mock.poll.return_value = None
+    mock.wait.return_value = 0
+    mock.returncode = None
+    mock.send_signal = MagicMock()
+
+    stderr = MagicMock()
+    idx = {"i": 0}
+
+    def readline():
+        if idx["i"] < len(device_lines):
+            idx["i"] += 1
+            return device_lines[idx["i"] - 1] + "\n"
+        return ""
+
+    stderr.readline = readline
+    stderr.fileno.return_value = 999
+    stderr.read.return_value = ""  # text=True → strings, not bytes
+    mock.stderr = stderr
+    mock.stdout = MagicMock()
+    mock.stdout.readline = lambda: ""
+    mock.stdout.read.return_value = ""  # text=True → strings, not bytes
+
+    if exit_after_lines is not None:
+        def poll_with_exit():
+            if idx["i"] >= exit_after_lines:
+                mock.returncode = 1
+                return 1
+            return None
+
+        mock.poll = poll_with_exit
+
+    return mock
+
+
+def _make_select_patch():
+    """Patch ``select.select`` to always report fd 999 as ready."""
+    def select_side_effect(rlist, wlist, xlist, timeout=None):
+        if 999 in rlist:
+            return ([999], [], [])
+        return ([], [], [])
+    return patch("select.select", side_effect=select_side_effect)
+
+
+def _popen_and_select_patch(device_lines, *, exit_after_lines=None):
+    """Return a context-manager tuple for patching Popen + select."""
+    mock = _make_rtl_test_mock(device_lines, exit_after_lines=exit_after_lines)
+    return (
+        patch("subprocess.Popen", return_value=mock),
+        _make_select_patch(),
+    )
+
+
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
+def test_detect_rtlsdr_devices_filters_empty_serial_entries(_mock_tool_path):
+    """Ignore malformed rtl_test rows that have an empty SN field."""
+    popen_patch, select_patch = _popen_and_select_patch(_RTL_SERIAL_OUTPUT)
+    with popen_patch, select_patch:
+        devices = detect_rtlsdr_devices()
 
     assert len(devices) == 1
     assert devices[0].sdr_type == SDRType.RTL_SDR
@@ -36,20 +102,77 @@ def test_detect_rtlsdr_devices_filters_empty_serial_entries(mock_run, _mock_tool
 
 
 @patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
-@patch("utils.sdr.detection.subprocess.run")
-def test_detect_rtlsdr_devices_uses_replace_decode_mode(mock_run, _mock_tool_path):
+def test_detect_rtlsdr_devices_uses_replace_decode_mode(_mock_tool_path):
     """Run rtl_test with tolerant decoding for malformed output bytes."""
-    mock_result = MagicMock()
-    mock_result.stdout = ""
-    mock_result.stderr = "Found 0 device(s):"
-    mock_run.return_value = mock_result
+    popen_patch, select_patch = _popen_and_select_patch(["Found 0 device(s):"])
+    with popen_patch as popen_mock, select_patch:
+        detect_rtlsdr_devices()
 
-    detect_rtlsdr_devices()
-
-    _, kwargs = mock_run.call_args
+    _, kwargs = popen_mock.call_args
     assert kwargs["text"] is True
     assert kwargs["encoding"] == "utf-8"
     assert kwargs["errors"] == "replace"
+
+
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
+def test_detect_rtlsdr_devices_gathers_output_before_sigint(_mock_tool_path):
+    """Device list is parsed even when we SIGINT rtl_test early."""
+    mock = _make_rtl_test_mock([
+        "Found 1 device(s):",
+        "  0:  Realtek, RTL2838UHIDIR, SN: 00000001",
+        "  1:  Realtek, RTL2838UHIDIR, SN: 00000002",
+    ])
+    mock.poll.return_value = None  # stays running -> we'll SIGINT it
+    with patch("subprocess.Popen", return_value=mock), \
+         _make_select_patch():
+        devices = detect_rtlsdr_devices()
+
+    # Early-exit: we break on the first device line we parse, so only 1 device
+    # is collected before SIGINT is sent. The code does the right thing by not
+    # waiting for the full benchmark loop — that's the whole point of the fix.
+    assert len(devices) == 1
+    assert devices[0].serial == "00000001"
+
+
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
+def test_detect_rtlsdr_devices_handles_process_exit_without_sigint(_mock_tool_path):
+    """If rtl_test exits on its own before we send SIGINT, output is still parsed."""
+    mock = _make_rtl_test_mock([
+        "Found 1 device(s):",
+        "  0:  Realtek, RTL2838UHIDIR, SN: DEADBEEF",
+    ], exit_after_lines=2)
+    mock.wait.return_value = 1
+    with patch("subprocess.Popen", return_value=mock), \
+         _make_select_patch():
+        devices = detect_rtlsdr_devices()
+
+    assert len(devices) == 1
+    assert devices[0].serial == "DEADBEEF"
+
+
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
+def test_detect_rtlsdr_devices_returns_empty_when_no_device_found(_mock_tool_path):
+    """No devices found -> empty list, no exception."""
+    popen_patch, select_patch = _popen_and_select_patch(["Found 0 device(s):"])
+    with popen_patch, select_patch:
+        devices = detect_rtlsdr_devices()
+
+    assert devices == []
+
+
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
+def test_detect_rtlsdr_devices_falls_back_to_count_when_no_serial(_mock_tool_path):
+    """When serials are unparseable, fall back to 'Found N device' count."""
+    popen_patch, select_patch = _popen_and_select_patch([
+        "Found 2 device(s):",
+        "  0:  Realtek, RTL2838UHIDIR, SN: ",
+        "  1:  Realtek, RTL2838UHIDIR, SN: ",
+    ])
+    with popen_patch, select_patch:
+        devices = detect_rtlsdr_devices()
+
+    assert len(devices) == 2
+    assert all(d.serial == "Unknown" for d in devices)
 
 
 # ---- HackRF detection tests ----
@@ -69,14 +192,20 @@ HACKRF_INFO_OUTPUT = (
 )
 
 
+def _make_hackrf_mock(stdout_text, stderr_text="", returncode=0):
+    """Return a MagicMock for subprocess.run that yields the given output."""
+    mock_result = MagicMock()
+    mock_result.stdout = stdout_text
+    mock_result.stderr = stderr_text
+    mock_result.returncode = returncode
+    return mock_result
+
+
 @patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/hackrf_info")
 @patch("utils.sdr.detection.subprocess.run")
 def test_detect_hackrf_from_stdout(mock_run, _mock_tool_path):
     """Parse HackRF device info from stdout."""
-    mock_result = MagicMock()
-    mock_result.stdout = HACKRF_INFO_OUTPUT
-    mock_result.stderr = ""
-    mock_run.return_value = mock_result
+    mock_run.return_value = _make_hackrf_mock(HACKRF_INFO_OUTPUT)
 
     devices = detect_hackrf_devices()
 
@@ -91,10 +220,7 @@ def test_detect_hackrf_from_stdout(mock_run, _mock_tool_path):
 @patch("utils.sdr.detection.subprocess.run")
 def test_detect_hackrf_from_stderr(mock_run, _mock_tool_path):
     """Parse HackRF device info when output goes to stderr (newer firmware)."""
-    mock_result = MagicMock()
-    mock_result.stdout = ""
-    mock_result.stderr = HACKRF_INFO_OUTPUT
-    mock_run.return_value = mock_result
+    mock_run.return_value = _make_hackrf_mock("", HACKRF_INFO_OUTPUT)
 
     devices = detect_hackrf_devices()
 
@@ -108,11 +234,7 @@ def test_detect_hackrf_from_stderr(mock_run, _mock_tool_path):
 @patch("utils.sdr.detection.subprocess.run")
 def test_detect_hackrf_nonzero_exit_with_valid_output(mock_run, _mock_tool_path):
     """Parse HackRF info even when hackrf_info exits non-zero (device busy)."""
-    mock_result = MagicMock()
-    mock_result.returncode = 1
-    mock_result.stdout = ""
-    mock_result.stderr = HACKRF_INFO_OUTPUT
-    mock_run.return_value = mock_result
+    mock_run.return_value = _make_hackrf_mock("", HACKRF_INFO_OUTPUT, returncode=1)
 
     devices = detect_hackrf_devices()
 
@@ -124,10 +246,9 @@ def test_detect_hackrf_nonzero_exit_with_valid_output(mock_run, _mock_tool_path)
 @patch("utils.sdr.detection.subprocess.run")
 def test_detect_hackrf_fallback_no_serial(mock_run, _mock_tool_path):
     """Fallback detection when serial is missing but 'Found HackRF' present."""
-    mock_result = MagicMock()
-    mock_result.stdout = "Found HackRF\nBoard ID Number: 2 (HackRF One)\n"
-    mock_result.stderr = ""
-    mock_run.return_value = mock_result
+    mock_run.return_value = _make_hackrf_mock(
+        "Found HackRF\nBoard ID Number: 2 (HackRF One)\n"
+    )
 
     devices = detect_hackrf_devices()
 
@@ -140,15 +261,12 @@ def test_detect_hackrf_fallback_no_serial(mock_run, _mock_tool_path):
 @patch("utils.sdr.detection.subprocess.run")
 def test_detect_hackrf_parses_legacy_serial_format(mock_run, _mock_tool_path):
     """Accept legacy 'Serial Number' casing and spaced hex format."""
-    mock_result = MagicMock()
-    mock_result.stdout = (
+    mock_run.return_value = _make_hackrf_mock(
         "Found HackRF\n"
         "Index: 0\n"
         "Serial Number: 0x00000000 00000000 a06063c8 234e925f\n"
         "Board ID Number: 3 (HackRF Pro)\n"
     )
-    mock_result.stderr = ""
-    mock_run.return_value = mock_result
 
     devices = detect_hackrf_devices()
 

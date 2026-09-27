@@ -218,12 +218,23 @@ if not _is_under_gunicorn():
 
 
 def cleanup_stale_processes() -> None:
-    """Kill any stale processes from previous runs (but not system services)."""
+    """Kill any stale processes from previous runs (but not system services).
+
+    Use SIGTERM first so decoders (rtl_433, multimon-ng, rtl_fm) can run
+    their cleanup handlers and release USB endpoints cleanly.  Only fall
+    back to SIGKILL via pkill -9 if a process does not respond to SIGTERM.
+    """
     # Note: dump1090 is NOT included here as users may run it as a system service
     processes_to_kill = ["rtl_adsb", "rtl_433", "multimon-ng", "rtl_fm"]
     for proc_name in processes_to_kill:
+        # First attempt graceful termination.
         with contextlib.suppress(subprocess.SubprocessError, OSError):
-            subprocess.run(["pkill", "-9", proc_name], capture_output=True)
+            subprocess.run(["pkill", proc_name], capture_output=True, timeout=2)
+        # Brief wait for processes that honour SIGTERM.
+        time.sleep(0.2)
+        # Force-kill any survivors.
+        with contextlib.suppress(subprocess.SubprocessError, OSError):
+            subprocess.run(["pkill", "-9", proc_name], capture_output=True, timeout=0.5)
 
 
 _DUMP1090_PID_FILE = Path(__file__).resolve().parent.parent / "instance" / "dump1090.pid"
