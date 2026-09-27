@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.45] - 2026-09-27
+
+### Changed
+
+- **Space weather: clearer offline/unreachable states.** When the server can\u2019t reach the upstream sources (NOAA/HamQSL \u2014 e.g. a DNS failure), the flare-probability and X-ray panels now say the source is unreachable (with a check-network/DNS hint) and a banner appears, instead of misleading \u201cNo flare data\u201d/blank panels. The data path is unchanged; the outage itself is environmental.
+
 ## [2.33.44] - 2026-09-27
 
 ### Fixed
