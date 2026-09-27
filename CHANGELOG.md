@@ -2,6 +2,14 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.44] - 2026-09-27
+
+### Fixed
+
+- **Section/title fonts (Orbitron) were falling back to monospace.** Orbitron is used for dashboard and section titles across the satellite/ADS-B dashboards and the SPA but was never bundled or requested, so it fell back to a generic monospace and looked out of place. It is now bundled in `fonts-local.css` (offline) and requested on the SPA online path.
+- **APRS dashboard map not loading.** The APRS dashboard was missing `settings-manager.js`, so the map could not apply the configured tile provider and stayed on the fallback grid. It now loads the tiles like the other dashboards (a test guards the dependency).
+- **Space weather duplicate loading spinner.** The flare-probability and related loading placeholders showed two spinners because they carried both the `sw-loading` and `ui-loading` classes; the redundant one was removed.
+
 ## [2.33.43] - 2026-09-27
 
 ### Added

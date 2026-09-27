@@ -7,10 +7,19 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.43"
+VERSION = "2.33.44"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.44",
+        "date": "September 2026",
+        "highlights": [
+            "Bundled the Orbitron display font so dashboard/section titles render correctly instead of falling back to a plain monospace.",
+            "APRS dashboard map now loads your configured tile provider (it was stuck on the fallback grid).",
+            "Space weather: removed a duplicate loading spinner on the flare-probability and related panels.",
+        ],
+    },
     {
         "version": "2.33.43",
         "date": "September 2026",
