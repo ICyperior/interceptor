@@ -2921,10 +2921,9 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     markers[icao].setIcon(createMarkerIcon(rotation, color, iconType, isSelected, ground, emergency, label));
                 }
                 if (tooltipChanged) {
-                    markers[icao].unbindTooltip();
-                    markers[icao].bindTooltip(tooltipContent, {
-                        permanent: false, direction: 'top', className: 'aircraft-tooltip'
-                    });
+                    // Update in place so an open (hovered) tooltip refreshes its
+                    // numbers instead of closing on every data update.
+                    markers[icao].setTooltipContent(tooltipContent);
                 }
             } else {
                 markers[icao] = L.marker([ac.lat, ac.lon], { icon: createMarkerIcon(rotation, color, iconType, isSelected, ground, emergency, label) })
