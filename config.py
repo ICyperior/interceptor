@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.45"
+VERSION = "2.33.46"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.46",
+        "date": "September 2026",
+        "highlights": [
+            "SDR reliability: gentler process shutdown (SIGINT/SIGTERM before SIGKILL), fewer USB bus scans, and skipping re-probes while a device is streaming \u2014 reduces hardware lockups and USB contention (#256, thanks @Dr-gigabyte).",
+        ],
+    },
     {
         "version": "2.33.45",
         "date": "September 2026",

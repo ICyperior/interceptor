@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.46] - 2026-09-27
+
+### Fixed
+
+- **SDR hardware lockups / USB contention (#256).** Device probing and process shutdown now terminate decoders gently (SIGINT/SIGTERM with a SIGKILL fallback) instead of an abrupt `kill -9`, so librtlsdr can release USB endpoints cleanly; the detection cache TTL was raised (fewer USB bus scans) and re-probing is skipped while a device is actively streaming. Community contribution by @Dr-gigabyte.
+
 ## [2.33.45] - 2026-09-27
 
 ### Changed
