@@ -768,9 +768,9 @@ const Meshtastic = (function() {
             return `<div class="mesh-node-row${n.has_position ? ' has-pos' : ''}" data-node="${_nodeEsc(id)}" onclick="Meshtastic.focusNode('${_nodeEsc(id)}')" title="${n.has_position ? 'Show on map' : 'No position reported yet'}">
                 <div class="mesh-node-row-main">
                     <span class="mesh-node-name">${pos} ${name}${local}</span>
-                    <span class="mesh-node-id">${_nodeEsc(id)}</span>
+                    <button type="button" class="mesh-node-msg" title="Message this node" aria-label="Message ${name}" onclick="event.stopPropagation();Meshtastic.messageNode('${_nodeEsc(id)}')">&#9993;</button>
                 </div>
-                <div class="mesh-node-row-meta">${snr}${batt} · ${_nodeRelTime(n.last_heard)}</div>
+                <div class="mesh-node-row-meta"><span class="mesh-node-id">${_nodeEsc(id)}</span> · ${snr}${batt} · ${_nodeRelTime(n.last_heard)}</div>
             </div>`;
         }).join('');
     }
@@ -788,6 +788,17 @@ const Meshtastic = (function() {
         } else {
             showStatusMessage('That node has not reported a position yet.', 'info');
         }
+    }
+
+    // Start a direct message to a node from the Nodes tab (#270): drop its id
+    // into the compose box and switch to Messages. Works whether or not the
+    // node has a position (the point: DM the GPS-less nodes you can now see).
+    function messageNode(id) {
+        const to = document.getElementById('meshComposeTo');
+        if (to) to.value = id;
+        if (typeof meshDashTab === 'function') meshDashTab('messages');
+        const txt = document.getElementById('meshComposeText');
+        if (txt) txt.focus();
     }
 
     /**
@@ -2417,6 +2428,7 @@ const Meshtastic = (function() {
         applyFilter,
         filterNodes,
         focusNode,
+        messageNode,
         showHelp,
         closeHelp,
         sendMessage,

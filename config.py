@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.42"
+VERSION = "2.33.43"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.43",
+        "date": "September 2026",
+        "highlights": [
+            "Meshtastic Nodes tab: each node has a message action that starts a direct message to it (drops its id into the compose box), so you can DM nodes that have no map position (#270).",
+        ],
+    },
     {
         "version": "2.33.42",
         "date": "September 2026",

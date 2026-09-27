@@ -174,3 +174,20 @@
     padding: 0 3px;
     margin-left: 4px;
 }
+
+/* Message-this-node button in the Nodes tab (#270) */
+.mesh-node-msg {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 3px 6px;
+}
+.mesh-node-msg:hover {
+    color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+}
