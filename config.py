@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.40"
+VERSION = "2.33.41"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.41",
+        "date": "September 2026",
+        "highlights": [
+            "Fixed the Meshtastic/Meshcore dashboards: they now load the core scripts the modules need, restoring the map tile provider and node/message rendering that broke after the dashboard migration (#270).",
+        ],
+    },
     {
         "version": "2.33.40",
         "date": "September 2026",
