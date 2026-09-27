@@ -104,6 +104,7 @@
                 <div class="mesh-side-tabs">
                     <div class="mesh-tabbar" role="tablist">
                         <button type="button" class="mesh-tabbtn active" data-mtab="messages" onclick="meshDashTab('messages')" aria-label="Messages tab">Messages</button>
+                        <button type="button" class="mesh-tabbtn" data-mtab="nodes" onclick="meshDashTab('nodes')" aria-label="Nodes tab">Nodes</button>
                         <button type="button" class="mesh-tabbtn" data-mtab="channels" onclick="meshDashTab('channels')" aria-label="Channels tab">Channels</button>
                         <button type="button" class="mesh-tabbtn" data-mtab="info" onclick="meshDashTab('info')" aria-label="Info tab">Info</button>
                     </div>
@@ -152,6 +153,15 @@
                         <span id="meshComposeCount">0</span>/237
                         </div>
                         </div>
+                        </div>
+                    </div>
+                    <div class="mesh-tabpane" data-mpane="nodes">
+                        <div class="mesh-nodes-search">
+                            <input type="text" id="meshNodeSearch" class="mesh-node-search-input" placeholder="Search nodes by name or ID..." aria-label="Search nodes" oninput="Meshtastic.filterNodes(this.value)">
+                            <span class="mesh-nodes-count" id="meshNodesCount"></span>
+                        </div>
+                        <div class="mesh-nodes-list" id="meshNodeList">
+                            <div class="mesh-tab-hint">Connect to a device to see its mesh nodes.</div>
                         </div>
                     </div>
                     <div class="mesh-tabpane" data-mpane="channels">

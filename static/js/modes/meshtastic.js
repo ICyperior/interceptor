@@ -20,6 +20,10 @@ const Meshtastic = (function() {
     let localNodeId = null;
     let clickDelegationAttached = false;
 
+    // Nodes tab (searchable list of all mesh nodes, #270)
+    let _allNodes = [];
+    let _nodeFilter = '';
+
     /**
      * Initialize the Meshtastic mode
      */
@@ -667,6 +671,10 @@ const Meshtastic = (function() {
             if (data.status === 'ok') {
                 updateMapStats(data.count, data.with_position_count);
 
+                // Feed the searchable Nodes tab (#270)
+                _allNodes = data.nodes || [];
+                renderNodeList();
+
                 // Update markers for all nodes with positions
                 data.nodes.forEach(node => {
                     // Track node in uniqueNodes set for stats
@@ -693,6 +701,92 @@ const Meshtastic = (function() {
             }
         } catch (err) {
             console.error('Failed to load nodes:', err);
+        }
+    }
+
+    // ── Nodes tab: searchable list of all mesh nodes (#270) ─────────────────
+    function _nodeEsc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function _nodeIdOf(node) {
+        return node.id || (node.num != null ? '!' + node.num.toString(16).padStart(8, '0') : '');
+    }
+
+    function _nodeDisplayName(node) {
+        return (node.long_name && node.long_name.trim())
+            || (node.short_name && node.short_name.trim())
+            || _nodeIdOf(node);
+    }
+
+    function _nodeRelTime(iso) {
+        if (!iso) return 'never';
+        const s = (Date.now() - new Date(iso).getTime()) / 1000;
+        if (isNaN(s)) return '';
+        if (s < 60) return 'just now';
+        if (s < 3600) return Math.floor(s / 60) + 'm ago';
+        if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+        return Math.floor(s / 86400) + 'd ago';
+    }
+
+    function renderNodeList() {
+        const container = document.getElementById('meshNodeList');
+        if (!container) return;
+
+        const countEl = document.getElementById('meshNodesCount');
+        if (countEl) {
+            const withPos = _allNodes.filter(n => n.has_position).length;
+            countEl.textContent = _allNodes.length
+                ? `${_allNodes.length} node${_allNodes.length === 1 ? '' : 's'} · ${withPos} on map`
+                : '';
+        }
+
+        const q = _nodeFilter.trim().toLowerCase();
+        let nodes = _allNodes.slice();
+        if (q) {
+            nodes = nodes.filter(n =>
+                _nodeDisplayName(n).toLowerCase().includes(q) || _nodeIdOf(n).toLowerCase().includes(q));
+        }
+        nodes.sort((a, b) => new Date(b.last_heard || 0) - new Date(a.last_heard || 0));
+
+        if (nodes.length === 0) {
+            container.innerHTML = `<div class="mesh-tab-hint">${_allNodes.length ? 'No nodes match your search.' : 'Connect to a device to see its mesh nodes.'}</div>`;
+            return;
+        }
+
+        container.innerHTML = nodes.map(n => {
+            const id = _nodeIdOf(n);
+            const name = _nodeEsc(_nodeDisplayName(n));
+            const snr = (n.snr != null) ? `${n.snr} dB` : '--';
+            const batt = (n.battery_level != null) ? ` · ${n.battery_level}%` : '';
+            const pos = n.has_position
+                ? '<span class="mesh-node-pos" title="On map">◉</span>'
+                : '<span class="mesh-node-nopos" title="No position reported">○</span>';
+            const local = (n.num === localNodeId) ? ' <span class="mesh-node-local">YOU</span>' : '';
+            return `<div class="mesh-node-row${n.has_position ? ' has-pos' : ''}" data-node="${_nodeEsc(id)}" onclick="Meshtastic.focusNode('${_nodeEsc(id)}')" title="${n.has_position ? 'Show on map' : 'No position reported yet'}">
+                <div class="mesh-node-row-main">
+                    <span class="mesh-node-name">${pos} ${name}${local}</span>
+                    <span class="mesh-node-id">${_nodeEsc(id)}</span>
+                </div>
+                <div class="mesh-node-row-meta">${snr}${batt} · ${_nodeRelTime(n.last_heard)}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function filterNodes(q) {
+        _nodeFilter = q || '';
+        renderNodeList();
+    }
+
+    function focusNode(id) {
+        const marker = meshMarkers[id];
+        if (marker && meshMap) {
+            meshMap.setView(marker.getLatLng(), Math.max(meshMap.getZoom(), 12));
+            marker.openPopup();
+        } else {
+            showStatusMessage('That node has not reported a position yet.', 'info');
         }
     }
 
@@ -2321,6 +2415,8 @@ const Meshtastic = (function() {
         onPskFormatChange,
         saveChannelConfig,
         applyFilter,
+        filterNodes,
+        focusNode,
         showHelp,
         closeHelp,
         sendMessage,
