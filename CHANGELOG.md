@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.41] - 2026-09-27
+
+### Fixed
+
+- **Meshtastic/Meshcore dashboards broke after the dashboard migration (#270).** The standalone dashboards did not load some core scripts the mesh modules rely on, so the map was stuck on the default tiles (prompting for an API key) and, after a device connected, no nodes or messages rendered (an unguarded `CopyId`/`DeviceNotes` call threw). The dashboards now load `settings-manager.js` (both) and `copy-id.js` + `device-notes.js` (Meshtastic), and a test guards the includes.
+
 ## [2.33.40] - 2026-09-27
 
 ### Fixed
