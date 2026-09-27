@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.46"
+VERSION = "2.33.47"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.47",
+        "date": "September 2026",
+        "highlights": [
+            "WiFi: capture a WPA handshake or send a deauth in one click from a selected network \u2014 no more copying/pasting the BSSID. (For authorized testing.)",
+        ],
+    },
     {
         "version": "2.33.46",
         "date": "September 2026",

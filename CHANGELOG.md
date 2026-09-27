@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.47] - 2026-09-27
+
+### Changed
+
+- **WiFi: one-click capture/deauth.** The network detail panel now has Capture Handshake / Locate / Deauth actions that operate on the selected network, filling in the BSSID and channel automatically \u2014 no more pasting a BSSID into a text box to start a handshake capture. Reuses the existing capture/deauth handlers (UI wiring only). For authorized testing.
+
 ## [2.33.46] - 2026-09-27
 
 ### Fixed
