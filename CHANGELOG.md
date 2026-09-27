@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.43] - 2026-09-27
+
+### Added
+
+- **Meshtastic: message a node from the Nodes tab (#270).** Each node row now has a message action that drops the node\u2019s id into the compose box and switches to Messages, so you can direct-message any node \u2014 including ones with no GPS position that only appear in the list.
+
 ## [2.33.42] - 2026-09-27
 
 ### Added
