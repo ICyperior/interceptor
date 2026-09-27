@@ -4033,6 +4033,22 @@ header h1 .tagline {
 }
 
 .wifi-detail-head { display: flex; flex-direction: column; gap: 3px; }
+.wifi-detail-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.wifi-detail-action {
+    flex: 1 1 auto;
+    padding: 6px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--accent-cyan);
+    border-radius: 4px;
+    color: var(--accent-cyan);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.wifi-detail-action:hover { background: var(--accent-cyan); color: var(--bg-dark); }
+.wifi-detail-action--danger { border-color: var(--accent-red); color: var(--accent-red); }
+.wifi-detail-action--danger:hover { background: var(--accent-red); color: #fff; }
 
 .wifi-detail-essid {
     font-size: 14px;
