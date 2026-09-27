@@ -7,10 +7,18 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.39"
+VERSION = "2.33.40"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.40",
+        "date": "September 2026",
+        "highlights": [
+            "ADS-B dashboard: the aircraft hover tooltip now stays open and refreshes in place instead of closing on every update.",
+            "Installer: require meshtastic>=2.7.9 to avoid the cosmetic packaging<25 pip dependency-conflict warning.",
+        ],
+    },
     {
         "version": "2.33.39",
         "date": "September 2026",
