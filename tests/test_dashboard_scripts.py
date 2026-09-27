@@ -12,6 +12,10 @@ TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
 
 # dashboard template -> globals its module references -> providing script
 REQUIRED = {
+    "aprs_dashboard.html": {
+        "Settings": "js/core/settings-manager.js",  # map tiles via MapUtils
+        "MapUtils": "js/map-utils.js",
+    },
     "meshtastic_dashboard.html": {
         "Settings": "js/core/settings-manager.js",
         "CopyId": "js/core/copy-id.js",
