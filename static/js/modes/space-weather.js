@@ -153,7 +153,24 @@ const SpaceWeather = (function () {
     // Master render
     // -------------------------------------------------------------------
 
+    function _renderOfflineBanner(data) {
+        var banner = document.getElementById('swOfflineBanner');
+        if (!banner) return;
+        // If the external sources are all null, the server couldn't reach them
+        // (typically network/DNS) — say so once instead of many confusing panels.
+        var external = ['flux', 'xrays', 'flare_probability', 'kp_index', 'band_conditions'];
+        var present = external.filter(function (k) { return k in data; });
+        var reachable = present.filter(function (k) { return data[k] != null; });
+        if (present.length >= 3 && reachable.length === 0) {
+            banner.textContent = "Can't reach the space-weather data sources (NOAA / HamQSL) — check the server's network/DNS. Panels will fill in once connectivity returns.";
+            banner.style.display = '';
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+
     function _renderAll(data) {
+        _renderOfflineBanner(data);
         _renderHeaderStrip(data);
         _renderScales(data);
         _renderBandConditions(data);
@@ -440,8 +457,22 @@ const SpaceWeather = (function () {
 
     function _renderXrayChart(data) {
         var canvas = document.getElementById('swXrayChart');
+        var msg = document.getElementById('swXrayMsg');
         if (!canvas) return;
-        if (!data.xrays || data.xrays.length < 2) return;
+        // Distinguish "couldn't reach the source" (null) from "genuinely empty".
+        if (data.xrays == null || data.xrays.length < 2) {
+            if (_xrayChart) { _xrayChart.destroy(); _xrayChart = null; }
+            canvas.style.display = 'none';
+            if (msg) {
+                msg.style.display = '';
+                msg.textContent = (data.xrays == null)
+                    ? 'X-ray data source unreachable — check network/DNS'
+                    : 'No X-ray data';
+            }
+            return;
+        }
+        canvas.style.display = '';
+        if (msg) msg.style.display = 'none';
 
         // New format: array of objects with time_tag, flux, energy
         // Filter to short-wavelength (0.1-0.8nm) only
@@ -602,7 +633,11 @@ const SpaceWeather = (function () {
     function _renderFlareProb(data) {
         var el = document.getElementById('swFlareProb');
         if (!el) return;
-        if (!data.flare_probability || data.flare_probability.length === 0) {
+        if (data.flare_probability == null) {
+            el.innerHTML = '<div class="sw-empty">Flare data source unreachable — check network/DNS</div>';
+            return;
+        }
+        if (data.flare_probability.length === 0) {
             el.innerHTML = '<div class="sw-empty">No flare data</div>';
             return;
         }

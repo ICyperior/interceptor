@@ -594,3 +594,26 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* Upstream-unreachable states (#270-adjacent: NOAA/DNS failures) */
+.sw-offline-banner {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid var(--accent-yellow, #ffc107);
+    border-radius: 6px;
+    color: var(--accent-yellow, #ffc107);
+    font-size: 12px;
+    line-height: 1.4;
+}
+.sw-chart-msg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 80px;
+    text-align: center;
+    padding: 16px;
+    color: var(--text-dim);
+    font-size: 11px;
+}
