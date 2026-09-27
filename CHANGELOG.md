@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.40] - 2026-09-27
+
+### Fixed
+
+- **ADS-B dashboard: aircraft tooltip no longer disappears on updates.** The hover tooltip was rebuilt whenever its text changed, closing it on every position/altitude update. It now updates in place, so it stays open and refreshes its numbers while you hover.
+- **Installer: meshtastic packaging conflict.** Require `meshtastic>=2.7.9` (2.7.7/2.7.8 capped `packaging<25.0`, which pip flagged as conflicting with modern packaging). The warning was cosmetic and installs still worked; this keeps the resolver off the capped releases.
+
 ## [2.33.39] - 2026-09-26
 
 ### Added
