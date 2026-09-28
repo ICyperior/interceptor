@@ -26,7 +26,7 @@
 
 .wl-uptime {
     margin-left: auto;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     color: var(--text-dim);
 }
@@ -80,7 +80,7 @@
 }
 
 .wl-chip-time {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     color: var(--text-dim);
 }

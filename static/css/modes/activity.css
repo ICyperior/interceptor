@@ -136,7 +136,7 @@
 }
 
 .activity-id {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     white-space: nowrap;
 }
 
@@ -220,7 +220,7 @@
 }
 
 .activity-tile-count {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 14px;
     font-weight: 700;
     color: var(--source-color);

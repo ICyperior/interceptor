@@ -105,7 +105,7 @@
 #aprsPacketLog {
     flex: 1;
     overflow-y: auto;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     background: var(--surface-sunken);
     padding: 8px;

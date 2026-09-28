@@ -16,7 +16,7 @@
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(var(--accent-cyan-rgb), 0.18);
     border-radius: 4px;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     font-size: 11px;
     color: var(--text-secondary, #8ba0b8);
     pointer-events: none;
@@ -99,7 +99,7 @@
     display: inline-block;
     background: rgba(7, 9, 14, 0.7);
     color: rgba(var(--accent-cyan-rgb), 0.7);
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     font-size: 9px;
     padding: 1px 4px;
     border-radius: 2px;
@@ -151,7 +151,7 @@
 
 .map-glass-popup .leaflet-popup-content {
     margin: 0;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     font-size: 11px;
     color: var(--text-primary, #c8d8e8);
 }

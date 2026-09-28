@@ -192,7 +192,7 @@
 .sb-status-missing code {
     display: block;
     margin-top: 4px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     color: var(--text-secondary);
     overflow-wrap: anywhere;

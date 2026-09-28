@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.51] - 2026-09-28
+
+### Changed
+
+- **Consistent monospace for data fields.** Introduced a dedicated `--font-data` token (JetBrains Mono, defined once in `core/variables.css`) for content where character alignment and 0/O/1/l disambiguation matter — MAC/BSSID, ICAO hex, MMSI, coordinates, IDs/UUIDs, RSSI/SNR, timestamps, counts, raw packets/hex dumps, TLE, and `code`/`kbd`/`pre`. 168 data rules across the SPA and dashboards (plus the spots hardcoded in 2.33.49–50) now use it. `--font-mono` is unchanged and still drives the condensed-sans look for labels, buttons, and chrome, so those are untouched.
+
 ## [2.33.50] - 2026-09-28
 
 ### Fixed

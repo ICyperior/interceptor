@@ -57,7 +57,7 @@
 .sys-card-body {
     font-size: 12px;
     color: var(--text-primary, #e0e0ff);
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
 }
 
 .sys-card-detail {
@@ -115,7 +115,7 @@
     font-weight: 700;
     min-width: 36px;
     text-align: right;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
 }
 
 .sys-metric-na {
@@ -170,7 +170,7 @@
     transform: translate(-50%, -50%);
     font-size: 22px;
     font-weight: 700;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     color: var(--text-primary, #e0e0ff);
 }
 
@@ -232,7 +232,7 @@
 .sys-temp-big {
     font-size: 28px;
     font-weight: 700;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     color: var(--text-primary, #e0e0ff);
     margin-bottom: 4px;
 }
@@ -322,7 +322,7 @@
 }
 
 .sys-heat-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -364,7 +364,7 @@
 }
 
 .sys-net-iface-ip {
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     font-size: 12px;
     color: var(--text-primary, #e0e0ff);
 }
@@ -379,7 +379,7 @@
     display: flex;
     gap: 12px;
     margin-top: 4px;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     font-size: 11px;
 }
 
@@ -449,7 +449,7 @@
 }
 
 .sys-location-coords {
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     font-size: 13px;
     color: var(--text-primary, #e0e0ff);
 }
@@ -473,7 +473,7 @@
 .sys-weather-temp {
     font-size: 24px;
     font-weight: 700;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     color: var(--text-primary, #e0e0ff);
 }
 
@@ -494,7 +494,7 @@
     display: flex;
     gap: 16px;
     margin-top: 8px;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     font-size: 11px;
 }
 
@@ -634,7 +634,7 @@
     display: block;
     font-size: 14px;
     font-weight: 700;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     color: var(--text-primary, #e0e0ff);
 }
 

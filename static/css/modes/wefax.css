@@ -58,7 +58,7 @@
 }
 
 .wefax-strip-status-text {
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     font-size: 11px;
     color: var(--text-primary, #e0e0e0);
     text-transform: uppercase;
@@ -132,7 +132,7 @@
     gap: 6px;
     cursor: pointer;
     font-size: 10px;
-    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    font-family: var(--font-data);
     color: var(--text-dim, #666);
     text-transform: uppercase;
     letter-spacing: 0.5px;

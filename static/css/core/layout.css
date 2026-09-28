@@ -142,7 +142,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: var(--text-sm);
     color: var(--text-secondary);
 }
@@ -957,7 +957,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 11px;
     flex-shrink: 0;
     white-space: nowrap;

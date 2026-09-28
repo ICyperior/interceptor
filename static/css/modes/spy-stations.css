@@ -186,7 +186,7 @@
 }
 
 .spy-freq-list {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 11px;
     color: var(--accent-cyan);
     line-height: 1.6;
@@ -199,7 +199,7 @@
 }
 
 .spy-freq-item {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 11px;
     color: var(--accent-cyan);
     background: var(--bg-secondary);
@@ -537,7 +537,7 @@
 }
 
 .spy-table-count {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     text-align: center;
 }
 
@@ -551,7 +551,7 @@
 }
 
 .spy-table-freq {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 
 .spy-table .spy-tune-btn,

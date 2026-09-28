@@ -111,7 +111,7 @@
 
 .btl-gauge-value {
     fill: var(--text-primary);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 26px;
     font-weight: 700;
     text-anchor: middle;
@@ -171,7 +171,7 @@
 .btl-hud-value {
     font-size: 22px;
     font-weight: 700;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     color: var(--text-primary);
     line-height: 1.1;
 }

@@ -188,7 +188,7 @@ body {
 }
 
 .strip-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 14px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -281,7 +281,7 @@ body {
     font-size: 11px;
     font-weight: 500;
     color: var(--accent-cyan);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     padding-left: 8px;
     border-left: 1px solid rgba(var(--accent-cyan-rgb), 0.2);
     white-space: nowrap;
@@ -513,7 +513,7 @@ body {
 }
 
 .vessel-mmsi {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     color: var(--text-secondary);
     background: rgba(var(--accent-cyan-rgb), 0.1);
@@ -543,7 +543,7 @@ body {
 }
 
 .detail-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 12px;
     color: var(--accent-cyan);
 }
@@ -606,13 +606,13 @@ body {
 }
 
 .vessel-item-type {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 9px;
     color: var(--text-secondary);
 }
 
 .vessel-item-speed {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 11px;
     color: var(--accent-cyan);
     text-align: right;
@@ -1108,13 +1108,13 @@ body {
 }
 
 .dsc-message-time {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 9px;
     color: var(--text-dim);
 }
 
 .dsc-message-mmsi {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 11px;
     color: var(--accent-orange);
 }
@@ -1132,7 +1132,7 @@ body {
 }
 
 .dsc-message-pos {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 9px;
     color: var(--text-secondary);
 }
@@ -1169,7 +1169,7 @@ body {
 }
 
 .dsc-distress-alert .dsc-alert-mmsi {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 16px;
     color: var(--accent-cyan);
     margin-bottom: 8px;
@@ -1189,7 +1189,7 @@ body {
 }
 
 .dsc-distress-alert .dsc-alert-position {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 14px;
     color: var(--accent-cyan);
     margin-bottom: 16px;

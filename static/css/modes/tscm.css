@@ -115,7 +115,7 @@
 .tscm-threat-banner .threat-card:hover { border-color: currentColor; }
 .tscm-threat-banner .threat-card .count {
     font-size: 22px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 .tscm-threat-banner .threat-card .label {
     color: var(--text-secondary);
@@ -613,7 +613,7 @@
     margin-left: 6px;
     font-size: 10px;
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 .tscm-more-hint {
     margin-top: 6px;
@@ -1163,7 +1163,7 @@
 .known-device-id {
     font-size: 10px;
     color: var(--text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 .known-device-actions {
     display: flex;

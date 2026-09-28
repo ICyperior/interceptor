@@ -134,7 +134,7 @@
     font-size: 14px;
     font-weight: 600;
     color: var(--accent-cyan);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     line-height: 1;
 }
 

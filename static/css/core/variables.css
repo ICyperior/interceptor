@@ -116,6 +116,10 @@
        ============================================ */
     --font-sans: 'Inter', 'Roboto Condensed', 'Helvetica Neue', Arial, sans-serif;
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
+    /* True monospace for data: MACs, hex, coordinates, IDs, readings, raw text.
+       Distinct from --font-mono, which the SPA/dashboards remap to a condensed
+       sans for labels/readouts. Defined once here; never override per-page. */
+    --font-data: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
 
     /* Font sizes */
     --text-xs: 10px;

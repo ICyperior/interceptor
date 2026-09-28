@@ -139,7 +139,7 @@
 }
 
 .sstv-strip-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 12px;
     font-weight: 600;
     color: var(--text-primary);
@@ -371,7 +371,7 @@
 }
 
 .sstv-gallery-count {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     color: var(--accent-cyan);
     background: var(--bg-secondary);
@@ -472,7 +472,7 @@
 }
 
 .sstv-image-timestamp {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 9px;
     color: var(--text-dim);
 }
@@ -683,7 +683,7 @@
 }
 
 .sstv-countdown-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 28px;
     font-weight: 700;
     color: var(--accent-cyan);
@@ -742,7 +742,7 @@
 }
 
 .sstv-detail-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 12px;
     font-weight: 600;
     color: var(--text-primary);
@@ -845,7 +845,7 @@
 }
 
 .sstv-signal-level-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 11px;
     font-weight: 600;
     color: var(--text-primary);

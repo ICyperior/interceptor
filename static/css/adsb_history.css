@@ -30,7 +30,7 @@ body {
 }
 
 .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 
 .radar-bg {
@@ -446,7 +446,7 @@ body {
 }
 
 .mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 
 .empty-row td,
@@ -827,7 +827,7 @@ html[data-ui-tier="lean"] {
 }
 
 .playback-time {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     color: var(--text-secondary);
     white-space: nowrap;
@@ -837,7 +837,7 @@ html[data-ui-tier="lean"] {
 .playback-time:last-child { text-align: right; }
 
 .playback-current-time {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 13px;
     color: var(--accent-cyan);
     text-align: center;
@@ -859,7 +859,7 @@ html[data-ui-tier="lean"] {
 }
 
 .playback-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 13px;
     color: var(--text-primary);
 }
