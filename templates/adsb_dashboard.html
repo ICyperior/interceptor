@@ -3295,12 +3295,13 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 const targetLat = ac.lat;
                 const targetLon = ac.lon;
 
-                if (source === 'panel' && radarMap) {
+                // Focus-in crosshair animation for every selection source —
+                // clicking a plane on the map, in the list, or in a linked
+                // message all fly to the aircraft with the crosshair sweep.
+                if (radarMap) {
                     runPanelSelectionAnimation(targetLat, targetLon, mapCrosshairRequestId);
                     return;
                 }
-
-                radarMap.setView([targetLat, targetLon], 10);
             }
         }
 
