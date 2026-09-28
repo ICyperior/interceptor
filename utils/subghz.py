@@ -2360,7 +2360,7 @@ class SubGhzManager:
                 self._sweep_process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
                 )
                 register_process(self._sweep_process)
                 self._sweep_running = True
@@ -2396,17 +2396,43 @@ class SubGhzManager:
                 return {"status": "error", "message": str(e)}
 
     def _sweep_loop(self, cmd: list[str]) -> None:
-        """Run hackrf_sweep with auto-restart on USB drops."""
+        """Run hackrf_sweep, auto-restarting on genuine USB drops but bailing
+        out (with the tool's real stderr) if it keeps exiting immediately."""
         RESTART_DELAY = 0.5
         MAX_RESTARTS = 600
+        MIN_RUNTIME = 3.0       # exits faster than this are treated as failures
+        MAX_QUICK_FAILS = 3     # give up after this many immediate exits
 
         restarts = 0
+        quick_fails = 0
         while self._sweep_running:
-            self._parse_sweep_stdout()
+            started = time.monotonic()
+            self._parse_sweep_stdout()  # blocks until the process exits
+            ran_for = time.monotonic() - started
 
             # Process exited — restart if allowed
             if not self._sweep_running:
                 break
+
+            # A run shorter than MIN_RUNTIME is a hard failure (bad args, device
+            # busy, unsupported range …), not a transient USB drop. Surface the
+            # real stderr and stop rather than hammering restarts for minutes.
+            if ran_for < MIN_RUNTIME:
+                quick_fails += 1
+            else:
+                quick_fails = 0
+
+            if quick_fails >= MAX_QUICK_FAILS:
+                stderr_text = ""
+                proc = self._sweep_process
+                if proc and proc.stderr:
+                    with contextlib.suppress(Exception):
+                        stderr_text = proc.stderr.read().decode("utf-8", errors="replace").strip()
+                msg = stderr_text or "hackrf_sweep kept exiting immediately (check the device is free and the frequency range is valid)"
+                logger.error(f"hackrf_sweep failing immediately: {msg}")
+                self._emit({"type": "error", "message": f"HackRF sweep failed: {msg[:300]}"})
+                break
+
             if restarts >= MAX_RESTARTS:
                 logger.error("hackrf_sweep: max restarts reached")
                 self._emit({"type": "error", "message": "HackRF sweep: max restarts reached"})
@@ -2420,7 +2446,7 @@ class SubGhzManager:
                 proc = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
                 )
                 register_process(proc)
                 self._sweep_process = proc
