@@ -2,6 +2,18 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.55] - 2026-09-28
+
+### Fixed
+
+- **ISS dashboard visual polish.** The header title now uses the Orbitron display font with a cyan underline (it was falling back to plain text, since the shared dashboard chrome has no header styling), the layout is a proper full-height flex column so the telemetry panel is no longer pushed off-screen, and the station graphic is redesigned: a detailed ISS schematic (truss, modules, radiators, Sun) whose eight solar wings rotate to their real angles and glow when the station is sunlit, a pulsing map marker, and Orbitron panel titles with glow accents throughout.
+
+- **ISS dashboard: nav dropdowns no longer hide behind the map.** The nav menu z-index (100) sat below Leaflet's map panes/controls; lifted the nav above the map.
+
+### Added
+
+- **ISS dashboard: ISS-relayed APRS (145.825 MHz).** A new panel receives APRS packets digipeated by the ISS using the existing direwolf-based receiver — one click starts the receiver on 145.825 MHz and lists packets as they arrive, highlighting those relayed via the ISS (RS0ISS/ARISS). Needs an SDR + VHF antenna and works best during a pass.
+
 ## [2.33.54] - 2026-09-28
 
 ### Added
