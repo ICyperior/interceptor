@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.54] - 2026-09-28
+
+### Added
+
+- **ISS dashboard (`/satellite/iss`).** A live International Space Station tracker: real-time sub-point, altitude and orbital velocity, a ±45-minute ground track, visibility footprint, a day/night terminator with a sunlight indicator, observer look-angles (elevation/azimuth/range) and the next passes over your location. All computed locally from the ISS TLE via skyfield, so it works with no external feed. Reachable from the nav (“ISS Live”). Live NASA telemetry (solar arrays, power, attitude) is a planned follow-up.
+
 ## [2.33.53] - 2026-09-28
 
 ### Fixed
