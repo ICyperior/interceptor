@@ -3198,7 +3198,7 @@ header h1 .tagline {
     border: 1px solid var(--border-color);
     border-radius: 4px;
     color: var(--text-primary);
-    font-family: monospace;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
     font-size: 11px;
     padding: 10px;
     resize: vertical;

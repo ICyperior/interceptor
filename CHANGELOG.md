@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.50] - 2026-09-28
+
+### Fixed
+
+- **More monospace fallbacks.** A few more MAC/number/coordinate displays used the bare `monospace` keyword and rendered in a serif fallback on some systems; they now use the bundled JetBrains Mono: the satellite TLE input box, the APRS meter readout, the proximity-heatmap RSSI labels, and the APRS dashboard map popups (callsign/position).
+
 ## [2.33.49] - 2026-09-27
 
 ### Fixed
