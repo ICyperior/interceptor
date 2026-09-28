@@ -7,7 +7,7 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.60"
+VERSION = "2.33.61"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
