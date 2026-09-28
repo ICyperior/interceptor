@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.62] - 2026-09-28
+
+### Fixed
+
+- **Weather Satellite: HackRF / Airspy / SDRplay now work (#347).** The mode hard-rejected everything except RTL-SDR even though SatDump supports other sources. It now maps the selected SDR type to SatDump’s native `--source` (rtlsdr, hackrf, airspy, airspyhf, sdrplay) and only rejects types SatDump can’t drive directly, with a clearer message listing what’s supported.
+
 ## [2.33.61] - 2026-09-28
 
 ### Fixed
