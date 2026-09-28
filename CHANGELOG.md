@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.57] - 2026-09-28
+
+### Added
+
+- **ISS dashboard: relayed stations plotted on the map.** When the ISS APRS receiver hears a digipeated packet that carries a position, the ground station is now plotted on the ISS map (amber marker, callsign + message on hover) in addition to the packet list — a self-contained “who did the ISS just relay” view. Markers clear when the receiver is stopped.
+
 ## [2.33.56] - 2026-09-28
 
 ### Fixed
