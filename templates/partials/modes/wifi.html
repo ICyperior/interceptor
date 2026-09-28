@@ -110,7 +110,13 @@
                             <span class="icon icon--sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span> Only use on authorized networks
                         </div>
                         <div class="form-group">
-                            <label for="targetBssid">Target BSSID</label>
+                            <label for="targetBssidSelect">Target BSSID</label>
+                            <select id="targetBssidSelect" onchange="if(this.value){document.getElementById('targetBssid').value=this.value;}" style="font-size: 12px;">
+                                <option value="">Select a scanned network...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="targetBssid" style="font-size: 10px; color: var(--text-dim);">or type manually</label>
                             <input type="text" id="targetBssid" placeholder="AA:BB:CC:DD:EE:FF">
                         </div>
                         <div class="form-group">
@@ -132,7 +138,7 @@
                         <div style="font-size: 11px;">
                             <div style="margin-bottom: 4px;">
                                 <span style="color: var(--text-dim);">Target:</span>
-                                <span id="captureTargetBssid" style="font-family: monospace;">--</span>
+                                <span id="captureTargetBssid" style="font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;">--</span>
                             </div>
                             <div style="margin-bottom: 4px;">
                                 <span style="color: var(--text-dim);">Channel:</span>

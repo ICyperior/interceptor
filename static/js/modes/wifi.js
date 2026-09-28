@@ -128,6 +128,7 @@ const WiFiMode = (function() {
         scanTabs: false,
         filters: false,
         sort: false,
+        radar: false,
     };
 
     // Agent state
@@ -159,6 +160,7 @@ const WiFiMode = (function() {
             initScanModeTabs();
             initNetworkFilters();
             initSortControls();
+            initRadarInteraction();
             initHeatmap();
         }
 
@@ -405,15 +407,19 @@ const WiFiMode = (function() {
     function setScanMode(mode) {
         scanMode = mode;
 
-        // Update tab UI and ARIA states
-        if (elements.scanModeQuick) {
-            elements.scanModeQuick.classList.toggle('active', mode === 'quick');
-            elements.scanModeQuick.setAttribute('aria-selected', mode === 'quick' ? 'true' : 'false');
-        }
-        if (elements.scanModeDeep) {
-            elements.scanModeDeep.classList.toggle('active', mode === 'deep');
-            elements.scanModeDeep.setAttribute('aria-selected', mode === 'deep' ? 'true' : 'false');
-        }
+        // Update tab UI and ARIA states. The tabs carry their colours as inline
+        // styles (see wifi.html), so toggle the inline background/colour here —
+        // an .active class alone has no effect against inline styles.
+        const applyTabStyle = (el, active) => {
+            if (!el) return;
+            el.classList.toggle('active', active);
+            el.setAttribute('aria-selected', active ? 'true' : 'false');
+            el.style.background = active ? 'var(--accent-green)' : 'var(--bg-tertiary)';
+            el.style.color = active ? '#000' : '#888';
+            el.style.border = active ? 'none' : '1px solid var(--border-color)';
+        };
+        applyTabStyle(elements.scanModeQuick, mode === 'quick');
+        applyTabStyle(elements.scanModeDeep, mode === 'deep');
 
         console.log('[WiFiMode] Scan mode set to:', mode);
     }
@@ -1082,8 +1088,33 @@ const WiFiMode = (function() {
         });
     }
 
+    /**
+     * Fill the Attack Options "Target BSSID" dropdown from discovered networks
+     * so the operator can pick a target instead of pasting a BSSID. Preserves
+     * the current selection and sorts by signal (strongest first).
+     */
+    function populateDeauthTargets() {
+        const select = document.getElementById('targetBssidSelect');
+        if (!select) return;
+        const current = select.value;
+        const sorted = Array.from(networks.values())
+            .sort((a, b) => (b.rssi_current ?? -100) - (a.rssi_current ?? -100));
+        const options = ['<option value="">Select a scanned network...</option>'];
+        sorted.forEach(n => {
+            const name = n.display_name || n.essid || '[Hidden]';
+            const label = `${name} — ${n.bssid} (ch ${n.channel || '?'})`;
+            options.push(`<option value="${escapeHtml(n.bssid)}">${escapeHtml(label)}</option>`);
+        });
+        select.innerHTML = options.join('');
+        // Restore prior selection if that network is still present
+        if (current && networks.has(current)) select.value = current;
+    }
+
     function renderNetworks() {
         if (!elements.networkList) return;
+
+        // Keep the deauth target dropdown in sync with discovered networks
+        populateDeauthTargets();
 
         // Snapshot 2.4 GHz channel utilisation (use all networks, not filtered)
         const snapshot = { timestamp: Date.now(), channels: {} };
@@ -1298,6 +1329,9 @@ const WiFiMode = (function() {
         if (elements.detailBackBtn)   elements.detailBackBtn.style.display = 'inline-block';
 
         updateDetailPanel(bssid);
+
+        // Redraw the radar so the selected blip picks up its highlight ring.
+        scheduleRender({ radar: true });
     }
 
     // ==========================================================================
@@ -1579,6 +1613,18 @@ const WiFiMode = (function() {
         svg.dataset.face = '1';
     }
 
+    /** Clicking a radar blip selects that network, same as clicking a list row. */
+    function initRadarInteraction() {
+        if (listenersBound.radar) return;
+        const dotsGroup = document.getElementById('wifiRadarDots');
+        if (!dotsGroup) return;
+        dotsGroup.addEventListener('click', (e) => {
+            const dot = e.target.closest('.wf-radar-dot');
+            if (dot && dot.dataset.bssid) selectNetwork(dot.dataset.bssid);
+        });
+        listenersBound.radar = true;
+    }
+
     function renderRadar(networksList) {
         const dotsGroup = document.getElementById('wifiRadarDots');
         if (!dotsGroup) return;
@@ -1613,11 +1659,22 @@ const WiFiMode = (function() {
                          : sec.includes('wep')         ? '#d6a85e'
                          : '#484f58';
 
+            const name = network.display_name || network.essid || '[Hidden]';
+            const isSel = network.bssid === selectedBssid;
+            const selRing = isSel
+                ? `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(vr + 3).toFixed(1)}"
+                           fill="none" stroke="var(--accent-cyan, #22d3ee)" stroke-width="1.5"/>`
+                : '';
+
             dots.push(`
+            <g class="wf-radar-dot" data-bssid="${escapeHtml(network.bssid)}" style="cursor:pointer">
+            <title>${escapeHtml(name)} — ${escapeHtml(network.bssid)} · ch ${network.channel || '?'} · ${rssi} dBm</title>
             <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${vr * 1.5}"
                     fill="${colour}" opacity="0.12"/>
             <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${vr}"
                     fill="${colour}" opacity="0.9" filter="url(#wf-glow)"/>
+            ${selRing}
+            </g>
         `);
         });
 

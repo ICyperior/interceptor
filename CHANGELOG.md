@@ -2,6 +2,18 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.49] - 2026-09-27
+
+### Fixed
+
+- **WiFi: Deep Scan tab was unresponsive.** The Signal Source “Deep Scan” tab carried its colours as inline styles, which overrode the `.active` class the click handler toggled — so clicking it changed the mode internally but nothing moved on screen. The handler now updates the inline styling directly.
+- **WiFi: proximity radar blips are now clickable.** Each blip carries the network’s BSSID and a hover tooltip (name, BSSID, channel, RSSI); clicking one selects that network (with a highlight ring) exactly like clicking a list row.
+- **MAC/BSSID font.** WiFi client MACs and network BSSIDs, and the Bluetooth device address and modal values, were rendering in a proportional/serif fallback (the SPA remaps `--font-mono` to a condensed sans, and some rules used the bare `monospace` keyword). They now use the bundled JetBrains Mono.
+
+### Added
+
+- **WiFi: pick a deauth target from a list.** Attack Options now has a “Target BSSID” dropdown populated from scanned networks (strongest first), so you can select a target instead of pasting a BSSID; the manual entry field remains for off-list targets. For authorized testing.
+
 ## [2.33.48] - 2026-09-27
 
 ### Added
