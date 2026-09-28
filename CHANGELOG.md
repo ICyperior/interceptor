@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.56] - 2026-09-28
+
+### Fixed
+
+- **ISS dashboard: the ISS map marker is now visible.** It used a satellite emoji, which doesn’t render on many Linux systems (no colour-emoji font), so nothing showed at the station’s position. Replaced with an inline SVG satellite icon (gold body, blue arrays) with the pulsing glow, and removed Leaflet’s default white marker box.
+
 ## [2.33.55] - 2026-09-28
 
 ### Fixed
