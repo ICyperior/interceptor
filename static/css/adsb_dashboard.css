@@ -1250,11 +1250,10 @@ body {
 }
 @keyframes airbandDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-/* Popover panel — opens upward from the bottom controls bar */
+/* Popover panel — positioned with position:fixed (via JS) so it escapes the
+   controls bar's overflow clipping; opens above the chip. */
 .airband-panel {
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 0;
+    position: fixed;
     z-index: 1200;
     width: 300px;
     max-width: 78vw;

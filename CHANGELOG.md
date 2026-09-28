@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.64] - 2026-09-28
+
+### Fixed
+
+- **ADS-B: airband popover was clipped and appeared to do nothing.** The compact airband chip toggled but its popover opened upward into the bottom controls bar, which clips overflow — so only the caret flipped. The popover is now positioned with `position: fixed` above the chip (clamped to the viewport), so it actually shows.
+
 ## [2.33.62] - 2026-09-28
 
 ### Fixed

@@ -3817,6 +3817,18 @@ ACARS: ${r.statistics.acarsMessages} messages`;
         }
 
         // ── Airband compact chip + popover ──────────────────────────────
+        function positionAirbandPanel() {
+            const panel = document.getElementById('airbandPanel');
+            const chip = document.getElementById('airbandChip');
+            if (!panel || !chip || panel.hidden) return;
+            const r = chip.getBoundingClientRect();
+            const width = panel.offsetWidth || 300;
+            // Clamp within the viewport; open above the chip.
+            const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+            panel.style.left = left + 'px';
+            panel.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+        }
+
         function toggleAirbandPanel() {
             const panel = document.getElementById('airbandPanel');
             const chip = document.getElementById('airbandChip');
@@ -3825,7 +3837,10 @@ ACARS: ${r.statistics.acarsMessages} messages`;
             panel.hidden = !willOpen;
             chip.classList.toggle('open', willOpen);
             chip.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+            if (willOpen) positionAirbandPanel();
         }
+
+        window.addEventListener('resize', positionAirbandPanel);
 
         function updateAirbandChip() {
             const sel = document.getElementById('airbandFreqSelect');
