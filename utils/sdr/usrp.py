@@ -77,7 +77,7 @@ class USRPCommandBuilder(CommandBuilder):
         ppm: int | None = None,
     ) -> list[str]:
         device_str = self._build_device_string(device)
-        cmd = ["readsb", "--net", "--device-type", "soapysdr", "--device", device_str, "--quiet"]
+        cmd = ["readsb", "--net", "--device-type", "soapy", "--device", device_str, "--quiet"]
         if gain is not None:
             cmd.extend(["--gain", str(int(gain))])
         return cmd

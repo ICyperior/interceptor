@@ -56,11 +56,13 @@ class TestSplitGain:
 
 
 class TestBuildAdsbCommand:
-    def test_contains_soapysdr_device_type(self):
+    def test_contains_soapy_device_type(self):
         builder = HackRFCommandBuilder()
         cmd = builder.build_adsb_command(_make_device(), gain=40)
         assert "--device-type" in cmd
-        assert "soapysdr" in cmd
+        # readsb's SoapySDR device type is "soapy" (not "soapysdr");
+        # the wrong value made readsb exit immediately for HackRF (#346).
+        assert cmd[cmd.index("--device-type") + 1] == "soapy"
 
     def test_includes_serial_in_device_string(self):
         builder = HackRFCommandBuilder()

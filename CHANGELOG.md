@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.65] - 2026-09-28
+
+### Fixed
+
+- **ADS-B with HackRF / SoapySDR now starts (#346).** The readsb command builders passed `--device-type soapysdr`, but readsb’s value is `soapy` — so readsb exited immediately and ADS-B never started on HackRF (and other SoapySDR devices). Corrected across all builders (HackRF, LimeSDR, SDRplay, Airspy, USRP, BladeRF, HydraSDR).
+
 ## [2.33.64] - 2026-09-28
 
 ### Fixed
