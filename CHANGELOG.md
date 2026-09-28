@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.66] - 2026-09-28
+
+### Changed
+
+- **Internal:** restored CRLF line endings on four SDR command-builder files (hackrf, limesdr, sdrplay, airspy) that a scripted edit in 2.33.65 had flattened to LF. No functional change.
+
 ## [2.33.65] - 2026-09-28
 
 ### Fixed
