@@ -385,10 +385,18 @@
                 </div>
             </div>
 
-            <!-- Airband Listening Group -->
+            <!-- Airband Listening Group (compact chip + popover) -->
             <div class="control-group airband-group">
-                <span class="control-group-label">AIRBAND</span>
-                <div class="control-group-items">
+                <button type="button" class="airband-chip" id="airbandChip" onclick="toggleAirbandPanel()" aria-expanded="false" title="Airband receiver">
+                    <span class="airband-chip-dot" id="airbandChipDot"></span>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><path d="M21 16a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2z"/><path d="M3 16a2 2 0 0 0 2 2h1v-6H5a2 2 0 0 0-2 2z"/></svg>
+                    <span class="airband-chip-label">Airband</span>
+                    <span class="airband-chip-freq" id="airbandChipFreq">121.5</span>
+                    <svg class="airband-chip-caret" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>
+                </button>
+                <div class="airband-panel" id="airbandPanel" hidden>
+                    <div class="airband-panel-title">AIRBAND RECEIVER</div>
+                    <div class="control-group-items">
                     <select id="airbandFreqSelect" onchange="updateAirbandFreq()" class="airband-controls" title="Airband frequency">
                         <option value="121.5">121.5 Guard</option>
                         <option value="118.0">118.0</option>
@@ -425,6 +433,7 @@
                             </div>
                         </div>
                         <canvas id="airbandSpectrumCanvas" width="80" height="20"></canvas>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -3806,6 +3815,60 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                 .then(data => show((data && data.install_hints) || {}))
                 .catch(() => show({}));
         }
+
+        // ── Airband compact chip + popover ──────────────────────────────
+        function toggleAirbandPanel() {
+            const panel = document.getElementById('airbandPanel');
+            const chip = document.getElementById('airbandChip');
+            if (!panel || !chip) return;
+            const willOpen = panel.hidden;
+            panel.hidden = !willOpen;
+            chip.classList.toggle('open', willOpen);
+            chip.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        }
+
+        function updateAirbandChip() {
+            const sel = document.getElementById('airbandFreqSelect');
+            const freqEl = document.getElementById('airbandChipFreq');
+            if (sel && freqEl) {
+                let label;
+                if (sel.value === 'custom') {
+                    const cf = document.getElementById('airbandCustomFreq');
+                    label = (cf && cf.value) ? cf.value : 'Custom';
+                } else {
+                    const opt = sel.options[sel.selectedIndex];
+                    label = String(opt ? opt.text : sel.value).replace(/\s*(Guard|Air-Air)\s*/i, '').trim();
+                }
+                freqEl.textContent = label;
+            }
+            const btn = document.getElementById('airbandBtn');
+            const dot = document.getElementById('airbandChipDot');
+            if (dot) dot.classList.toggle('listening', !!(btn && btn.classList.contains('active')));
+        }
+
+        (function initAirbandChip() {
+            const status = document.getElementById('airbandStatus');
+            const btn = document.getElementById('airbandBtn');
+            const sel = document.getElementById('airbandFreqSelect');
+            const cf = document.getElementById('airbandCustomFreq');
+            if (sel) sel.addEventListener('change', updateAirbandChip);
+            if (cf) cf.addEventListener('input', updateAirbandChip);
+            // Mirror listening state (airbandBtn gains .active) onto the chip dot.
+            const obs = new MutationObserver(updateAirbandChip);
+            if (btn) obs.observe(btn, { attributes: true, attributeFilter: ['class'] });
+            if (status) obs.observe(status, { childList: true, characterData: true, subtree: true });
+            // Close the popover on an outside click.
+            document.addEventListener('click', (e) => {
+                const panel = document.getElementById('airbandPanel');
+                const chip = document.getElementById('airbandChip');
+                if (!panel || panel.hidden || !chip) return;
+                if (chip.contains(e.target) || panel.contains(e.target)) return;
+                panel.hidden = true;
+                chip.classList.remove('open');
+                chip.setAttribute('aria-expanded', 'false');
+            });
+            updateAirbandChip();
+        })();
 
         function updateAirbandFreq() {
             const select = document.getElementById('airbandFreqSelect');

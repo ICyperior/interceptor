@@ -1206,23 +1206,84 @@ body {
     accent-color: var(--accent-orange, #ff6400);
 }
 
+/* Airband is now a compact chip that opens a popover, so the group itself
+   is just a positioning wrapper (no panel chrome / no flex-grow). */
 .control-group.airband-group {
-    background: rgba(245, 158, 11, 0.05);
-    border-color: rgba(245, 158, 11, 0.2);
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.control-group.airband-group > .control-group-items {
+    background: transparent;
+    border: none;
+    padding: 0;
+    flex: 0 0 auto;
+    position: relative;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 5px;
 }
 
-.control-group.airband-group .control-group-label {
-    color: var(--accent-orange);
+/* Compact chip trigger */
+.airband-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 11px;
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 6px;
+    background: rgba(245, 158, 11, 0.08);
+    color: var(--accent-orange, #ff9d3c);
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
 }
+.airband-chip:hover { background: rgba(245, 158, 11, 0.16); }
+.airband-chip.open { background: rgba(245, 158, 11, 0.2); }
+.airband-chip-label { font-weight: 600; letter-spacing: 0.04em; }
+.airband-chip-freq { font-family: var(--font-data, monospace); color: var(--text-primary, #fff); }
+.airband-chip-caret { transition: transform 0.15s; }
+.airband-chip.open .airband-chip-caret { transform: rotate(180deg); }
+.airband-chip-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--text-dim, #667);
+    flex-shrink: 0;
+}
+.airband-chip-dot.listening {
+    background: var(--accent-green, #00ff88);
+    box-shadow: 0 0 6px var(--accent-green, #00ff88);
+    animation: airbandDot 1.4s ease-in-out infinite;
+}
+@keyframes airbandDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* Popover panel — opens upward from the bottom controls bar */
+.airband-panel {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    z-index: 1200;
+    width: 300px;
+    max-width: 78vw;
+    padding: 12px;
+    background: var(--bg-panel, #0e1620);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.6);
+}
+.airband-panel[hidden] { display: none; }
+.airband-panel-title {
+    font-family: 'Orbitron', var(--font-sans);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--accent-orange, #ff9d3c);
+    margin-bottom: 10px;
+}
+.control-group.airband-group > .airband-panel > .control-group-items {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+}
+.airband-panel .airband-controls,
+.airband-panel select { width: 100%; }
+.airband-panel .airband-sliders { width: 100%; justify-content: space-between; }
+.airband-panel .airband-sliders input[type="range"] { flex: 1; width: auto; }
+.airband-panel .airband-btn { width: 100%; justify-content: center; }
+.airband-panel .airband-visualizer { width: 100%; justify-content: center; display: flex; }
 
 .airband-sliders {
     display: flex;
