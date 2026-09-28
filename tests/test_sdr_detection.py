@@ -115,23 +115,46 @@ def test_detect_rtlsdr_devices_uses_replace_decode_mode(_mock_tool_path):
 
 
 @patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
-def test_detect_rtlsdr_devices_gathers_output_before_sigint(_mock_tool_path):
-    """Device list is parsed even when we SIGINT rtl_test early."""
+def test_detect_rtlsdr_devices_gathers_all_devices_before_sigint(_mock_tool_path):
+    """All announced devices are collected before we SIGINT rtl_test.
+
+    Regression: rtl_test emits each device line only after opening that dongle
+    (~50-100ms apart), so breaking on the first line and sending SIGINT dropped
+    every device after the first — INTERCEPT saw one dongle when two were
+    connected. We must read until all "Found N" devices have arrived.
+    """
     mock = _make_rtl_test_mock([
-        "Found 1 device(s):",
-        "  0:  Realtek, RTL2838UHIDIR, SN: 00000001",
-        "  1:  Realtek, RTL2838UHIDIR, SN: 00000002",
+        "Found 2 device(s):",
+        "  0:  RTLSDRBlog, Blog V4, SN: 10000000",
+        "  1:  RTLSDRBlog, Blog V4, SN: 20000000",
     ])
     mock.poll.return_value = None  # stays running -> we'll SIGINT it
     with patch("subprocess.Popen", return_value=mock), \
          _make_select_patch():
         devices = detect_rtlsdr_devices()
 
-    # Early-exit: we break on the first device line we parse, so only 1 device
-    # is collected before SIGINT is sent. The code does the right thing by not
-    # waiting for the full benchmark loop — that's the whole point of the fix.
-    assert len(devices) == 1
-    assert devices[0].serial == "00000001"
+    assert len(devices) == 2
+    assert [d.serial for d in devices] == ["10000000", "20000000"]
+    assert [d.index for d in devices] == [0, 1]
+    # We still stop as soon as the last device is seen rather than waiting for
+    # the benchmark loop, so rtl_test is SIGINT'd, not left to run.
+    mock.send_signal.assert_called()
+
+
+@patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")
+def test_detect_rtlsdr_devices_stops_on_benchmark_start(_mock_tool_path):
+    """If the 'Found N' header is missing, stop when the benchmark loop starts."""
+    mock = _make_rtl_test_mock([
+        "  0:  RTLSDRBlog, Blog V4, SN: 10000000",
+        "  1:  RTLSDRBlog, Blog V4, SN: 20000000",
+        "Using device 0: Generic RTL2832U OEM",
+    ])
+    mock.poll.return_value = None
+    with patch("subprocess.Popen", return_value=mock), \
+         _make_select_patch():
+        devices = detect_rtlsdr_devices()
+
+    assert [d.serial for d in devices] == ["10000000", "20000000"]
 
 
 @patch("utils.sdr.detection.get_tool_path", return_value="/usr/bin/rtl_test")

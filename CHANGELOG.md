@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.52] - 2026-09-28
+
+### Fixed
+
+- **Only one RTL-SDR detected when two are connected.** RTL-SDR detection stopped reading `rtl_test` output the moment the first device line appeared and immediately SIGINT'd the process. Because `rtl_test` opens each dongle to read its USB strings (~50-100ms apart), it was interrupted mid-enumeration and every device after the first was dropped. Detection now reads until all announced devices have arrived (or the benchmark loop starts), so multiple dongles are found. Regression from the SDR-lockup fix in 2.33.46.
+
 ## [2.33.51] - 2026-09-28
 
 ### Changed

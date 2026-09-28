@@ -157,9 +157,19 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
         )
         found_count_match = re.compile(r"Found (\d+) device")
 
-        # Read stderr line by line until we see device info or hit the deadline.
-        # rtl_test prints device info to stderr.
+        # Read stderr line by line until we have the whole device list or hit
+        # the deadline. rtl_test prints device info to stderr.
+        #
+        # rtl_test opens each device to read its USB strings (~50-100ms each),
+        # so the per-device lines arrive one at a time with a gap between them.
+        # We must read until ALL of them have arrived: breaking on the first
+        # device line and sending SIGINT (as an earlier version did) races
+        # rtl_test mid-enumeration and drops every device after the first, so a
+        # second dongle never shows up. Once the benchmark loop starts
+        # ("Using device …") the list is complete, so we can stop there too.
         collected_output = ""
+        expected_count: int | None = None
+        seen_devices = 0
         stderr = proc.stderr
         if stderr is not None:
             stderr_fd = stderr.fileno()
@@ -173,15 +183,23 @@ def detect_rtlsdr_devices() -> list[SDRDevice]:
                     if not line:
                         break  # EOF — process closed stderr
                     collected_output += line
-                    # Stop as soon as we have at least one device line parsed —
-                    # no need to wait for the benchmark loop after that.
-                    # Also stop on "Found 0 device(s)" since there is nothing more to read.
-                    if device_pattern.search(line):
-                        break
-                    if found_count_match.search(line):
-                        m = found_count_match.search(line)
-                        if m and int(m.group(1)) == 0:
+                    count_m = found_count_match.search(line)
+                    if count_m:
+                        expected_count = int(count_m.group(1))
+                        if expected_count == 0:
                             break  # nothing to enumerate, bail out early
+                        continue
+                    if device_pattern.search(line):
+                        seen_devices += 1
+                        # Stop once we've seen every device rtl_test announced —
+                        # no need to wait for the benchmark loop after that.
+                        if expected_count is not None and seen_devices >= expected_count:
+                            break
+                        continue
+                    # The benchmark loop has started — the device list is done
+                    # (covers rtl_test builds that omit the "Found N" header).
+                    if "Using device" in line:
+                        break
                 if proc.poll() is not None:
                     break  # Process exited on its own
 
