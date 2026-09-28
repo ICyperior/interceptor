@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.53] - 2026-09-28
+
+### Fixed
+
+- **ADS-B: clicking a plane on the map now plays the focus-in crosshair animation.** The crosshair fly-to only fired when selecting an aircraft from the side list; clicking a marker on the map (or a linked ACARS/VDL2 message) did a plain recenter. All selection sources now use the same crosshair focus animation.
+
 ## [2.33.52] - 2026-09-28
 
 ### Fixed
