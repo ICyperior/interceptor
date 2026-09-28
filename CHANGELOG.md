@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.61] - 2026-09-28
+
+### Fixed
+
+- **AIS / VHF DSC: HackRF (and other non-RTL-SDR) now start correctly (#348).** The AIS and DSC dashboards never sent an `sdr_type` in their start requests, so the backend defaulted to `rtlsdr` and ran the RTL-SDR-only USB probe against a HackRF — failing with a misleading “device not available”. The dashboards now tag each device with its SDR type and include it in the start payload.
+
 ## [2.33.60] - 2026-09-28
 
 ### Changed

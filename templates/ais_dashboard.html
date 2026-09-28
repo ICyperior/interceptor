@@ -506,6 +506,7 @@
                             const opt = document.createElement('option');
                             opt.value = d.index;
                             opt.textContent = `SDR ${d.index}: ${d.name}`;
+                            opt.dataset.sdrType = d.sdr_type || 'rtlsdr';
                             aisSelect.appendChild(opt);
                         });
                     }
@@ -520,6 +521,7 @@
                             const opt = document.createElement('option');
                             opt.value = d.index;
                             opt.textContent = `SDR ${d.index}: ${d.name}`;
+                            opt.dataset.sdrType = d.sdr_type || 'rtlsdr';
                             dscSelect.appendChild(opt);
                         });
                         // Default to second device if available
@@ -603,9 +605,18 @@
             }
         }
 
+        // SDR type of the currently selected device (so non-RTL-SDR hardware
+        // like HackRF is claimed with the right probe, not the RTL-SDR one).
+        function selectedSdrType(selectId) {
+            const sel = document.getElementById(selectId);
+            const opt = sel && sel.options[sel.selectedIndex];
+            return (opt && opt.dataset.sdrType) || 'rtlsdr';
+        }
+
         async function startTracking() {
             const device = document.getElementById('aisDeviceSelect').value;
             const gain = document.getElementById('aisGain').value;
+            const sdr_type = selectedSdrType('aisDeviceSelect');
 
             // Check if using agent mode
             const useAgent = typeof aisCurrentAgent !== 'undefined' && aisCurrentAgent !== 'local';
@@ -619,7 +630,7 @@
                 fetch(`/controller/agents/${aisCurrentAgent}/ais/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device, gain, bias_t: getBiasTEnabled() })
+                    body: JSON.stringify({ device, gain, sdr_type, bias_t: getBiasTEnabled() })
                 })
                 .then(r => r.json())
                 .then(result => {
@@ -644,7 +655,7 @@
             fetch('/ais/start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ device, gain, bias_t: getBiasTEnabled() })
+                body: JSON.stringify({ device, gain, sdr_type, bias_t: getBiasTEnabled() })
             })
             .then(r => r.json())
             .then(data => {
@@ -1250,6 +1261,7 @@
         function startDscTracking() {
             const device = document.getElementById('dscDeviceSelect').value;
             const gain = document.getElementById('dscGain').value;
+            const sdr_type = selectedSdrType('dscDeviceSelect');
 
             // Check if using agent mode
             const isAgentMode = typeof aisCurrentAgent !== 'undefined' && aisCurrentAgent !== 'local';
@@ -1260,7 +1272,7 @@
                 ? getRemoteSDRConfig() : null;
             if (remoteConfig === false) return; // Validation failed
 
-            const requestBody = { device, gain };
+            const requestBody = { device, gain, sdr_type };
 
             // Add rtl_tcp params if using remote SDR
             if (remoteConfig) {
@@ -1757,11 +1769,12 @@
 
                 const device = document.getElementById('aisDeviceSelect').value;
                 const gain = document.getElementById('aisGain').value;
+                const sdr_type = selectedSdrType('aisDeviceSelect');
 
                 fetch(`/controller/agents/${aisCurrentAgent}/ais/start`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ device, gain, bias_t: getBiasTEnabled() })
+                    body: JSON.stringify({ device, gain, sdr_type, bias_t: getBiasTEnabled() })
                 })
                 .then(r => r.json())
                 .then(data => {
