@@ -118,6 +118,7 @@ body {
 .iss-dot-iss { background: #ffd24a; box-shadow: 0 0 6px #ffd24a; }
 .iss-dot-track { background: var(--accent-cyan); }
 .iss-dot-foot { background: transparent; border: 1px solid var(--accent-cyan); }
+.iss-dot-relay { background: #ffa733; }
 
 /* Pulsing glow ISS map marker (Leaflet divIcon) */
 .iss-marker {

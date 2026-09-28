@@ -259,6 +259,24 @@
         let es = null;
         let count = 0;
         const RELAY_RE = /RS0ISS|ARISS|NA1SS/i;
+        const relayMarkers = {};  // callsign -> Leaflet marker
+
+        function plotStation(callsign, lat, lon, body) {
+            if (!map) return;
+            const tip = escapeHtml(callsign) + (body ? '<br><span style="color:#aaa">' + escapeHtml(String(body).slice(0, 60)) + '</span>' : '');
+            if (relayMarkers[callsign]) {
+                relayMarkers[callsign].setLatLng([lat, lon]).setTooltipContent(tip);
+                return;
+            }
+            relayMarkers[callsign] = L.circleMarker([lat, lon], {
+                radius: 5, color: '#ffa733', fillColor: '#ffa733', fillOpacity: 0.85, weight: 1,
+            }).addTo(map).bindTooltip(tip, { direction: 'top' });
+        }
+
+        function clearStations() {
+            Object.values(relayMarkers).forEach(m => { try { map.removeLayer(m); } catch (_) {} });
+            for (const k in relayMarkers) delete relayMarkers[k];
+        }
 
         function setState(on, label) {
             running = on;
@@ -281,6 +299,10 @@
             setText('issAprsCount', count);
             const relayed = RELAY_RE.test(p.path || '') || RELAY_RE.test(p.raw || '');
             const body = p.comment || p.message || p.raw || '';
+            // Plot ISS-relayed stations that reported a position onto the map.
+            if (relayed && Number.isFinite(p.lat) && Number.isFinite(p.lon)) {
+                plotStation(p.callsign, p.lat, p.lon, p.comment || p.message || '');
+            }
             const el = document.createElement('div');
             el.className = 'iss-aprs-pkt' + (relayed ? ' relayed' : '');
             el.innerHTML = `<div><span class="iss-aprs-call">${escapeHtml(p.callsign)}</span>${relayed ? '<span class="iss-aprs-badge">ISS</span>' : ''}</div>` +
@@ -319,6 +341,7 @@
 
         async function stop() {
             closeStream();
+            clearStations();
             setState(false, 'OFF');
             try { await fetch('/aprs/stop', { method: 'POST' }); } catch (_) {}
         }
