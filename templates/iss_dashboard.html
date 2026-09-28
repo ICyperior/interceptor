@@ -86,6 +86,20 @@
                     </div>
                 </div>
 
+                <div class="iss-panel iss-panel--aprs">
+                    <div class="iss-panel-title">
+                        ISS APRS · 145.825 MHz
+                        <span class="iss-los-badge standby" id="issAprsState">OFF</span>
+                    </div>
+                    <div class="iss-aprs-controls">
+                        <button class="iss-btn" id="issAprsBtn" onclick="window.ISSAprs.toggle()">Start receiver</button>
+                        <span class="iss-aprs-count"><b id="issAprsCount">0</b> pkts</span>
+                    </div>
+                    <div id="issAprsList" class="iss-aprs-list">
+                        <div class="iss-empty">Digipeated packets relayed by the ISS (RS0ISS/ARISS) appear here during a pass. Needs an SDR + VHF antenna.</div>
+                    </div>
+                </div>
+
                 <div class="iss-panel iss-panel--telemetry">
                     <div class="iss-panel-title">
                         LIVE TELEMETRY

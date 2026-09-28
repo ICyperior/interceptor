@@ -10,6 +10,10 @@ body {
     overflow: hidden;
 }
 
+/* Keep the nav bar and its dropdown menus above the Leaflet map, whose panes
+   (z 400) and controls (z 1000) otherwise paint over the dropdown (z 100). */
+.mode-nav { position: relative; z-index: 1200; }
+
 /* ── Header ─────────────────────────────────────────────────────────── */
 .header {
     position: relative;
@@ -169,6 +173,40 @@ body {
 .iss-pass-meta { display: flex; justify-content: space-between; color: var(--text-dim); margin-top: 2px; }
 .iss-pass-meta span { font-family: var(--font-data); }
 .iss-empty { color: var(--text-dim); font-size: 11px; }
+
+/* ── ISS APRS panel ─────────────────────────────────────────────────── */
+.iss-panel--aprs .iss-panel-title { display: flex; align-items: center; justify-content: space-between; }
+.iss-aprs-controls { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.iss-btn {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 6px 12px;
+    border-radius: 4px;
+    border: 1px solid var(--accent-cyan);
+    background: rgba(0, 212, 255, 0.12);
+    color: var(--accent-cyan);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.iss-btn:hover { background: rgba(0, 212, 255, 0.22); }
+.iss-btn.active { border-color: var(--accent-red); background: rgba(255, 60, 60, 0.15); color: var(--accent-red); }
+.iss-btn:disabled { opacity: 0.5; cursor: default; }
+.iss-aprs-count { font-size: 11px; color: var(--text-dim); }
+.iss-aprs-count b { font-family: var(--font-data); color: var(--text-primary); }
+.iss-aprs-list { max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; }
+.iss-aprs-pkt {
+    border: 1px solid var(--border-color);
+    border-left: 3px solid var(--text-dim);
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-size: 11px;
+    background: rgba(0, 0, 0, 0.2);
+}
+.iss-aprs-pkt.relayed { border-left-color: #ffd24a; }
+.iss-aprs-call { font-family: var(--font-data); color: var(--text-primary); }
+.iss-aprs-badge { font-size: 8px; letter-spacing: 0.06em; color: #ffd24a; border: 1px solid #ffd24a; border-radius: 3px; padding: 0 4px; margin-left: 6px; }
+.iss-aprs-body { color: var(--text-dim); margin-top: 2px; word-break: break-word; font-family: var(--font-data); font-size: 10px; }
 
 /* ── Telemetry panel ────────────────────────────────────────────────── */
 .iss-panel--telemetry .iss-panel-title { display: flex; align-items: center; justify-content: space-between; }

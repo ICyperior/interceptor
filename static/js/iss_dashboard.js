@@ -24,6 +24,9 @@
 
     function $(id) { return document.getElementById(id); }
     function setText(id, txt) { const el = $(id); if (el) el.textContent = txt; }
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
 
     function getObserver() {
         if (window.ObserverLocation && ObserverLocation.getShared) {
@@ -240,6 +243,82 @@
         } catch (e) { /* leave last state */ }
     }
 
+    // ── ISS-relayed APRS (145.825 MHz, via the shared APRS receiver) ──────
+    const ISSAprs = (function () {
+        let running = false;
+        let es = null;
+        let count = 0;
+        const RELAY_RE = /RS0ISS|ARISS|NA1SS/i;
+
+        function setState(on, label) {
+            running = on;
+            const badge = $('issAprsState');
+            const btn = $('issAprsBtn');
+            if (badge) {
+                badge.textContent = label || (on ? 'RX' : 'OFF');
+                badge.className = 'iss-los-badge ' + (on ? 'aos' : 'standby');
+            }
+            if (btn) { btn.textContent = on ? 'Stop receiver' : 'Start receiver'; btn.classList.toggle('active', on); }
+        }
+
+        function addPacket(p) {
+            if (!p || (p.type && p.type !== 'aprs') || !p.callsign) return;
+            const list = $('issAprsList');
+            if (!list) return;
+            const placeholder = list.querySelector('.iss-empty');
+            if (placeholder) placeholder.remove();
+            count += 1;
+            setText('issAprsCount', count);
+            const relayed = RELAY_RE.test(p.path || '') || RELAY_RE.test(p.raw || '');
+            const body = p.comment || p.message || p.raw || '';
+            const el = document.createElement('div');
+            el.className = 'iss-aprs-pkt' + (relayed ? ' relayed' : '');
+            el.innerHTML = `<div><span class="iss-aprs-call">${escapeHtml(p.callsign)}</span>${relayed ? '<span class="iss-aprs-badge">ISS</span>' : ''}</div>` +
+                `<div class="iss-aprs-body">${escapeHtml(String(body).slice(0, 80))}</div>`;
+            list.prepend(el);
+            while (list.children.length > 40) list.removeChild(list.lastChild);
+        }
+
+        function openStream() {
+            if (es) return;
+            es = new EventSource('/aprs/stream');
+            es.onmessage = (ev) => { try { addPacket(JSON.parse(ev.data)); } catch (_) {} };
+            es.onerror = () => { /* keep the connection; SSE auto-retries */ };
+        }
+        function closeStream() { if (es) { es.close(); es = null; } }
+
+        async function start() {
+            setState(true, 'CONNECTING');
+            try {
+                const r = await fetch('/aprs/start', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ region: 'iss' }),
+                });
+                const d = await r.json().catch(() => ({}));
+                if (r.ok || (d.message && /already running/i.test(d.message))) {
+                    setState(true, 'RX'); openStream();
+                } else {
+                    setState(false, 'OFF');
+                    const list = $('issAprsList');
+                    if (list) list.innerHTML = `<div class="iss-empty">${escapeHtml(d.message || 'Could not start receiver')}</div>`;
+                }
+            } catch (e) {
+                setState(false, 'OFF');
+            }
+        }
+
+        async function stop() {
+            closeStream();
+            setState(false, 'OFF');
+            try { await fetch('/aprs/stop', { method: 'POST' }); } catch (_) {}
+        }
+
+        function toggle() { running ? stop() : start(); }
+        function cleanup() { closeStream(); }
+        return { toggle, cleanup };
+    })();
+    window.ISSAprs = ISSAprs;
+
     async function poll() {
         const o = getObserver();
         try {
@@ -273,6 +352,7 @@
     window.addEventListener('beforeunload', () => {
         if (pollTimer) clearInterval(pollTimer);
         if (telemetryTimer) clearInterval(telemetryTimer);
+        if (window.ISSAprs) ISSAprs.cleanup();
     });
     document.addEventListener('DOMContentLoaded', start);
 })();
