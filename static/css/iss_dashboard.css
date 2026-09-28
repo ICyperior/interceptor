@@ -121,14 +121,14 @@ body {
 
 /* Pulsing glow ISS map marker (Leaflet divIcon) */
 .iss-marker {
-    font-size: 22px;
-    line-height: 1;
-    filter: drop-shadow(0 0 6px rgba(255, 210, 74, 0.9));
+    background: none !important;   /* kill Leaflet's default divIcon white box */
+    border: none !important;
+    line-height: 0;
     animation: issPulse 2.4s ease-in-out infinite;
 }
 @keyframes issPulse {
-    0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(255, 210, 74, 0.7)); }
-    50%      { transform: scale(1.15); filter: drop-shadow(0 0 12px rgba(255, 210, 74, 1)); }
+    0%, 100% { filter: drop-shadow(0 0 4px rgba(255, 210, 74, 0.7)); }
+    50%      { filter: drop-shadow(0 0 11px rgba(255, 210, 74, 1)); }
 }
 
 /* ── Side panel ─────────────────────────────────────────────────────── */

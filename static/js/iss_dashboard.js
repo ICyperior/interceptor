@@ -37,7 +37,17 @@
     }
 
     function issIcon() {
-        return L.divIcon({ className: 'iss-marker', html: '\u{1F6F0}️', iconSize: [24, 24], iconAnchor: [12, 12] });
+        // Inline SVG (emoji doesn't render on many Linux systems).
+        const svg =
+            '<svg viewBox="0 0 32 32" width="30" height="30" xmlns="http://www.w3.org/2000/svg">' +
+            '<rect x="3" y="13" width="8" height="6" rx="1" fill="#5ab4ff" stroke="#00d4ff" stroke-width="1"/>' +
+            '<rect x="21" y="13" width="8" height="6" rx="1" fill="#5ab4ff" stroke="#00d4ff" stroke-width="1"/>' +
+            '<line x1="11" y1="16" x2="21" y2="16" stroke="#8a94a0" stroke-width="1.5"/>' +
+            '<rect x="13" y="11" width="6" height="10" rx="1.5" fill="#ffd24a" stroke="#b8860b" stroke-width="0.8"/>' +
+            '<line x1="16" y1="11" x2="16" y2="6" stroke="#ffd24a" stroke-width="1.2"/>' +
+            '<circle cx="16" cy="5" r="1.6" fill="#ffd24a"/>' +
+            '</svg>';
+        return L.divIcon({ className: 'iss-marker', html: svg, iconSize: [30, 30], iconAnchor: [15, 15] });
     }
 
     // ── Sun / terminator ────────────────────────────────────────────────
