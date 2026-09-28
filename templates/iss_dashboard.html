@@ -92,10 +92,27 @@
                         <span class="iss-los-badge" id="issTelemetryState">STANDBY</span>
                     </div>
 
-                    <!-- Solar array schematic; panels rotate to their real BGA angles -->
+                    <!-- Station schematic; solar wings rotate to their real BGA
+                         angles and glow when the ISS is sunlit. -->
                     <svg id="issArrays" class="iss-arrays" viewBox="0 0 280 120" aria-label="ISS solar array angles">
-                        <line x1="40" y1="60" x2="240" y2="60" class="iss-truss"/>
-                        <rect x="128" y="48" width="24" height="24" rx="2" class="iss-core"/>
+                        <!-- Sun + rays (dims during eclipse) -->
+                        <g class="iss-sun-group">
+                            <circle class="iss-sun" cx="24" cy="20" r="8"/>
+                            <line class="iss-sun-ray" x1="24" y1="6" x2="24" y2="1"/>
+                            <line class="iss-sun-ray" x1="38" y1="20" x2="43" y2="20"/>
+                            <line class="iss-sun-ray" x1="34" y1="10" x2="38" y2="6"/>
+                            <line class="iss-sun-ray" x1="34" y1="30" x2="38" y2="34"/>
+                            <line class="iss-sun-ray" x1="14" y1="30" x2="10" y2="34"/>
+                        </g>
+                        <!-- Main truss -->
+                        <line x1="42" y1="60" x2="238" y2="60" class="iss-truss"/>
+                        <!-- Thermal radiators -->
+                        <rect class="iss-radiator" x="132" y="18" width="16" height="26" rx="1" transform="rotate(18 140 31)"/>
+                        <rect class="iss-radiator" x="132" y="76" width="16" height="26" rx="1" transform="rotate(-18 140 89)"/>
+                        <!-- Pressurised modules (core) -->
+                        <rect class="iss-core" x="116" y="52" width="48" height="16" rx="3"/>
+                        <rect class="iss-core" x="150" y="46" width="10" height="28" rx="2"/>
+                        <!-- Solar wings (JS injects 8, rotated to their BGA angles) -->
                         <g class="iss-panels" id="issPanels"></g>
                     </svg>
 

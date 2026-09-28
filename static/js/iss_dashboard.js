@@ -141,7 +141,12 @@
 
         const sun = drawNight();
         const dayDist = angularDistance({ lat: p.lat, lon: p.lon }, sun);
-        setText('issSun', dayDist < 90 ? 'DAY' : 'NIGHT');
+        const sunlit = dayDist < 90;
+        setText('issSun', sunlit ? 'DAY' : 'NIGHT');
+        // Glow the solar wings when the station is in sunlight (always-live,
+        // from tracking) even while telemetry angles are in LOS.
+        const arraysEl = $('issArrays');
+        if (arraysEl) arraysEl.classList.toggle('sunlit', sunlit);
 
         const o = data.observer;
         if (o) {
@@ -175,8 +180,8 @@
             rotor.setAttribute('data-key', p.key);
             const rect = document.createElementNS(NS, 'rect');
             rect.setAttribute('class', 'iss-panel-cell');
-            rect.setAttribute('x', '-11'); rect.setAttribute('y', '-4');
-            rect.setAttribute('width', '22'); rect.setAttribute('height', '8');
+            rect.setAttribute('x', '-2.5'); rect.setAttribute('y', '-18');
+            rect.setAttribute('width', '5'); rect.setAttribute('height', '36');
             rect.setAttribute('rx', '1');
             rotor.appendChild(rect);
             mount.appendChild(rotor);

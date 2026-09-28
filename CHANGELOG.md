@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.55] - 2026-09-28
+
+### Fixed
+
+- **ISS dashboard visual polish.** The header title now uses the Orbitron display font with a cyan underline (it was falling back to plain text, since the shared dashboard chrome has no header styling), the layout is a proper full-height flex column so the telemetry panel is no longer pushed off-screen, and the station graphic is redesigned: a detailed ISS schematic (truss, modules, radiators, Sun) whose eight solar wings rotate to their real angles and glow when the station is sunlit, a pulsing map marker, and Orbitron panel titles with glow accents throughout.
+
 ## [2.33.54] - 2026-09-28
 
 ### Added
