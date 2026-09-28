@@ -506,7 +506,7 @@ body {
 .drawer-sat-meta {
     color: var(--text-dim);
     font-size: 9px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 
 .drawer-sat-remove {
@@ -763,7 +763,7 @@ body {
     text-align: center;
     color: var(--text-dim);
     font-size: 10px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     letter-spacing: 0.08em;
 }
 
@@ -776,7 +776,7 @@ body {
 
 .pass-data-event {
     font-size: 9px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-dim);
@@ -785,7 +785,7 @@ body {
 
 .pass-data-time {
     font-size: 12px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     color: var(--text-primary);
     margin-bottom: 2px;
 }
@@ -793,7 +793,7 @@ body {
 .pass-data-sub {
     font-size: 10px;
     color: var(--accent-cyan);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 
 .pass-data-tca .pass-data-sub {
@@ -805,7 +805,7 @@ body {
     margin-top: 8px;
     font-size: 10px;
     color: var(--text-secondary);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     letter-spacing: 0.06em;
 }
 
@@ -957,7 +957,7 @@ body {
     padding: 7px 10px;
     border-bottom: 1px solid rgba(var(--accent-cyan-rgb), 0.08);
     font-size: 10px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     word-break: break-word;
 }
 
@@ -1001,7 +1001,7 @@ body {
     border-radius: 6px;
     background: rgba(255, 255, 255, 0.03);
     color: var(--text-primary);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 9px;
     white-space: pre-wrap;
     line-height: 1.35;
@@ -1324,7 +1324,7 @@ body {
 }
 
 .telemetry-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 12px;
     color: var(--accent-cyan);
 }
@@ -1424,7 +1424,7 @@ body {
 }
 
 .pass-time {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 
 /* Bottom controls bar */

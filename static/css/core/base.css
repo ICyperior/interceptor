@@ -87,7 +87,7 @@ small {
 }
 
 code, kbd, pre, samp {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 0.9em;
 }
 
@@ -244,7 +244,7 @@ li {
 .text-amber { color: var(--accent-amber); }
 
 /* Font utilities */
-.font-mono { font-family: var(--font-mono); }
+.font-mono { font-family: var(--font-data); }
 .font-medium { font-weight: var(--font-medium); }
 .font-semibold { font-weight: var(--font-semibold); }
 .font-bold { font-weight: var(--font-bold); }

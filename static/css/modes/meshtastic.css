@@ -325,7 +325,7 @@
 }
 
 .mesh-strip-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 12px;
     font-weight: 600;
     color: var(--text-primary);
@@ -573,7 +573,7 @@
 
 .mesh-node-value {
     color: var(--text-primary);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 
 .mesh-node-id {
@@ -838,7 +838,7 @@
 
 .mesh-message-time {
     color: var(--text-dim);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 
 .mesh-message-body {
@@ -1329,14 +1329,14 @@
 }
 
 .mesh-traceroute-hop-id {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 9px;
     color: var(--text-dim);
     margin-bottom: 6px;
 }
 
 .mesh-traceroute-snr {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     font-weight: 600;
     padding: 2px 8px;
@@ -1371,7 +1371,7 @@
 
 .mesh-traceroute-timestamp {
     margin-top: 12px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     color: var(--text-dim);
     text-align: right;
@@ -1426,7 +1426,7 @@
     border: 1px solid var(--border-color);
     border-radius: 4px;
     color: var(--text-primary);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 9px;
     font-weight: 600;
     cursor: pointer;
@@ -1525,7 +1525,7 @@
 }
 
 .mesh-network-node-id {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 12px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -1553,13 +1553,13 @@
 }
 
 .mesh-network-neighbor-id {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     color: var(--text-secondary);
 }
 
 .mesh-network-neighbor-snr {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 9px;
     font-weight: 600;
     padding: 2px 6px;

@@ -688,7 +688,7 @@ body {
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 11px;
     color: var(--text-dim);
     white-space: pre-wrap;
@@ -980,7 +980,7 @@ body {
 }
 
 .telemetry-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 12px;
     color: var(--accent-cyan);
 }
@@ -1036,7 +1036,7 @@ body {
 }
 
 .aircraft-icao {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 9px;
     color: var(--text-secondary);
     background: rgba(var(--accent-cyan-rgb), 0.1);
@@ -1056,7 +1056,7 @@ body {
 }
 
 .aircraft-detail-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     color: var(--accent-cyan);
     font-size: 11px;
 }
@@ -1764,7 +1764,7 @@ body {
 }
 
 .strip-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 14px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -2158,7 +2158,7 @@ html[data-ui-tier="enhanced"]:not([data-theme="light"]) .strip-btn.primary {
     font-size: 11px;
     font-weight: 500;
     color: var(--accent-cyan);
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     padding-left: 8px;
     border-left: 1px solid rgba(var(--accent-cyan-rgb), 0.2);
     white-space: nowrap;
@@ -2312,7 +2312,7 @@ html[data-ui-tier="enhanced"]:not([data-theme="light"]) .strip-btn.primary {
 }
 
 .squawk-code {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-weight: 700;
     color: var(--accent-cyan);
     font-size: 12px;

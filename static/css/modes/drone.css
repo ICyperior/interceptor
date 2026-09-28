@@ -34,7 +34,7 @@
 .drone-vsstat-value {
     font-size: 22px;
     font-weight: 700;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     color: var(--text-primary);
     line-height: 1;
 }

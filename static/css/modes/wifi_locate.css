@@ -153,7 +153,7 @@
 .wfl-rssi-display {
     font-size: 64px;
     font-weight: 800;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     text-align: center;
     line-height: 1;
     color: var(--text-dim);
@@ -183,7 +183,7 @@
 .wfl-distance {
     text-align: center;
     font-size: 16px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     color: var(--text-secondary);
     margin-top: -4px;
 }
@@ -274,7 +274,7 @@
 .wfl-stat-value {
     font-size: 16px;
     font-weight: 700;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     color: var(--text-primary);
 }
 

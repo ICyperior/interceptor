@@ -28,7 +28,7 @@
     border-color: rgba(var(--accent-cyan-rgb), 0.3);
 }
 .aprs-strip .strip-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 14px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -186,7 +186,7 @@
 
 /* Time display */
 .aprs-strip .strip-time {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     color: var(--text-muted);
     padding: 4px 8px;
@@ -267,7 +267,7 @@
 .aprs-meter-value {
     font-size: 12px;
     font-weight: bold;
-    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
+    font-family: var(--font-data);
     color: var(--accent-cyan);
     min-width: 24px;
 }

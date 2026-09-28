@@ -48,7 +48,7 @@
 }
 
 .function-strip .strip-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 14px;
     font-weight: 600;
     color: var(--accent-cyan);
@@ -261,7 +261,7 @@
 
 /* Time display */
 .function-strip .strip-time {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     color: var(--text-muted);
     padding: 4px 8px;

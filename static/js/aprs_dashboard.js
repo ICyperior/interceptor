@@ -860,7 +860,7 @@ function updateAprsMarker(packet) {
         aprsMarkers[callsign].setLatLng([lat, lon]);
         aprsMarkers[callsign].setIcon(buildAprsMarkerIcon(packet));
         aprsMarkers[callsign].setPopupContent(`
-            <div style="font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;">
+            <div style="font-family: var(--font-data);">
                 <strong>${callsign}</strong><br>
                 Position: ${lat.toFixed(4)}, ${lon.toFixed(4)}<br>
                 ${distStr}
@@ -879,7 +879,7 @@ function updateAprsMarker(packet) {
         const marker = L.marker([lat, lon], { icon: buildAprsMarkerIcon(packet) }).addTo(aprsMap);
 
         marker.bindPopup(`
-            <div style="font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;">
+            <div style="font-family: var(--font-data);">
                 <strong>${callsign}</strong><br>
                 Position: ${lat.toFixed(4)}, ${lon.toFixed(4)}<br>
                 ${distStr}

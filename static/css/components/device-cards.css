@@ -67,7 +67,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 11px;
 }
 
@@ -159,7 +159,7 @@
 }
 
 .rssi-current {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 16px;
     font-weight: 600;
     color: var(--text-primary, #e0e0e0);
@@ -186,13 +186,13 @@
 }
 
 .rssi-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 11px;
     font-weight: 500;
 }
 
 .rssi-current-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     font-weight: 500;
     margin-left: 6px;
@@ -280,7 +280,7 @@
     display: flex;
     align-items: center;
     gap: 3px;
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 
 .device-seen-count .seen-icon {
@@ -289,7 +289,7 @@
 }
 
 .device-timestamp {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
 }
 
 /* ============================================
@@ -302,7 +302,7 @@
 }
 
 .device-uuid {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 9px;
     padding: 2px 6px;
     background: var(--bg-tertiary, #1a1a1a);
@@ -698,7 +698,7 @@
 }
 
 .modal-rssi-large {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 36px;
     font-weight: 700;
     color: var(--accent-cyan, #00d4ff);
@@ -744,7 +744,7 @@
 }
 
 .modal-signal-stats .stat-value {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 12px;
     font-weight: 600;
     color: var(--text-primary, #e0e0e0);
@@ -778,7 +778,7 @@
 }
 
 .modal-info-grid .info-value.mono {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     color: var(--accent-cyan, #00d4ff);
 }
 
@@ -790,7 +790,7 @@
 }
 
 .modal-uuid {
-    font-family: var(--font-mono);
+    font-family: var(--font-data);
     font-size: 10px;
     padding: 4px 8px;
     background: var(--bg-secondary, #1a1a1a);
