@@ -8,6 +8,12 @@ All notable changes to iNTERCEPT will be documented in this file.
 
 - **ADS-B: airband controls are now a compact chip + popover.** The airband block sprawled across the bottom bar and reflowed messily at smaller widths. It’s now a small “Airband” chip (with a live status dot and the current frequency) that opens a tidy popover holding the frequency, SDR, squelch/volume, LISTEN and signal meter — clean at every screen size.
 
+## [2.33.59] - 2026-09-28
+
+### Added
+
+- **ADS-B: Enhanced Mode-S cockpit data.** When dump1090 supports it, INTERCEPT now reads its `aircraft.json` to enrich tracked aircraft with Comm-B / Enhanced Mode-S fields — roll (bank), magnetic heading, indicated airspeed, true airspeed, Mach, and autopilot selected altitude. The instrument panel uses them automatically: the airspeed gauge switches to IAS, the compass to magnetic heading, the turn instrument shows real bank angle, the altimeter shows the selected-altitude bug, and an “Enhanced Mode-S” section lists IAS/TAS/Mach/heading/bank/selected-altitude. Feature-detected (`--write-json`), so builds without it are unaffected; fields appear opportunistically as Comm-B replies are received.
+
 ## [2.33.58] - 2026-09-28
 
 ### Added

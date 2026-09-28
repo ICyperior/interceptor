@@ -46,6 +46,16 @@ body {
 .pfd-state.live { color: var(--accent-green, #00ff88); border-color: var(--accent-green, #00ff88); }
 .pfd-state.nodata, .pfd-state:not(.live) { color: var(--accent-orange, #ffa500); border-color: var(--accent-orange, #ffa500); }
 .pfd-age { font-size: 10px; color: var(--text-dim, #8b97a6); }
+.pfd-ehs-badge {
+    font-family: var(--font-data, monospace);
+    font-size: 9px; letter-spacing: 0.12em;
+    padding: 2px 8px; border-radius: 3px;
+    color: #ffd24a; border: 1px solid #ffd24a;
+    box-shadow: 0 0 8px rgba(255, 210, 74, 0.3);
+}
+.pfd-ehs-badge[hidden] { display: none; }
+.pfd-ehs[hidden] { display: none; }
+.pfd-ehs-title { margin-top: 12px; color: #ffd24a; }
 
 /* Instrument grid */
 .pfd-grid {
