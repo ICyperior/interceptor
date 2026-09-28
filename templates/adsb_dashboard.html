@@ -135,6 +135,10 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4M18 12h4M12 2v4M12 18v4"/><circle cx="12" cy="12" r="4"/></svg>
                 Tune ATC
             </button>
+            <button type="button" class="strip-btn" onclick="openInstruments()" title="Open a pop-out instrument panel for the selected aircraft" id="instrumentsBtn" disabled>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 12l4-3"/><circle cx="12" cy="12" r="1.5"/></svg>
+                Instruments
+            </button>
             <button type="button" class="strip-btn primary" onclick="generateReport()" title="Generate Session Report">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                 Report
@@ -1425,6 +1429,24 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     ? "Tune the airband receiver to the nearest airport's ATC frequency"
                     : 'Select an aircraft with a position first';
             }
+
+            // "Instruments" needs a selected aircraft
+            const instBtn = document.getElementById('instrumentsBtn');
+            if (instBtn) {
+                instBtn.disabled = !(selectedIcao && aircraft[selectedIcao]);
+                instBtn.title = instBtn.disabled
+                    ? 'Select an aircraft first'
+                    : 'Open a pop-out instrument panel for the selected aircraft';
+            }
+        }
+
+        function openInstruments() {
+            if (!selectedIcao) return;
+            window.open(
+                '/adsb/instruments?icao=' + encodeURIComponent(selectedIcao),
+                'instruments_' + selectedIcao,
+                'width=780,height=680,menubar=no,toolbar=no,location=no,status=no'
+            );
         }
 
         // ============================================

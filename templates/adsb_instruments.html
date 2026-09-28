@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instruments{% if icao %} · {{ icao }}{% endif %} // INTERCEPT</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts-local.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/core/variables.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/adsb_instruments.css') }}">
+    <script>window.INSTRUMENT_ICAO = {{ icao | tojson }};</script>
+</head>
+<body>
+    <header class="pfd-header">
+        <div class="pfd-id">
+            <span class="pfd-call" id="acCall">--------</span>
+            <span class="pfd-sub"><span id="acType">--</span> · <span id="acReg">--</span> · <span id="acIcao">{{ icao or '------' }}</span></span>
+        </div>
+        <div class="pfd-squawk">
+            <span class="pfd-squawk-val" id="acSquawk">----</span>
+            <span class="pfd-squawk-label">SQUAWK</span>
+        </div>
+        <div class="pfd-status">
+            <span class="pfd-state" id="acState">NO DATA</span>
+            <span class="pfd-age" id="acAge"></span>
+        </div>
+    </header>
+
+    <main class="pfd-grid">
+        <div class="inst-wrap"><div class="inst" id="instAsi"></div><div class="inst-name">AIRSPEED (GS)</div></div>
+        <div class="inst-wrap"><div class="inst" id="instAlt"></div><div class="inst-name">ALTITUDE</div></div>
+        <div class="inst-wrap"><div class="inst" id="instVsi"></div><div class="inst-name">VERTICAL SPEED</div></div>
+        <div class="inst-wrap"><div class="inst" id="instHdg"></div><div class="inst-name">TRACK</div></div>
+        <div class="inst-wrap"><div class="inst" id="instTurn"></div><div class="inst-name">TURN</div></div>
+        <div class="inst-wrap data-block">
+            <div class="pfd-data-title">FLIGHT DATA</div>
+            <div class="pfd-kv"><span>Altitude</span><b id="dAlt">--</b></div>
+            <div class="pfd-kv"><span>Ground speed</span><b id="dGs">--</b></div>
+            <div class="pfd-kv"><span>Track</span><b id="dTrk">--</b></div>
+            <div class="pfd-kv"><span>Vertical rate</span><b id="dVs">--</b></div>
+            <div class="pfd-kv"><span>Turn rate</span><b id="dTurn">--</b></div>
+            <div class="pfd-kv"><span>Position</span><b id="dPos">--</b></div>
+        </div>
+    </main>
+
+    <footer class="pfd-footer">
+        <span>Flight instruments derived from ADS-B (SBS). Ground speed and track, not IAS/heading.
+        Pitch/roll, IAS/Mach and selected altitude require Enhanced Mode-S.</span>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/adsb_instruments.js') }}"></script>
+</body>
+</html>
