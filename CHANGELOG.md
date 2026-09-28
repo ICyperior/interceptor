@@ -8,6 +8,12 @@ All notable changes to iNTERCEPT will be documented in this file.
 
 - **ADS-B: airband popover was clipped and appeared to do nothing.** The compact airband chip toggled but its popover opened upward into the bottom controls bar, which clips overflow — so only the caret flipped. The popover is now positioned with `position: fixed` above the chip (clamped to the viewport), so it actually shows.
 
+## [2.33.63] - 2026-09-28
+
+### Fixed
+
+- **SubGHz sweep: surface real errors and stop the restart storm (#345).** `hackrf_sweep` had its stderr sent to /dev/null (hence generic “Unknown error”) and would auto-restart up to 600 times even when it exited instantly. It now captures stderr and, if the tool keeps exiting within a few seconds, stops after 3 attempts and reports the actual error — while still auto-recovering from genuine mid-sweep USB drops.
+
 ## [2.33.62] - 2026-09-28
 
 ### Fixed
