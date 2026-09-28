@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.60] - 2026-09-28
+
+### Changed
+
+- **ADS-B: airband controls are now a compact chip + popover.** The airband block sprawled across the bottom bar and reflowed messily at smaller widths. It’s now a small “Airband” chip (with a live status dot and the current frequency) that opens a tidy popover holding the frequency, SDR, squelch/volume, LISTEN and signal meter — clean at every screen size.
+
 ## [2.33.59] - 2026-09-28
 
 ### Added
