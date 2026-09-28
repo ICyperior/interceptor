@@ -618,6 +618,73 @@ def check_dump1090_service():
     return None
 
 
+# dump1090 aircraft.json field -> our aircraft dict field (Enhanced Mode-S /
+# Comm-B "cockpit" data that the SBS port does not carry).
+_EHS_FIELD_MAP = {
+    "roll": "roll",              # bank angle, deg (+ = right)
+    "mag_heading": "mag_heading",
+    "true_heading": "true_heading",
+    "ias": "ias",                # indicated airspeed, kt
+    "tas": "tas",                # true airspeed, kt
+    "mach": "mach",
+    "nav_heading": "sel_heading",  # autopilot selected heading
+    "nav_qnh": "qnh",
+}
+_ehs_reader_thread = None
+_ehs_reader_lock = threading.Lock()
+
+
+def start_ehs_json_reader():
+    """Start the background reader that enriches aircraft with Enhanced Mode-S
+    fields from dump1090's aircraft.json (idempotent)."""
+    global _ehs_reader_thread
+    with _ehs_reader_lock:
+        if _ehs_reader_thread and _ehs_reader_thread.is_alive():
+            return
+        _ehs_reader_thread = threading.Thread(target=_ehs_json_loop, name="adsb-ehs-json", daemon=True)
+        _ehs_reader_thread.start()
+
+
+def _merge_ehs_aircraft(a: dict) -> bool:
+    """Merge one aircraft.json record's Enhanced Mode-S fields onto the matching
+    tracked aircraft. Returns True if a tracked aircraft was enriched."""
+    hexid = str(a.get("hex") or "").upper().strip()
+    if not hexid:
+        return False
+    existing = app_module.adsb_aircraft.get(hexid)
+    if not existing:
+        return False  # enrich only aircraft already tracked via SBS
+    ehs = {dst: a[src] for src, dst in _EHS_FIELD_MAP.items() if a.get(src) is not None}
+    sel = a.get("nav_altitude_mcp")
+    if sel is None:
+        sel = a.get("nav_altitude_fms")
+    if sel is not None:
+        ehs["sel_altitude"] = sel  # autopilot selected altitude, ft
+    if not ehs:
+        return False
+    existing.update(ehs)
+    existing["ehs"] = True
+    app_module.adsb_aircraft.set(hexid, existing)
+    return True
+
+
+def _ehs_json_loop():
+    """Read dump1090's aircraft.json ~1 Hz and merge Comm-B/EHS fields onto
+    already-tracked aircraft. Best-effort: absent file/fields are ignored."""
+    from utils.sdr.rtlsdr import DUMP1090_JSON_DIR
+
+    path = os.path.join(DUMP1090_JSON_DIR, "aircraft.json")
+    while app_module.adsb_process and app_module.adsb_process.poll() is None:
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            for a in data.get("aircraft", []):
+                _merge_ehs_aircraft(a)
+        except (FileNotFoundError, json.JSONDecodeError, OSError, ValueError):
+            pass
+        time.sleep(1.0)
+
+
 def parse_sbs_stream(service_addr):
     """Parse SBS format data from dump1090 SBS port."""
     global \
@@ -1251,6 +1318,11 @@ def start_adsb():
         adsb_using_service = True
         thread = threading.Thread(target=parse_sbs_stream, args=(f"localhost:{ADSB_SBS_PORT}",), daemon=True)
         thread.start()
+
+        # If dump1090 is emitting aircraft.json, enrich tracked aircraft with
+        # Enhanced Mode-S / cockpit fields from it (best-effort).
+        if "--write-json" in cmd:
+            start_ehs_json_reader()
 
         session = _record_session_start(
             device_index=device,

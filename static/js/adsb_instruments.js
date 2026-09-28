@@ -140,11 +140,20 @@
         svg.appendChild(unit);
         box.appendChild(svg);
         return {
+            // Derived rate of turn from track change (no EHS data).
             set(rate) {
+                unit.textContent = '°/s';
                 if (rate == null || isNaN(rate)) { val.textContent = '--'; ac.style.transform = 'rotate(0deg)'; return; }
                 // Standard rate (3 deg/s) tilts the wings to the index marks (~20deg).
                 ac.style.transform = 'rotate(' + clamp(rate / 3 * 20, -35, 35) + 'deg)';
                 val.textContent = (rate >= 0 ? '+' : '') + rate.toFixed(1);
+            },
+            // Actual bank angle from Enhanced Mode-S roll.
+            setBank(roll) {
+                unit.textContent = 'BANK';
+                if (roll == null || isNaN(roll)) { val.textContent = '--'; ac.style.transform = 'rotate(0deg)'; return; }
+                ac.style.transform = 'rotate(' + clamp(roll, -60, 60) + 'deg)';
+                val.textContent = (roll >= 0 ? 'R' : 'L') + Math.abs(Math.round(roll)) + '°';
             },
         };
     }
@@ -161,11 +170,14 @@
     function angDiff(a, b) { let d = a - b; while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
     function setText(id, t) { const e = document.getElementById(id); if (e) e.textContent = t; }
 
+    function setHidden(id, hidden) { const e = document.getElementById(id); if (e) e.hidden = hidden; }
+
     function update(ac) {
         const stateEl = document.getElementById('acState');
         if (!ac) {
             if (stateEl) { stateEl.textContent = 'NO DATA'; stateEl.className = 'pfd-state nodata'; }
             asi.set(null); alt.set(null); vsi.set(null); hdg.set(null); turn.set(null);
+            setHidden('ehsSection', true); setHidden('ehsBadge', true);
             return;
         }
         if (stateEl) { stateEl.textContent = 'LIVE'; stateEl.className = 'pfd-state live'; }
@@ -176,9 +188,20 @@
         setText('acSquawk', ac.squawk || '----');
 
         const gs = ac.speed, altitude = ac.altitude, trk = ac.heading, vs = ac.vertical_rate;
-        asi.set(gs); alt.set(altitude); vsi.set(vs); hdg.set(trk);
+        const hasEhs = !!ac.ehs;
 
-        // Derive turn rate from consecutive track samples.
+        // Airspeed: indicated airspeed when Enhanced Mode-S is available, else ground speed.
+        if (ac.ias != null) { asi.set(ac.ias); setText('nameAsi', 'AIRSPEED (IAS)'); }
+        else { asi.set(gs); setText('nameAsi', 'AIRSPEED (GS)'); }
+
+        alt.set(altitude);
+        vsi.set(vs);
+
+        // Heading: magnetic heading when available, else ground track.
+        if (ac.mag_heading != null) { hdg.set(ac.mag_heading); setText('nameHdg', 'HEADING (MAG)'); }
+        else { hdg.set(trk); setText('nameHdg', 'TRACK'); }
+
+        // Turn/bank: actual bank from EHS roll when available, else derived turn rate.
         let rate = null;
         const now = Date.now();
         if (trk != null && prevTrack != null && prevTs != null) {
@@ -186,7 +209,10 @@
             if (dt > 0.2 && dt < 30) rate = angDiff(trk, prevTrack) / dt;
         }
         if (trk != null) { prevTrack = trk; prevTs = now; }
-        turn.set(rate);
+        if (ac.roll != null) { turn.setBank(ac.roll); setText('nameTurn', 'BANK'); }
+        else { turn.set(rate); setText('nameTurn', 'TURN'); }
+
+        setText('nameAlt', ac.sel_altitude != null ? 'ALTITUDE · SEL ' + Math.round(ac.sel_altitude).toLocaleString() : 'ALTITUDE');
 
         setText('dAlt', altitude != null ? Math.round(altitude).toLocaleString() + ' ft' : '--');
         setText('dGs', gs != null ? Math.round(gs) + ' kt' : '--');
@@ -194,6 +220,18 @@
         setText('dVs', vs != null ? (vs >= 0 ? '+' : '') + Math.round(vs).toLocaleString() + ' fpm' : '--');
         setText('dTurn', rate != null ? (rate >= 0 ? '+' : '') + rate.toFixed(1) + ' °/s' : '--');
         setText('dPos', (ac.lat != null && ac.lon != null) ? ac.lat.toFixed(3) + ', ' + ac.lon.toFixed(3) : '--');
+
+        // Enhanced Mode-S readouts.
+        setHidden('ehsSection', !hasEhs);
+        setHidden('ehsBadge', !hasEhs);
+        if (hasEhs) {
+            setText('dIas', ac.ias != null ? Math.round(ac.ias) + ' kt' : '--');
+            setText('dTas', ac.tas != null ? Math.round(ac.tas) + ' kt' : '--');
+            setText('dMach', ac.mach != null ? ac.mach.toFixed(2) : '--');
+            setText('dMagHdg', ac.mag_heading != null ? String(Math.round(ac.mag_heading)).padStart(3, '0') + '°' : '--');
+            setText('dRoll', ac.roll != null ? (ac.roll >= 0 ? 'R' : 'L') + Math.abs(Math.round(ac.roll)) + '°' : '--');
+            setText('dSelAlt', ac.sel_altitude != null ? Math.round(ac.sel_altitude).toLocaleString() + ' ft' : '--');
+        }
     }
 
     async function poll() {

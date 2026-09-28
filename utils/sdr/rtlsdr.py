@@ -8,14 +8,34 @@ with existing RTL-SDR installations. No SoapySDR dependency required.
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
+import tempfile
 
 from utils.dependencies import get_tool_path
 
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType
 
 logger = logging.getLogger("intercept.sdr.rtlsdr")
+
+# Directory dump1090 writes aircraft.json to (Enhanced Mode-S / cockpit fields).
+# The ADS-B route reads this to enrich SBS-tracked aircraft.
+DUMP1090_JSON_DIR = os.path.join(tempfile.gettempdir(), "intercept_dump1090_json")
+
+
+def _dump1090_supports_write_json(dump1090_path: str) -> bool:
+    """Whether the installed dump1090/readsb variant supports --write-json.
+
+    dump1090-fa, dump1090-mutability and readsb do; the original Malcolm
+    Robb dump1090 does not. Adding an unsupported flag would abort startup,
+    so this is feature-detected before the flag is used.
+    """
+    try:
+        result = subprocess.run([dump1090_path, "--help"], capture_output=True, text=True, timeout=5)
+        return "--write-json" in (result.stdout + result.stderr)
+    except (subprocess.SubprocessError, OSError):
+        return False
 
 
 def _rtl_fm_demod_mode(modulation: str) -> str:
@@ -230,6 +250,13 @@ class RTLSDRCommandBuilder(CommandBuilder):
 
         dump1090_path = get_tool_path("dump1090") or "dump1090"
         cmd = [dump1090_path, "--net", "--device-index", str(device.index), "--quiet"]
+
+        # Enhanced Mode-S / cockpit fields (roll, IAS/Mach, mag heading,
+        # selected altitude) are only in dump1090's JSON output, not the SBS
+        # port. Emit aircraft.json when the variant supports it (feature-detected
+        # so builds without --write-json still start).
+        if _dump1090_supports_write_json(dump1090_path):
+            cmd.extend(["--write-json", DUMP1090_JSON_DIR])
 
         if gain is not None:
             cmd.extend(["--gain", str(int(gain))])
