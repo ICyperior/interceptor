@@ -732,6 +732,7 @@ const DASHBOARD_NAV_PATHS = new Set([
     '/adsb/dashboard',
     '/ais/dashboard',
     '/satellite/dashboard',
+    '/satellite/iss',
     '/aprs/dashboard',
     '/meshtastic/dashboard',
     '/meshcore/dashboard',

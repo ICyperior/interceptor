@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en" class="{% if offline_settings.tile_provider in ['cartodb_dark', 'cartodb_dark_cyan'] %}map-cyber-enabled{% endif %}">
+<head>
+    {% set dash_title = 'ISS TRACKER // INTERCEPT - See the Invisible' %}
+    {% set dash_layout_css = 'css/iss_dashboard.css' %}
+    {% include 'partials/dashboard_head.html' %}
+</head>
+<body data-mode="satellite">
+    <div class="radar-bg"></div>
+    <div class="scanline"></div>
+
+    <header class="header">
+        <div class="logo">
+            ISS TRACKER
+            <span>// <span class="brand-i"><svg viewBox="36 14 28 68" width="1em" height="1em" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="20" r="6" fill="#00ff88"/><rect x="44" y="33" width="12" height="45" rx="2" fill="#00d4ff"/><rect x="38" y="33" width="24" height="4" rx="1" fill="#00d4ff"/><rect x="38" y="74" width="24" height="4" rx="1" fill="#00d4ff"/></svg></span>NTERCEPT - International Space Station</span>
+        </div>
+        <div class="status-bar">
+            <div class="agent-selector-compact" id="agentSection">
+                <select id="agentSelect" class="agent-select-sm" title="Select signal source">
+                    <option value="local">Local</option>
+                </select>
+                <span class="agent-status-dot online" id="agentStatusDot"></span>
+            </div>
+        </div>
+    </header>
+
+    {% if not embedded %}
+    {% set active_mode = 'satellite' %}
+    {% include 'partials/nav.html' with context %}
+    {% endif %}
+
+    <main class="iss-dashboard">
+        <!-- Telemetry strip -->
+        <div class="iss-strip">
+            <div class="iss-strip-inner">
+                <div class="strip-stat">
+                    <span class="strip-value" id="issLat">--</span>
+                    <span class="strip-label">LAT</span>
+                </div>
+                <div class="strip-stat">
+                    <span class="strip-value" id="issLon">--</span>
+                    <span class="strip-label">LON</span>
+                </div>
+                <div class="strip-stat">
+                    <span class="strip-value" id="issAlt">--</span>
+                    <span class="strip-label">ALT km</span>
+                </div>
+                <div class="strip-stat">
+                    <span class="strip-value" id="issVel">--</span>
+                    <span class="strip-label">km/h</span>
+                </div>
+                <div class="strip-stat">
+                    <span class="strip-value" id="issSun">--</span>
+                    <span class="strip-label">SUNLIGHT</span>
+                </div>
+                <div class="strip-stat iss-strip-status">
+                    <span class="strip-value" id="issFeedState">TLE</span>
+                    <span class="strip-label">SOURCE</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="iss-body">
+            <div class="iss-map-wrap">
+                <div id="issMap"></div>
+                <div class="iss-map-legend">
+                    <span><i class="iss-dot-iss"></i> ISS</span>
+                    <span><i class="iss-dot-track"></i> Ground track</span>
+                    <span><i class="iss-dot-foot"></i> Footprint</span>
+                </div>
+            </div>
+
+            <aside class="iss-side">
+                <div class="iss-panel">
+                    <div class="iss-panel-title">OBSERVER LOOK ANGLES</div>
+                    <div class="iss-kv"><span>Elevation</span><span class="iss-kv-val" id="issElev">--</span></div>
+                    <div class="iss-kv"><span>Azimuth</span><span class="iss-kv-val" id="issAz">--</span></div>
+                    <div class="iss-kv"><span>Slant range</span><span class="iss-kv-val" id="issRange">--</span></div>
+                    <div class="iss-kv"><span>Visible now</span><span class="iss-kv-val" id="issVisible">--</span></div>
+                </div>
+
+                <div class="iss-panel">
+                    <div class="iss-panel-title">NEXT PASSES</div>
+                    <div id="issPasses" class="iss-passes">
+                        <div class="iss-empty">Computing passes…</div>
+                    </div>
+                </div>
+
+                <div class="iss-panel iss-panel--telemetry">
+                    <div class="iss-panel-title">
+                        LIVE TELEMETRY
+                        <span class="iss-los-badge" id="issTelemetryState">STANDBY</span>
+                    </div>
+
+                    <!-- Solar array schematic; panels rotate to their real BGA angles -->
+                    <svg id="issArrays" class="iss-arrays" viewBox="0 0 280 120" aria-label="ISS solar array angles">
+                        <line x1="40" y1="60" x2="240" y2="60" class="iss-truss"/>
+                        <rect x="128" y="48" width="24" height="24" rx="2" class="iss-core"/>
+                        <g class="iss-panels" id="issPanels"></g>
+                    </svg>
+
+                    <div class="iss-tel-grid">
+                        <div class="iss-tel-cell"><span class="iss-tel-label">Cabin</span><span class="iss-tel-val" id="telCabin">--</span></div>
+                        <div class="iss-tel-cell"><span class="iss-tel-label">ppO₂</span><span class="iss-tel-val" id="telPpo2">--</span></div>
+                        <div class="iss-tel-cell"><span class="iss-tel-label">ppCO₂</span><span class="iss-tel-val" id="telPpco2">--</span></div>
+                        <div class="iss-tel-cell"><span class="iss-tel-label">SARJ P</span><span class="iss-tel-val" id="telSarjP">--</span></div>
+                        <div class="iss-tel-cell"><span class="iss-tel-label">SARJ S</span><span class="iss-tel-val" id="telSarjS">--</span></div>
+                        <div class="iss-tel-cell"><span class="iss-tel-label">Att rate</span><span class="iss-tel-val" id="telRate">--</span></div>
+                    </div>
+                    <div class="iss-tel-foot" id="telFoot">Awaiting signal…</div>
+                </div>
+            </aside>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/core/settings-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/map-utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/agents.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/core/global-nav.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/iss_dashboard.js') }}"></script>
+</body>
+</html>

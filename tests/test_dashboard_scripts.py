@@ -26,6 +26,10 @@ REQUIRED = {
         "Settings": "js/core/settings-manager.js",
         "MapUtils": "js/map-utils.js",
     },
+    "iss_dashboard.html": {
+        "Settings": "js/core/settings-manager.js",  # map tiles via MapUtils
+        "MapUtils": "js/map-utils.js",
+    },
 }
 
 

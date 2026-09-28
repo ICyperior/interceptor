@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import requests
 from flask import Blueprint, Response, jsonify, make_response, render_template, request
 
-from config import SHARED_OBSERVER_LOCATION_ENABLED
+from config import DEFAULT_LATITUDE, DEFAULT_LONGITUDE, SHARED_OBSERVER_LOCATION_ENABLED
 from utils import tle_store
 from utils.database import (
     add_tracked_satellite,
@@ -523,6 +523,25 @@ def satellite_dashboard():
     return response
 
 
+@satellite_bp.route("/iss")
+def iss_dashboard():
+    """ISS mission-control dashboard (position, ground track, passes)."""
+    embedded = request.args.get("embedded", "false") == "true"
+    response = make_response(
+        render_template(
+            "iss_dashboard.html",
+            shared_observer_location=SHARED_OBSERVER_LOCATION_ENABLED,
+            default_latitude=DEFAULT_LATITUDE,
+            default_longitude=DEFAULT_LONGITUDE,
+            embedded=embedded,
+        )
+    )
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
 @satellite_bp.route("/predict", methods=["POST"])
 def predict_passes():
     """Calculate satellite passes using skyfield."""
@@ -664,6 +683,114 @@ def predict_passes():
                     }
                 )
         return api_error(f"Failed to calculate passes: {exc}", 500)
+
+
+@satellite_bp.route("/iss/live")
+def iss_live():
+    """Consolidated live ISS data for the ISS dashboard.
+
+    Everything here is computed locally from the ISS TLE via skyfield, so it
+    works regardless of the NASA telemetry feed's AOS/LOS state. Returns the
+    current sub-point, inertial velocity, a ground track (-45..+45 min), the
+    observer-relative look angles (when lat/lon given) and the next passes.
+    """
+    try:
+        from skyfield.api import EarthSatellite, wgs84
+    except ImportError:
+        return api_error("skyfield not installed", 503)
+    from datetime import timedelta
+
+    from utils.satellite_predict import predict_passes
+
+    observer_lat = observer_lon = None
+    lat_arg = request.args.get("lat")
+    lon_arg = request.args.get("lon")
+    if lat_arg not in (None, "") and lon_arg not in (None, ""):
+        try:
+            observer_lat = validate_latitude(lat_arg)
+            observer_lon = validate_longitude(lon_arg)
+        except ValueError as e:
+            return api_error(str(e), 400)
+
+    # Resolve the ISS TLE the same way /predict does (cache → tracked → fetch).
+    tracked_by_norad, tracked_by_name = _get_tracked_satellite_maps()
+    tles = _get_tle_cache()
+    pending: dict = {}
+    _sat_name, norad_id, tle_data = _resolve_satellite_request(
+        "ISS", tracked_by_norad, tracked_by_name, tles, pending
+    )
+    if pending:
+        with contextlib.suppress(Exception):
+            tle_store.update(pending)
+    if not tle_data:
+        return api_error("ISS TLE unavailable", 503)
+
+    try:
+        ts = _get_timescale()
+        satellite = EarthSatellite(tle_data[1], tle_data[2], tle_data[0], ts)
+        t0 = ts.now()
+
+        geo = satellite.at(t0)
+        sp = wgs84.subpoint(geo)
+        vx, vy, vz = geo.velocity.km_per_s
+        speed_kmh = round(((vx * vx + vy * vy + vz * vz) ** 0.5) * 3600.0, 1)
+        result: dict = {
+            "status": "success",
+            "norad_id": norad_id or 25544,
+            "timestamp": t0.utc_iso(),
+            "position": {
+                "lat": round(float(sp.latitude.degrees), 4),
+                "lon": round(float(sp.longitude.degrees), 4),
+                "altitude_km": round(float(sp.elevation.km), 1),
+                "velocity_kmh": speed_kmh,
+            },
+        }
+
+        # Ground track: one point per minute from -45 to +45 minutes.
+        base_dt = t0.utc_datetime()
+        track = []
+        for minute in range(-45, 46):
+            tt = ts.utc(base_dt + timedelta(minutes=minute))
+            tsp = wgs84.subpoint(satellite.at(tt))
+            track.append([round(float(tsp.latitude.degrees), 3), round(float(tsp.longitude.degrees), 3)])
+        result["ground_track"] = track
+
+        if observer_lat is not None:
+            observer = wgs84.latlon(observer_lat, observer_lon)
+            alt_deg, az_deg, dist_km = (satellite - observer).at(t0).altaz()
+            result["observer"] = {
+                "elevation": round(float(alt_deg.degrees), 1),
+                "azimuth": round(float(az_deg.degrees), 1),
+                "range_km": round(float(dist_km.km), 1),
+                "visible": bool(alt_deg.degrees > 0),
+            }
+            t1 = ts.utc(base_dt + timedelta(hours=24))
+            try:
+                passes = predict_passes(tle_data, observer, ts, t0, t1, min_el=10)
+                result["next_passes"] = passes[:3]
+            except Exception as e:
+                logger.debug(f"ISS pass prediction failed: {e}")
+                result["next_passes"] = []
+
+        return jsonify(result)
+    except Exception as exc:
+        logger.exception("ISS live computation failed")
+        return api_error(f"Failed to compute ISS position: {exc}", 500)
+
+
+@satellite_bp.route("/iss/telemetry")
+def iss_telemetry():
+    """Latest live ISS telemetry from NASA's public Lightstreamer feed.
+
+    Returns an AOS/LOS flag plus the curated telemetry snapshot. When the
+    station is in Loss of Signal the feed goes quiet and ``aos`` is false, so
+    the dashboard shows an LOS state instead of stale numbers.
+    """
+    try:
+        from utils.iss_telemetry import get_iss_telemetry_client
+    except Exception as e:  # pragma: no cover - defensive import guard
+        return api_error(f"ISS telemetry unavailable: {e}", 503)
+    return jsonify(get_iss_telemetry_client().get_snapshot())
 
 
 @satellite_bp.route("/position", methods=["POST"])
