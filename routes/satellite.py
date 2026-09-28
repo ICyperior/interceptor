@@ -778,6 +778,21 @@ def iss_live():
         return api_error(f"Failed to compute ISS position: {exc}", 500)
 
 
+@satellite_bp.route("/iss/telemetry")
+def iss_telemetry():
+    """Latest live ISS telemetry from NASA's public Lightstreamer feed.
+
+    Returns an AOS/LOS flag plus the curated telemetry snapshot. When the
+    station is in Loss of Signal the feed goes quiet and ``aos`` is false, so
+    the dashboard shows an LOS state instead of stale numbers.
+    """
+    try:
+        from utils.iss_telemetry import get_iss_telemetry_client
+    except Exception as e:  # pragma: no cover - defensive import guard
+        return api_error(f"ISS telemetry unavailable: {e}", 503)
+    return jsonify(get_iss_telemetry_client().get_snapshot())
+
+
 @satellite_bp.route("/position", methods=["POST"])
 def get_satellite_position():
     """Get real-time positions of satellites."""

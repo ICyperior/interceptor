@@ -5,7 +5,15 @@
     'use strict';
 
     const POLL_MS = 5000;
+    const TELEMETRY_MS = 4000;
     const EARTH_R_KM = 6371;
+
+    // Solar arrays: telemetry key -> mount x on the 280-wide truss schematic.
+    const PANELS = [
+        { key: 'bga_2b', x: 105 }, { key: 'bga_4b', x: 85 }, { key: 'bga_4a', x: 65 }, { key: 'bga_2a', x: 45 },
+        { key: 'bga_1a', x: 175 }, { key: 'bga_3a', x: 195 }, { key: 'bga_3b', x: 215 }, { key: 'bga_1b', x: 235 },
+    ];
+    let telemetryTimer = null;
     let map = null;
     let issMarker = null;
     let footprint = null;
@@ -155,6 +163,78 @@
         if (src) { src.textContent = 'STALE'; src.classList.add('los'); }
     }
 
+    // ── Live telemetry ───────────────────────────────────────────────────
+    function buildPanels() {
+        const g = $('issPanels');
+        if (!g) return;
+        const NS = 'http://www.w3.org/2000/svg';
+        PANELS.forEach(p => {
+            const mount = document.createElementNS(NS, 'g');
+            mount.setAttribute('transform', `translate(${p.x},60)`);
+            const rotor = document.createElementNS(NS, 'g');
+            rotor.setAttribute('data-key', p.key);
+            const rect = document.createElementNS(NS, 'rect');
+            rect.setAttribute('class', 'iss-panel-cell');
+            rect.setAttribute('x', '-11'); rect.setAttribute('y', '-4');
+            rect.setAttribute('width', '22'); rect.setAttribute('height', '8');
+            rect.setAttribute('rx', '1');
+            rotor.appendChild(rect);
+            mount.appendChild(rotor);
+            g.appendChild(mount);
+        });
+    }
+
+    function fmt(v, digits, unit) {
+        if (v == null) return '--';
+        return v.toFixed(digits) + (unit ? ' ' + unit : '');
+    }
+
+    function updateTelemetry(d) {
+        const badge = $('issTelemetryState');
+        const arrays = $('issArrays');
+        const foot = $('telFoot');
+        const t = d.telemetry || {};
+        const val = k => (t[k] ? t[k].value : null);
+
+        // Rotate each solar array to its BGA angle (freeze on LOS).
+        if (d.aos) {
+            document.querySelectorAll('#issPanels [data-key]').forEach(rotor => {
+                const v = val(rotor.getAttribute('data-key'));
+                if (v != null) rotor.setAttribute('transform', `rotate(${v})`);
+            });
+        }
+        if (arrays) arrays.classList.toggle('los', !d.aos);
+
+        setText('telCabin', fmt(val('cabin_pressure'), 2, 'psi'));
+        setText('telPpo2', fmt(val('ppo2'), 2, 'psia'));
+        setText('telPpco2', fmt(val('ppco2'), 3, 'psia'));
+        setText('telSarjP', fmt(val('sarj_port'), 1, '°'));
+        setText('telSarjS', fmt(val('sarj_starboard'), 1, '°'));
+        const rx = val('rate_x'), ry = val('rate_y'), rz = val('rate_z');
+        if (rx != null && ry != null && rz != null) {
+            setText('telRate', Math.sqrt(rx * rx + ry * ry + rz * rz).toFixed(3) + ' °/s');
+        }
+
+        if (badge) {
+            if (!d.connected) { badge.textContent = 'STANDBY'; badge.className = 'iss-los-badge standby'; }
+            else if (d.aos) { badge.textContent = 'AOS'; badge.className = 'iss-los-badge aos'; }
+            else { badge.textContent = 'LOS'; badge.className = 'iss-los-badge los'; }
+        }
+        if (foot) {
+            if (!d.connected) foot.textContent = 'Connecting to NASA telemetry feed…';
+            else if (d.aos) foot.textContent = `Live · updated ${d.age_seconds != null ? d.age_seconds + 's' : ''} ago`;
+            else foot.textContent = 'Loss of signal — telemetry paused (normal, several times per orbit).';
+        }
+    }
+
+    async function pollTelemetry() {
+        try {
+            const r = await fetch('/satellite/iss/telemetry');
+            const d = await r.json();
+            if (d && d.status === 'success') updateTelemetry(d);
+        } catch (e) { /* leave last state */ }
+    }
+
     async function poll() {
         const o = getObserver();
         try {
@@ -178,10 +258,16 @@
             radius: 4, color: '#00ff88', fillColor: '#00ff88', fillOpacity: 0.9, weight: 1,
         }).addTo(map).bindTooltip('Observer', { direction: 'top' });
 
+        buildPanels();
         poll();
         pollTimer = setInterval(poll, POLL_MS);
+        pollTelemetry();
+        telemetryTimer = setInterval(pollTelemetry, TELEMETRY_MS);
     }
 
-    window.addEventListener('beforeunload', () => { if (pollTimer) clearInterval(pollTimer); });
+    window.addEventListener('beforeunload', () => {
+        if (pollTimer) clearInterval(pollTimer);
+        if (telemetryTimer) clearInterval(telemetryTimer);
+    });
     document.addEventListener('DOMContentLoaded', start);
 })();

@@ -6,7 +6,9 @@ All notable changes to iNTERCEPT will be documented in this file.
 
 ### Added
 
-- **ISS dashboard (`/satellite/iss`).** A live International Space Station tracker: real-time sub-point, altitude and orbital velocity, a ±45-minute ground track, visibility footprint, a day/night terminator with a sunlight indicator, observer look-angles (elevation/azimuth/range) and the next passes over your location. All computed locally from the ISS TLE via skyfield, so it works with no external feed. Reachable from the nav (“ISS Live”). Live NASA telemetry (solar arrays, power, attitude) is a planned follow-up.
+- **ISS dashboard (`/satellite/iss`).** A live International Space Station tracker: real-time sub-point, altitude and orbital velocity, a ±45-minute ground track, visibility footprint, a day/night terminator with a sunlight indicator, observer look-angles (elevation/azimuth/range) and the next passes over your location. All computed locally from the ISS TLE via skyfield, so it works with no external feed. Reachable from the nav (“ISS Live”).
+
+- **ISS dashboard: live NASA telemetry.** A server-side bridge to NASA’s public Lightstreamer feed (`ISSLIVE`) streams live station telemetry into the dashboard: the solar-array schematic rotates its eight panels to their real Beta-Gimbal angles, and a readout grid shows cabin pressure, ppO₂/ppCO₂, SARJ angles and attitude rate. One upstream connection for the whole process, and an honest **AOS / LOS** state — when the station is in Loss of Signal the panel says so and freezes rather than showing stale numbers.
 
 ## [2.33.53] - 2026-09-28
 

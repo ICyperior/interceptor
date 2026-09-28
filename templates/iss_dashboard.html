@@ -87,13 +87,27 @@
                 </div>
 
                 <div class="iss-panel iss-panel--telemetry">
-                    <div class="iss-panel-title">LIVE TELEMETRY</div>
-                    <div class="iss-telemetry-stub">
-                        <div class="iss-los-badge" id="issTelemetryState">STANDBY</div>
-                        <p>Live NASA telemetry (solar arrays, power, attitude, life support)
-                           streams here when the station is in signal (AOS). This panel is
-                           wired up in the next update.</p>
+                    <div class="iss-panel-title">
+                        LIVE TELEMETRY
+                        <span class="iss-los-badge" id="issTelemetryState">STANDBY</span>
                     </div>
+
+                    <!-- Solar array schematic; panels rotate to their real BGA angles -->
+                    <svg id="issArrays" class="iss-arrays" viewBox="0 0 280 120" aria-label="ISS solar array angles">
+                        <line x1="40" y1="60" x2="240" y2="60" class="iss-truss"/>
+                        <rect x="128" y="48" width="24" height="24" rx="2" class="iss-core"/>
+                        <g class="iss-panels" id="issPanels"></g>
+                    </svg>
+
+                    <div class="iss-tel-grid">
+                        <div class="iss-tel-cell"><span class="iss-tel-label">Cabin</span><span class="iss-tel-val" id="telCabin">--</span></div>
+                        <div class="iss-tel-cell"><span class="iss-tel-label">ppO₂</span><span class="iss-tel-val" id="telPpo2">--</span></div>
+                        <div class="iss-tel-cell"><span class="iss-tel-label">ppCO₂</span><span class="iss-tel-val" id="telPpco2">--</span></div>
+                        <div class="iss-tel-cell"><span class="iss-tel-label">SARJ P</span><span class="iss-tel-val" id="telSarjP">--</span></div>
+                        <div class="iss-tel-cell"><span class="iss-tel-label">SARJ S</span><span class="iss-tel-val" id="telSarjS">--</span></div>
+                        <div class="iss-tel-cell"><span class="iss-tel-label">Att rate</span><span class="iss-tel-val" id="telRate">--</span></div>
+                    </div>
+                    <div class="iss-tel-foot" id="telFoot">Awaiting signal…</div>
                 </div>
             </aside>
         </div>

@@ -143,24 +143,56 @@
 .iss-pass-meta span { font-family: var(--font-data); }
 .iss-empty { color: var(--text-dim); font-size: 11px; }
 
-/* Telemetry stub */
+/* Telemetry panel */
 .iss-panel--telemetry { margin-top: auto; }
-.iss-telemetry-stub p {
-    font-size: 11px;
-    color: var(--text-dim);
-    line-height: 1.5;
-    margin: 8px 0 0;
+.iss-panel--telemetry .iss-panel-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 .iss-los-badge {
-    display: inline-block;
     font-family: var(--font-data);
-    font-size: 11px;
+    font-size: 10px;
     letter-spacing: 0.1em;
-    padding: 2px 8px;
+    padding: 1px 7px;
     border-radius: 3px;
     color: var(--accent-orange);
     border: 1px solid var(--accent-orange);
 }
+.iss-los-badge.aos { color: var(--accent-green); border-color: var(--accent-green); }
+.iss-los-badge.los { color: var(--accent-orange); border-color: var(--accent-orange); }
+.iss-los-badge.standby { color: var(--text-dim); border-color: var(--border-color); }
+
+.iss-arrays {
+    width: 100%;
+    height: auto;
+    margin: 4px 0 8px;
+    display: block;
+}
+.iss-truss { stroke: var(--text-dim); stroke-width: 2; }
+.iss-core { fill: var(--bg-tertiary); stroke: var(--text-dim); stroke-width: 1; }
+.iss-panel-cell {
+    fill: rgba(0, 212, 255, 0.35);
+    stroke: var(--accent-cyan);
+    stroke-width: 0.6;
+    transition: transform 0.6s ease-out;
+}
+.iss-arrays.los .iss-panel-cell { fill: rgba(120, 120, 120, 0.25); stroke: var(--text-dim); }
+
+.iss-tel-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 10px;
+}
+.iss-tel-cell {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+.iss-tel-val { font-family: var(--font-data); color: var(--text-primary); }
+.iss-tel-foot { font-size: 10px; color: var(--text-dim); margin-top: 6px; }
 
 /* ISS marker icon (divIcon) */
 .iss-marker {
