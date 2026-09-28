@@ -1,0 +1,116 @@
+/* ADS-B pop-out instrument panel — self-contained glass cockpit. */
+
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    background: radial-gradient(ellipse at 50% 0%, #0c1622, #05080d 70%);
+    color: var(--text-primary, #e6edf3);
+    font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
+    min-height: 100vh;
+    padding: 14px;
+}
+
+/* Header */
+.pfd-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 10px 16px;
+    border: 1px solid var(--border-color, #223);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(12, 22, 34, 0.9), rgba(8, 14, 22, 0.9));
+    margin-bottom: 14px;
+}
+.pfd-id { display: flex; flex-direction: column; min-width: 0; }
+.pfd-call {
+    font-family: 'Orbitron', var(--font-sans);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--accent-cyan, #00d4ff);
+    text-shadow: 0 0 12px rgba(0, 212, 255, 0.4);
+}
+.pfd-sub { font-size: 11px; color: var(--text-dim, #8b97a6); font-family: var(--font-data, monospace); margin-top: 2px; }
+.pfd-squawk { text-align: center; }
+.pfd-squawk-val { font-family: var(--font-data, monospace); font-size: 24px; font-weight: 600; color: var(--accent-green, #00ff88); display: block; }
+.pfd-squawk-label { font-size: 9px; letter-spacing: 0.15em; color: var(--text-dim, #8b97a6); }
+.pfd-status { text-align: right; display: flex; flex-direction: column; gap: 2px; }
+.pfd-state {
+    font-family: var(--font-data, monospace);
+    font-size: 12px; letter-spacing: 0.1em;
+    padding: 2px 10px; border-radius: 3px; align-self: flex-end;
+    border: 1px solid var(--border-color, #223); color: var(--text-dim, #8b97a6);
+}
+.pfd-state.live { color: var(--accent-green, #00ff88); border-color: var(--accent-green, #00ff88); }
+.pfd-state.nodata, .pfd-state:not(.live) { color: var(--accent-orange, #ffa500); border-color: var(--accent-orange, #ffa500); }
+.pfd-age { font-size: 10px; color: var(--text-dim, #8b97a6); }
+
+/* Instrument grid */
+.pfd-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+.inst-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid var(--border-color, #223);
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(14, 22, 32, 0.6), rgba(8, 12, 18, 0.6));
+    padding: 12px 10px 8px;
+}
+.inst { width: 100%; max-width: 230px; }
+.inst-svg { width: 100%; height: auto; display: block; }
+.inst-name {
+    margin-top: 6px;
+    font-family: 'Orbitron', var(--font-sans);
+    font-size: 10px; letter-spacing: 0.14em;
+    color: var(--accent-cyan, #00d4ff);
+}
+
+/* Gauge primitives */
+.inst-bezel { fill: #10161f; stroke: #2a3644; stroke-width: 3; }
+.inst-face { fill: #0a0f16; stroke: none; }
+.inst-tick-minor { stroke: #556; stroke-width: 1; }
+.inst-tick-major { stroke: #aeb8c4; stroke-width: 2; }
+.inst-tick-label { fill: #cdd6e0; font-family: var(--font-data, monospace); font-size: 11px; }
+.inst-needle { stroke: var(--accent-cyan, #00d4ff); stroke-width: 3; stroke-linecap: round; filter: drop-shadow(0 0 3px rgba(0, 212, 255, 0.6)); transition: transform 0.5s ease-out; }
+.inst-hub { fill: #cdd6e0; }
+.inst-digital { fill: #fff; font-family: var(--font-data, monospace); font-size: 20px; font-weight: 600; }
+.inst-unit { fill: var(--text-dim, #8b97a6); font-family: var(--font-data, monospace); font-size: 10px; letter-spacing: 0.08em; }
+
+/* Compass */
+.compass-lubber { fill: var(--accent-orange, #ffa500); }
+.compass-ac { stroke: #ffd24a; stroke-width: 2.5; stroke-linecap: round; }
+
+/* Turn coordinator */
+.turn-ac { stroke: #fff; stroke-width: 3; stroke-linecap: round; }
+.turn-ac-hub { fill: #fff; }
+
+/* Data block */
+.data-block { justify-content: flex-start; align-items: stretch; padding: 14px; }
+.pfd-data-title {
+    font-family: 'Orbitron', var(--font-sans);
+    font-size: 11px; letter-spacing: 0.14em; color: var(--accent-cyan, #00d4ff);
+    margin-bottom: 10px; text-align: center;
+}
+.pfd-kv {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12px; padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary, #aab4c0);
+}
+.pfd-kv b { font-family: var(--font-data, monospace); color: #fff; font-weight: 600; }
+
+/* Footer */
+.pfd-footer { margin-top: 14px; font-size: 10px; color: var(--text-dim, #8b97a6); line-height: 1.5; text-align: center; }
+
+@media (max-width: 720px) {
+    .pfd-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+    .pfd-grid { grid-template-columns: 1fr; }
+}

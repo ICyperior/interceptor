@@ -38,6 +38,7 @@ DASHBOARDS = [
     "/aprs/dashboard",
     "/meshtastic/dashboard",
     "/meshcore/dashboard",
+    "/adsb/instruments?icao=ABCDEF",
     "/adsb/history",
     "/controller/manage",
     "/controller/monitor",

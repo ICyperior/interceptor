@@ -1363,6 +1363,18 @@ def adsb_dashboard():
     )
 
 
+@adsb_bp.route("/instruments")
+def adsb_instruments():
+    """Pop-out instrument panel for a single aircraft.
+
+    A standalone glass-panel window driven by the live ADS-B feed
+    (/adsb/aircraft): airspeed (ground speed), altimeter, heading/track,
+    vertical speed and a derived turn indicator.
+    """
+    icao = request.args.get("icao", "").upper()
+    return render_template("adsb_instruments.html", icao=icao)
+
+
 _ATC_DATA_PATH = Path(__file__).resolve().parent.parent / "static" / "data" / "atc_frequencies.json"
 
 

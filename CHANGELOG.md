@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.58] - 2026-09-28
+
+### Added
+
+- **ADS-B: pop-out instrument panel.** Select an aircraft and click “Instruments” to open a glass-cockpit pop-out window driven by the live feed — airspeed (ground speed), altimeter, vertical-speed and track gauges, a derived turn indicator, and a flight-data block, all as SVG instruments. Data is from ADS-B (SBS): ground speed and track (not IAS/heading); pitch/roll, IAS/Mach and autopilot selected altitude would require Enhanced Mode-S (a planned follow-up).
+
 ## [2.33.57] - 2026-09-28
 
 ### Added
