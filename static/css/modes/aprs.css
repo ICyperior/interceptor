@@ -267,7 +267,7 @@
 .aprs-meter-value {
     font-size: 12px;
     font-weight: bold;
-    font-family: monospace;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
     color: var(--accent-cyan);
     min-width: 24px;
 }

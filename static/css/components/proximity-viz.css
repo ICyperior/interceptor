@@ -263,7 +263,7 @@
 .heatmap-label .device-rssi {
     font-size: 9px;
     color: var(--text-dim, #666);
-    font-family: monospace;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Source Code Pro', Consolas, monospace;
 }
 
 .heatmap-cells {
