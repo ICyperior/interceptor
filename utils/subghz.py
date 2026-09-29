@@ -2457,6 +2457,9 @@ class SubGhzManager:
                 break
 
         self._sweep_running = False
+        # The device may have dropped out from under the sweep; force the next
+        # /status check to re-probe instead of reporting a stale "connected".
+        self._hackrf_device_cache = None
         self._emit(
             {
                 "type": "status",

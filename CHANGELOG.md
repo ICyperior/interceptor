@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.68] - 2026-09-29
+
+### Fixed
+
+- **SubGHz ↔ TSCM RF sweep no longer collide on the SDR (#345).** The SubGHz sweep and the TSCM RF scan drive the same HackRF but didn’t coordinate, so leaving one running made the other fail to open the device (hackrf_open() -5). Each now refuses to start with a clear message when the other is holding the SDR, instead of colliding.
+- **SubGHz status no longer reports a stale HackRF connection (#345).** The HackRF-detected cache is now cleared when a sweep ends, so `/subghz/status` re-probes after the device drops out rather than reporting a stale “connected”.
+
 ## [2.33.67] - 2026-09-29
 
 ### Fixed

@@ -93,6 +93,14 @@ tscm_lock: threading.Lock | None = None
 _sweep_thread: threading.Thread | None = None
 _sweep_running = False
 _current_sweep_id: int | None = None
+# True while a TSCM RF (SDR) scan is actively driving the SDR, so other sweep
+# paths (e.g. SubGHz) can avoid colliding on the same HackRF.
+_rf_scan_active = False
+
+
+def is_rf_scan_active() -> bool:
+    """Whether a TSCM RF/SDR scan is currently using the SDR."""
+    return _rf_scan_active
 _baseline_recorder = BaselineRecorder()
 _schedule_thread: threading.Thread | None = None
 _schedule_running = False
@@ -479,6 +487,23 @@ def _start_sweep_internal(
 
     if _sweep_running:
         return {"status": "error", "message": "Sweep already running", "http_status": 409}
+
+    # The RF scan drives the SDR (usually a HackRF). If a SubGHz mode is already
+    # holding it, refuse with a clear message rather than colliding on the device
+    # (which surfaces as hackrf_open() -5 / an empty sweep).
+    if rf_enabled:
+        try:
+            from utils.subghz import get_subghz_manager
+
+            sub_mode = get_subghz_manager().active_mode
+            if sub_mode in ("rx", "decode", "tx", "sweep"):
+                return {
+                    "status": "error",
+                    "message": f"HackRF is in use by SubGHz ({sub_mode}). Stop it before starting an RF sweep.",
+                    "http_status": 409,
+                }
+        except Exception:
+            pass
 
     # Check for available devices
     devices = _check_available_devices(wifi_enabled, bt_enabled, rf_enabled)
@@ -1534,8 +1559,14 @@ def _run_sweep(
                             "rf_count": len(all_rf),
                         },
                     )
-                    # Try RF scan even if sdr_device is None (will use device 0)
-                    rf_signals = _scan_rf_signals(sdr_device, sweep_ranges=custom_ranges or preset.get("ranges"))
+                    # Try RF scan even if sdr_device is None (will use device 0).
+                    # Mark the SDR as in use so a SubGHz sweep won't collide on it.
+                    global _rf_scan_active
+                    _rf_scan_active = True
+                    try:
+                        rf_signals = _scan_rf_signals(sdr_device, sweep_ranges=custom_ranges or preset.get("ranges"))
+                    finally:
+                        _rf_scan_active = False
 
                     # If no signals and this is first RF scan, send info event
                     if not rf_signals and last_rf_scan == 0:
