@@ -2,6 +2,17 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.73] - 2026-09-29
+
+### Added
+
+- **Meshcore node search (#270).** The Nodes list on the Meshcore dashboard has a search box (name or node ID, with a match count). Clicking a node opens the Map tab centred on it, or says "no position" if it hasn't reported one; a Msg button picks it as the message recipient and jumps to the compose box.
+
+### Fixed
+
+- **Nav bar unusable in narrow desktop windows.** Below 768 px wide the nav becomes the phone layout's single swipe-to-scroll strip with a hidden scrollbar; with a mouse it couldn't be scrolled, so most modes and all the tool buttons (settings, help, Kill All) were out of reach — easy to hit with a half-width window on a scaled display. With a mouse or trackpad it now wraps into rows; touch screens keep the swipe strip.
+- **SubGHz transmit confirmation hidden under the mobile nav.** Same cause as the capture inspector fixed in 2.33.71 (`.main-content`'s `backdrop-filter` pinning the fixed overlay to that box); the dialog now opens over the whole screen.
+
 ## [2.33.72] - 2026-09-29
 
 ### Added

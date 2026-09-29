@@ -14,6 +14,8 @@ const MeshCore = (function () {
     let _connected = false;
     let _nodeCount = 0;
     let _msgCount = 0;
+    let _nodes = {};          // node_id -> latest node data, for search and click-to-locate
+    let _nodeFilter = '';
 
     // ── Init / Destroy ─────────────────────────────────────────────────────
     function init() {
@@ -29,6 +31,7 @@ const MeshCore = (function () {
         _connected = false;
         _nodeCount = 0;
         _msgCount = 0;
+        _nodes = {};
     }
 
     function invalidateMap() {
@@ -270,11 +273,13 @@ const MeshCore = (function () {
     function _updateNodeSidebar(node) {
         const list = document.getElementById('meshcoreNodeList');
         if (!list) return;
+        _nodes[node.node_id] = node;
         let el = document.getElementById('meshcore-node-' + node.node_id);
         if (!el) {
             el = document.createElement('div');
             el.className = 'meshcore-node-item';
             el.id = 'meshcore-node-' + node.node_id;
+            el.addEventListener('click', () => focusNode(node.node_id));
             const empty = list.querySelector('.meshcore-empty');
             if (empty) empty.remove();
             list.appendChild(el);
@@ -284,10 +289,75 @@ const MeshCore = (function () {
         }
         const hops = node.hops_away !== null ? `${node.hops_away}h` : '?';
         const snr  = node.snr !== null ? `${node.snr}dB` : '';
+        const located = node.lat !== null && node.lon !== null;
+        el.title = located ? 'Show on map' : 'No position reported';
         el.innerHTML = `
             <div class="meshcore-node-icon${node.is_repeater ? ' repeater' : ''}"></div>
             <div class="meshcore-node-name" title="${_esc(node.node_id)}">${_esc(node.name)}</div>
-            <div class="meshcore-node-meta">${hops} ${snr}</div>`;
+            <div class="meshcore-node-meta">${hops} ${snr}</div>
+            <button type="button" class="meshcore-node-msg" title="Message this node" aria-label="Message ${_esc(node.name || node.node_id)}">Msg</button>`;
+        el.querySelector('.meshcore-node-msg').addEventListener('click', (e) => {
+            e.stopPropagation();
+            messageNode(node.node_id);
+        });
+        _applyNodeFilter(el);
+        _updateNodeSearchCount();
+    }
+
+    // ── Node search ────────────────────────────────────────────────────────
+    function _nodeMatches(node) {
+        if (!_nodeFilter) return true;
+        return `${node.name || ''} ${node.node_id}`.toLowerCase().includes(_nodeFilter);
+    }
+
+    function _applyNodeFilter(el) {
+        const node = _nodes[el.id.replace('meshcore-node-', '')];
+        el.hidden = !!node && !_nodeMatches(node);
+    }
+
+    function _updateNodeSearchCount() {
+        const count = document.getElementById('meshcoreNodeSearchCount');
+        if (!count) return;
+        const all = Object.values(_nodes);
+        count.textContent = _nodeFilter ? `${all.filter(_nodeMatches).length} / ${all.length}` : '';
+    }
+
+    function filterNodes(query) {
+        _nodeFilter = String(query || '').trim().toLowerCase();
+        document.querySelectorAll('#meshcoreNodeList .meshcore-node-item').forEach(_applyNodeFilter);
+        _updateNodeSearchCount();
+    }
+
+    // Click a node: centre the map on it, or say it has no position
+    function focusNode(nodeId) {
+        const node = _nodes[nodeId];
+        if (!node) return;
+        if (node.lat === null || node.lon === null || !_markers[nodeId]) {
+            const el = document.getElementById('meshcore-node-' + nodeId);
+            const meta = el && el.querySelector('.meshcore-node-meta');
+            if (meta) {
+                meta.textContent = 'no position';
+                setTimeout(() => _updateNodeSidebar(_nodes[nodeId]), 2000);
+            }
+            return;
+        }
+        switchTab('map');
+        setTimeout(() => {
+            if (!_map) return;
+            _map.setView([node.lat, node.lon], Math.max(_map.getZoom(), 13));
+            _markers[nodeId].openPopup();
+        }, 80);
+    }
+
+    // Pick the node as the compose recipient and jump to Messages
+    function messageNode(nodeId) {
+        const node = _nodes[nodeId];
+        if (node) _updateRecipientSelect(node);
+        const sel = document.getElementById('meshcoreRecipientSelect');
+        if (sel) sel.value = nodeId;
+        switchTab('messages');
+        const input = document.getElementById('meshcoreComposeInput');
+        if (input) input.focus();
     }
 
     function _updateRepeaterTable(node) {
@@ -548,6 +618,9 @@ const MeshCore = (function () {
         saveContact,
         deleteContact,
         closeTraceroute,
+        filterNodes,
+        focusNode,
+        messageNode,
     };
 
 })();

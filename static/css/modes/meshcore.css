@@ -214,6 +214,7 @@
 }
 
 .meshcore-node-item:last-child { border-bottom: none; }
+.meshcore-node-item[hidden] { display: none; }
 
 .meshcore-node-icon {
     width: 10px;
@@ -231,6 +232,53 @@
 
 .meshcore-node-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meshcore-node-meta { font-size: 10px; color: var(--text-muted); }
+
+.meshcore-node-msg {
+    flex-shrink: 0;
+    padding: 1px 6px;
+    font-size: 10px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.meshcore-node-msg:hover {
+    color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+}
+
+/* ── Node search ── */
+.meshcore-node-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+
+.meshcore-node-search input {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 8px;
+    font-size: 11px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+}
+
+.meshcore-node-search input:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+}
+
+.meshcore-node-search-count {
+    font-family: var(--font-data);
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
 
 .meshcore-empty {
     font-size: 11px;

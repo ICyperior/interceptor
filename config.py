@@ -7,10 +7,18 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.72"
+VERSION = "2.33.73"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.73",
+        "date": "September 2026",
+        "highlights": [
+            "Meshcore: search nodes by name or ID, click one to find it on the map, or message it straight from the list.",
+            "Narrow desktop windows now show every mode and tool button in the nav bar instead of an unscrollable strip.",
+        ],
+    },
     {
         "version": "2.33.72",
         "date": "September 2026",
