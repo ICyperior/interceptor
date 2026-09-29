@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.67] - 2026-09-29
+
+### Fixed
+
+- **TSCM RF scan: surface real sweep errors and stop early (#345).** The counter-surveillance RF scan only logged a failing `hackrf_sweep`/`rtl_power` server-side, so a device that couldn’t be opened produced “rf_count: 0” run after run with no visible reason while it churned through all seven bands. It now emits the tool’s real error to the UI (e.g. “hackrf_open() failed: HackRF not found (-5)”) and stops after two consecutive band failures instead of running the whole sweep — matching the SubGHz sweep hardening in 2.33.63.
+
 ## [2.33.66] - 2026-09-28
 
 ### Changed

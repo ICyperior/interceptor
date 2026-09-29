@@ -991,6 +991,7 @@ def _scan_rf_signals(
         device_idx = sdr_device if sdr_device is not None else 0
 
         # Scan each band and look for strong signals
+        consecutive_failures = 0
         for start_freq, end_freq, bin_size, band_name in scan_bands:
             if stop_check():
                 break
@@ -1032,7 +1033,28 @@ def _scan_rf_signals(
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
                 if result.returncode != 0:
-                    logger.warning(f"{os.path.basename(sweep_tool_path)} returned {result.returncode}: {result.stderr}")
+                    err = (result.stderr or "").strip()
+                    tool = os.path.basename(sweep_tool_path)
+                    logger.warning(f"{tool} returned {result.returncode}: {err}")
+                    consecutive_failures += 1
+                    # Surface the real reason (e.g. "hackrf_open() failed: HackRF
+                    # not found (-5)" / device busy) instead of silently returning
+                    # zero signals for every band.
+                    _emit_event(
+                        "rf_status",
+                        {
+                            "status": "error",
+                            "message": f"{tool} failed on {band_name}: {err[:200] or 'no output from tool'}",
+                        },
+                    )
+                    # If the SDR can't be opened, every band fails the same way —
+                    # stop after two rather than churning the whole multi-band sweep.
+                    if consecutive_failures >= 2:
+                        logger.warning("RF scan: SDR sweep failing on every band, stopping early")
+                        break
+                    continue
+
+                consecutive_failures = 0
 
                 # For HackRF, write stdout CSV data to temp file for unified parsing
                 if output_mode == "stdout" and result.stdout:
