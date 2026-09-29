@@ -74,6 +74,10 @@
     </div>
     <div class="meshcore-panel-section meshcore-panel-section--grow">
       <div class="meshcore-panel-title">Nodes</div>
+      <div class="meshcore-node-search">
+        <input id="meshcoreNodeSearch" type="search" placeholder="Search name or ID..." aria-label="Search nodes" oninput="MeshCore.filterNodes(this.value)">
+        <span id="meshcoreNodeSearchCount" class="meshcore-node-search-count"></span>
+      </div>
       <div id="meshcoreNodeList">
         <div class="meshcore-empty">No nodes seen</div>
       </div>

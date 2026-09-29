@@ -1455,6 +1455,9 @@ const SubGhz = (function() {
         if (burstAssist) burstAssist.style.display = 'none';
 
         const overlay = document.getElementById('subghzTxModalOverlay');
+        // .main-content's backdrop-filter would pin a fixed overlay to that box
+        // instead of the viewport (under the mobile nav); lift it to <body>
+        if (overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
         if (overlay) overlay.classList.add('active');
 
         fetch(`/subghz/captures/${encodeURIComponent(captureId)}`)
