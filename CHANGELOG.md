@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.71] - 2026-09-29
+
+### Added
+
+- **SubGHz capture inspector.** A new Inspect button on each saved capture opens a pulse-level view of one burst: an amplitude envelope you can zoom to individual pulses, and rtl_433's pulse analysis of it — pulse and gap widths, a modulation guess, RSSI/SNR, the sliced bits in hex and binary, and a suggested flex decoder. For PWM, PPM and Manchester signals, "Decode live in OOK mode" switches to the OOK decoder with the frequency, encoding and timings filled in. Captures at any HackRF sample rate are reduced to 1 MS/s for analysis; windows longer than 2 s are cut to 2 s. Served by `GET /subghz/captures/<id>/inspect?burst=N`; needs `rtl_433`.
+
 ## [2.33.70] - 2026-09-29
 
 ### Fixed

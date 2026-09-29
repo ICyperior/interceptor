@@ -496,6 +496,7 @@
 
 .subghz-capture-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     margin-top: 4px;
 }
@@ -923,6 +924,242 @@
 
 .subghz-tx-cancel-btn:hover {
     border-color: var(--text-dim, #666) !important;
+}
+
+.subghz-capture-actions button.inspect-btn:hover {
+    color: var(--accent-cyan);
+    border-color: var(--accent-cyan);
+}
+
+/* Capture inspector modal */
+.subghz-inspect-modal {
+    background: var(--bg-card, #161b22);
+    border: 1px solid var(--border-color, #2a3040);
+    border-radius: 8px;
+    padding: 18px 20px;
+    width: min(960px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.subghz-inspect-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.subghz-inspect-head h3 {
+    margin: 0;
+    font-size: 15px;
+    color: var(--accent-cyan);
+}
+
+.subghz-inspect-subtitle {
+    margin-top: 2px;
+    font-family: var(--font-data);
+    font-size: 11px;
+    color: var(--text-dim, #666);
+}
+
+.subghz-inspect-close {
+    width: 28px;
+    height: 28px;
+    padding: 5px;
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid var(--border-color, #2a3040);
+    border-radius: 4px;
+    color: var(--text-secondary, #aaa);
+    cursor: pointer;
+}
+
+.subghz-inspect-close:hover {
+    color: var(--text-primary, #e0e0e0);
+    border-color: var(--text-dim, #666);
+}
+
+.subghz-inspect-burst {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--text-dim, #666);
+}
+
+.subghz-inspect-burst select {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-data);
+    font-size: 11px;
+}
+
+/* Canvas out of flow so its own size never resizes the box */
+.subghz-inspect-plot {
+    position: relative;
+    height: 180px;
+    flex-shrink: 0;
+    border: 1px solid var(--border-color, #2a3040);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.subghz-inspect-plot canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+}
+
+.subghz-inspect-plot canvas:active {
+    cursor: grabbing;
+}
+
+.subghz-inspect-hint {
+    margin-top: -4px;
+    font-size: 10px;
+    color: var(--text-dim, #666);
+}
+
+.subghz-inspect-status {
+    font-size: 11px;
+    color: var(--text-secondary, #aaa);
+}
+
+.subghz-inspect-status:empty {
+    display: none;
+}
+
+.subghz-inspect-status.error {
+    color: var(--accent-red, #ff4444);
+}
+
+.subghz-inspect-results {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.subghz-inspect-package {
+    border: 1px solid var(--border-color, #2a3040);
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.subghz-inspect-package-head {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 11px;
+}
+
+.subghz-inspect-package-title {
+    color: var(--text-primary, #e0e0e0);
+    font-weight: 600;
+}
+
+.subghz-inspect-signal {
+    font-family: var(--font-data);
+    color: var(--text-dim, #666);
+}
+
+.subghz-inspect-modulation {
+    font-size: 12px;
+    color: var(--accent-cyan);
+}
+
+.subghz-inspect-timing {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 11px;
+}
+
+.subghz-inspect-label {
+    width: 44px;
+    flex-shrink: 0;
+    color: var(--text-dim, #666);
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.05em;
+}
+
+.subghz-inspect-chip {
+    padding: 1px 6px;
+    border: 1px solid var(--border-color, #2a3040);
+    border-radius: 3px;
+    font-family: var(--font-data);
+    color: var(--text-primary, #e0e0e0);
+}
+
+.subghz-inspect-chip em {
+    font-style: normal;
+    color: var(--text-dim, #666);
+}
+
+.subghz-inspect-timing code {
+    font-size: 11px;
+    word-break: break-all;
+    color: var(--text-primary, #e0e0e0);
+}
+
+.subghz-inspect-none {
+    font-size: 11px;
+    color: var(--text-dim, #666);
+}
+
+.subghz-inspect-rows {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.subghz-inspect-rows th {
+    text-align: left;
+    font-weight: 500;
+    color: var(--text-dim, #666);
+    padding: 2px 8px 2px 0;
+}
+
+.subghz-inspect-rows td {
+    padding: 2px 8px 2px 0;
+    color: var(--text-primary, #e0e0e0);
+    vertical-align: top;
+}
+
+.subghz-inspect-rows .data,
+.subghz-inspect-timing .data {
+    font-family: var(--font-data);
+}
+
+.subghz-inspect-rows .binary {
+    word-break: break-all;
+}
+
+.subghz-inspect-action-btn {
+    background: transparent;
+    color: var(--accent-cyan);
+    border-color: var(--accent-cyan) !important;
+}
+
+.subghz-inspect-action-btn.primary {
+    background: var(--accent-cyan);
+    color: var(--text-inverse);
+}
+
+.subghz-inspect-action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 /* Empty state */

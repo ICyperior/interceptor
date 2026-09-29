@@ -359,6 +359,28 @@ def get_capture(capture_id: str):
     return jsonify({"status": "ok", "capture": capture.to_dict()})
 
 
+@subghz_bp.route("/captures/<capture_id>/inspect")
+def inspect_capture(capture_id: str):
+    if not capture_id.isalnum():
+        return api_error("Invalid capture_id", 400)
+
+    burst_raw = request.args.get("burst")
+    burst_index = None
+    if burst_raw not in (None, ""):
+        try:
+            burst_index = int(burst_raw)
+        except ValueError:
+            return api_error("burst must be an integer", 400)
+        if burst_index < 0:
+            return api_error("burst must be 0 or more", 400)
+
+    result = get_subghz_manager().inspect_capture(capture_id, burst_index)
+    if result.get("status") == "ok":
+        return jsonify(result)
+    message = str(result.get("message") or "Inspection failed")
+    return jsonify(result), 404 if "not found" in message.lower() else 400
+
+
 @subghz_bp.route("/captures/<capture_id>/download")
 def download_capture(capture_id: str):
     if not capture_id.isalnum():

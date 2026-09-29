@@ -2204,6 +2204,7 @@ const SubGhz = (function() {
                 } else {
                     actionsHtml = `
                         <div class="subghz-capture-actions">
+                            <button class="inspect-btn" onclick="SubGhz.showInspector('${escapeHtml(cap.id)}')">Inspect</button>
                             <button class="replay-btn" onclick="SubGhz.showTxConfirm('${escapeHtml(cap.id)}')">Replay</button>
                             <button class="trim-btn" onclick="SubGhz.showTrimCapture('${escapeHtml(cap.id)}')">Trim</button>
                             <button onclick="SubGhz.renameCapture('${escapeHtml(cap.id)}')">Rename</button>
@@ -2337,6 +2338,314 @@ const SubGhz = (function() {
         window.open(`/subghz/captures/${encodeURIComponent(id)}/download`, '_blank');
     }
 
+    // ------ CAPTURE INSPECTOR ------
+    // Pulse-level view of one burst: envelope plot plus rtl_433's pulse analysis
+
+    const INSPECT_PAD = { left: 10, right: 10, top: 10, bottom: 22 };
+    const INSPECT_MIN_COLUMNS = 20;
+    let inspectCapture = null;   // capture metadata (frequency, bursts)
+    let inspectData = null;      // last /inspect response
+    let inspectView = null;      // visible envelope columns { start, end }
+    let inspectDrag = null;
+    let inspectCanvasBound = false;
+    let inspectRequestId = 0;
+
+    function showInspector(captureId) {
+        const overlay = document.getElementById('subghzInspectOverlay');
+        if (!overlay) return;
+        // .main-content's backdrop-filter would pin a fixed overlay to that box
+        // instead of the viewport (under the mobile nav); lift it to <body>
+        if (overlay.parentElement !== document.body) document.body.appendChild(overlay);
+        inspectCapture = null;
+        inspectData = null;
+        renderInspectResults(null);
+        setInspectStatus('Loading capture...');
+        overlay.classList.add('active');
+        window.addEventListener('resize', drawInspectPlot);
+        bindInspectCanvas();
+
+        fetch(`/subghz/captures/${encodeURIComponent(captureId)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.capture) throw new Error(data.message || 'Capture not found');
+                inspectCapture = data.capture;
+                const freq = (inspectCapture.frequency_hz / 1e6).toFixed(3);
+                const subtitle = document.getElementById('subghzInspectSubtitle');
+                if (subtitle) subtitle.textContent = `${freq} MHz · ${inspectCapture.sample_rate / 1000} kHz sample rate`;
+
+                const select = document.getElementById('subghzInspectBurst');
+                const bursts = Array.isArray(inspectCapture.bursts) ? inspectCapture.bursts : [];
+                if (select) {
+                    select.innerHTML = bursts.length
+                        ? bursts.map((b, i) => `<option value="${i}">Burst ${i + 1}: +${Number(b.start_seconds || 0).toFixed(3)} s, ${(Number(b.duration_seconds || 0) * 1000).toFixed(1)} ms, peak ${escapeHtml(String(b.peak_level ?? '--'))}%</option>`).join('')
+                        : '<option value="">Start of capture (no bursts marked)</option>';
+                }
+                inspectBurst(bursts.length ? '0' : '');
+            })
+            .catch(err => setInspectStatus(`Could not load capture: ${err.message}`, true));
+    }
+
+    function inspectBurst(value) {
+        if (!inspectCapture) return;
+        const requestId = ++inspectRequestId;
+        const query = value === '' || value === undefined ? '' : `?burst=${encodeURIComponent(value)}`;
+        setInspectStatus('Analyzing pulses with rtl_433...');
+        renderInspectResults(null);
+        fetch(`/subghz/captures/${encodeURIComponent(inspectCapture.id)}/inspect${query}`)
+            .then(r => r.json())
+            .then(data => {
+                if (requestId !== inspectRequestId) return;
+                if (data.status !== 'ok') throw new Error(data.message || 'Inspection failed');
+                inspectData = data;
+                inspectView = { start: 0, end: data.envelope.length };
+                const notes = [];
+                if (data.truncated) notes.push('Only the first 2 s of this window was analyzed.');
+                if (!data.packages.length) notes.push('rtl_433 found no pulse train here. Try another burst, or capture again with more gain.');
+                setInspectStatus(notes.join(' '));
+                renderInspectResults(data);
+                drawInspectPlot();
+            })
+            .catch(err => {
+                if (requestId === inspectRequestId) setInspectStatus(err.message, true);
+            });
+    }
+
+    function closeInspector() {
+        const overlay = document.getElementById('subghzInspectOverlay');
+        if (overlay) overlay.classList.remove('active');
+        window.removeEventListener('resize', drawInspectPlot);
+        inspectRequestId++;
+        inspectCapture = null;
+        inspectData = null;
+    }
+
+    function setInspectStatus(message, isError) {
+        const el = document.getElementById('subghzInspectStatus');
+        if (!el) return;
+        el.textContent = message || '';
+        el.classList.toggle('error', !!isError);
+    }
+
+    function formatMicros(us) {
+        if (Math.abs(us) >= 1000) return `${(us / 1000).toFixed(us >= 10000 ? 1 : 2)} ms`;
+        return `${Math.round(us)} µs`;
+    }
+
+    function firstOokPackage() {
+        return inspectData ? inspectData.packages.find(p => p.ook) : null;
+    }
+
+    function renderInspectResults(data) {
+        const container = document.getElementById('subghzInspectResults');
+        const ookBtn = document.getElementById('subghzInspectOokBtn');
+        const copyBtn = document.getElementById('subghzInspectCopyBtn');
+        if (ookBtn) ookBtn.disabled = !(data && data.packages.some(p => p.ook));
+        if (copyBtn) copyBtn.disabled = !(data && data.packages.some(p => p.flex_spec));
+        if (!container) return;
+        if (!data || !data.packages.length) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const widths = (list) => list.length
+            ? list.map(d => `<span class="subghz-inspect-chip">${escapeHtml(formatMicros(d.width_us))} <em>×${d.count}</em></span>`).join('')
+            : '<span class="subghz-inspect-none">none</span>';
+
+        container.innerHTML = data.packages.map((p, i) => {
+            const signal = [
+                p.rssi_db !== null ? `RSSI ${p.rssi_db} dB` : '',
+                p.snr_db !== null ? `SNR ${p.snr_db} dB` : '',
+            ].filter(Boolean).join(' · ');
+            const rows = p.rows.length
+                ? `<table class="subghz-inspect-rows">
+                        <thead><tr><th>#</th><th>Bits</th><th>Hex</th><th>Binary</th></tr></thead>
+                        <tbody>${p.rows.map((r, n) => `<tr><td>${n + 1}</td><td>${r.bits}</td><td class="data">${escapeHtml(r.hex)}</td><td class="data binary">${escapeHtml(r.binary)}</td></tr>`).join('')}</tbody>
+                   </table>`
+                : '<div class="subghz-inspect-none">No bits could be sliced from this package.</div>';
+            return `
+                <div class="subghz-inspect-package">
+                    <div class="subghz-inspect-package-head">
+                        <span class="subghz-inspect-package-title">Package ${i + 1} · ${escapeHtml(p.kind)} · +${formatMicros(p.at_seconds * 1e6)}</span>
+                        ${signal ? `<span class="subghz-inspect-signal">${escapeHtml(signal)}</span>` : ''}
+                    </div>
+                    <div class="subghz-inspect-modulation">${escapeHtml(p.modulation || 'Modulation not identified')}</div>
+                    <div class="subghz-inspect-timing"><span class="subghz-inspect-label">Pulses</span>${widths(p.pulse_widths)}</div>
+                    <div class="subghz-inspect-timing"><span class="subghz-inspect-label">Gaps</span>${widths(p.gap_widths)}</div>
+                    ${p.flex_spec ? `<div class="subghz-inspect-timing"><span class="subghz-inspect-label">Flex</span><code class="data">${escapeHtml(p.flex_spec)}</code></div>` : ''}
+                    ${rows}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function niceStep(raw) {
+        const exp = Math.pow(10, Math.floor(Math.log10(raw)));
+        const f = raw / exp;
+        return (f < 1.5 ? 1 : f < 3.5 ? 2 : f < 7.5 ? 5 : 10) * exp;
+    }
+
+    function drawInspectPlot() {
+        const canvas = document.getElementById('subghzInspectCanvas');
+        if (!canvas || !canvas.parentElement) return;
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const w = rect.width;
+        const h = rect.height;
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+            canvas.width = Math.round(w * dpr);
+            canvas.height = Math.round(h * dpr);
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const css = getComputedStyle(document.documentElement);
+        const color = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+        ctx.fillStyle = color('--bg-primary', '#0d1117');
+        ctx.fillRect(0, 0, w, h);
+        if (!inspectData || !inspectData.envelope.length) return;
+
+        const env = inspectData.envelope;
+        const colUs = inspectData.envelope_column_us;
+        const pad = INSPECT_PAD;
+        const plotW = Math.max(1, w - pad.left - pad.right);
+        const plotH = Math.max(1, h - pad.top - pad.bottom);
+        const { start, end } = inspectView;
+        const span = end - start;
+
+        // The strongest envelope column under each pixel, filled as one stepped
+        // shape (separate 1px bars leave seams on scaled displays)
+        const baseY = pad.top + plotH;
+        ctx.fillStyle = color('--accent-cyan', '#00d4ff');
+        ctx.beginPath();
+        ctx.moveTo(pad.left, baseY);
+        for (let px = 0; px < plotW; px++) {
+            const c0 = Math.floor(start + (px * span) / plotW);
+            const c1 = Math.max(c0 + 1, Math.floor(start + ((px + 1) * span) / plotW));
+            let peak = 0;
+            for (let c = c0; c < c1 && c < env.length; c++) if (env[c] > peak) peak = env[c];
+            const y = baseY - peak * plotH;
+            ctx.lineTo(pad.left + px, y);
+            ctx.lineTo(pad.left + px + 1, y);
+        }
+        ctx.lineTo(pad.left + plotW, baseY);
+        ctx.closePath();
+        ctx.fill();
+
+        // Time axis, relative to the start of the analyzed window
+        const startUs = start * colUs;
+        const spanUs = span * colUs;
+        const step = niceStep(spanUs / Math.max(2, Math.floor(plotW / 110)));
+        ctx.strokeStyle = color('--border-color', '#2a3040');
+        ctx.fillStyle = color('--text-dim', '#666');
+        ctx.font = `10px ${color('--font-data', 'monospace')}`;
+        ctx.textAlign = 'center';
+        ctx.lineWidth = 1;
+        for (let t = Math.ceil(startUs / step) * step; t <= startUs + spanUs; t += step) {
+            const x = pad.left + ((t - startUs) / spanUs) * plotW;
+            ctx.beginPath();
+            ctx.moveTo(x, pad.top + plotH);
+            ctx.lineTo(x, pad.top + plotH + 4);
+            ctx.stroke();
+            const label = formatMicros(t);
+            const half = ctx.measureText(label).width / 2;
+            ctx.fillText(label, Math.max(half + 2, Math.min(w - half - 2, x)), h - 6);
+        }
+        ctx.textAlign = 'start';
+
+        // Where rtl_433 found each package
+        ctx.save();
+        ctx.setLineDash([4, 3]);
+        ctx.strokeStyle = color('--accent-orange', '#ffaa00');
+        for (const p of inspectData.packages) {
+            const col = (p.at_seconds * 1e6) / colUs;
+            if (col < start || col > end) continue;
+            const x = pad.left + ((col - start) / span) * plotW;
+            ctx.beginPath();
+            ctx.moveTo(x, pad.top);
+            ctx.lineTo(x, pad.top + plotH);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function bindInspectCanvas() {
+        const canvas = document.getElementById('subghzInspectCanvas');
+        if (!canvas || inspectCanvasBound) return;
+        inspectCanvasBound = true;
+        const plotWidth = () => Math.max(1, canvas.getBoundingClientRect().width - INSPECT_PAD.left - INSPECT_PAD.right);
+        const clampView = (s, e) => {
+            const total = inspectData.envelope.length;
+            const len = Math.min(total, Math.max(INSPECT_MIN_COLUMNS, e - s));
+            const startCol = Math.max(0, Math.min(total - len, s));
+            inspectView = { start: startCol, end: startCol + len };
+        };
+
+        // Scroll to zoom around the pointer
+        canvas.addEventListener('wheel', (e) => {
+            if (!inspectData) return;
+            e.preventDefault();
+            const { start, end } = inspectView;
+            const span = end - start;
+            const frac = Math.max(0, Math.min(1, (e.clientX - canvas.getBoundingClientRect().left - INSPECT_PAD.left) / plotWidth()));
+            const anchor = start + frac * span;
+            const newSpan = span * (e.deltaY < 0 ? 0.8 : 1.25);
+            clampView(anchor - frac * newSpan, anchor - frac * newSpan + newSpan);
+            drawInspectPlot();
+        }, { passive: false });
+
+        // Drag to pan, double-click to fit
+        canvas.addEventListener('mousedown', (e) => {
+            if (!inspectData) return;
+            inspectDrag = { x: e.clientX, view: { ...inspectView } };
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!inspectDrag || !inspectData) return;
+            const { start, end } = inspectDrag.view;
+            const shift = ((inspectDrag.x - e.clientX) / plotWidth()) * (end - start);
+            clampView(start + shift, end + shift);
+            drawInspectPlot();
+        });
+        window.addEventListener('mouseup', () => { inspectDrag = null; });
+        canvas.addEventListener('dblclick', () => {
+            if (!inspectData) return;
+            inspectView = { start: 0, end: inspectData.envelope.length };
+            drawInspectPlot();
+        });
+    }
+
+    function copyInspectFlex() {
+        const pkg = inspectData ? inspectData.packages.find(p => p.flex_spec) : null;
+        if (!pkg) return;
+        const text = `-X '${pkg.flex_spec}'`;
+        Promise.resolve(navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject(new Error('Clipboard unavailable')))
+            .then(() => setInspectStatus('Copied the rtl_433 flex decoder option.'))
+            .catch(() => setInspectStatus(`Copy this rtl_433 option: ${text}`));
+    }
+
+    function openInspectInOok() {
+        const pkg = firstOokPackage();
+        if (!pkg || !inspectCapture) return;
+        const settings = pkg.ook;
+        const freqMhz = (inspectCapture.frequency_hz / 1e6).toFixed(3);
+        const fields = {
+            ookShortPulse: settings.short_pulse,
+            ookLongPulse: settings.long_pulse,
+            ookResetLimit: settings.reset_limit,
+            ookGapLimit: settings.gap_limit,
+            ookTolerance: settings.tolerance,
+        };
+        closeInspector();
+        Promise.resolve(window.switchMode('ook')).then(() => {
+            if (typeof OokMode === 'undefined') return;
+            OokMode.setFreq(freqMhz);
+            OokMode.setEncoding(settings.encoding);
+            for (const [id, value] of Object.entries(fields)) {
+                const el = document.getElementById(id);
+                if (el && value) el.value = value;
+            }
+        });
+    }
+
     // ------ SSE STREAM ------
 
     function startStream() {
@@ -2461,6 +2770,7 @@ const SubGhz = (function() {
      * Clean up when switching away from SubGHz mode
      */
     function destroy() {
+        closeInspector();
         if (eventSource) {
             eventSource.close();
             eventSource = null;
@@ -2786,6 +3096,11 @@ const SubGhz = (function() {
         deleteCapture,
         renameCapture,
         downloadCapture,
+        showInspector,
+        inspectBurst,
+        closeInspector,
+        copyInspectFlex,
+        openInspectInOok,
         tuneFromSweep,
         tuneAndCapture,
         // Dashboard

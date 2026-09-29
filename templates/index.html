@@ -1862,6 +1862,36 @@
                         </div>
                     </div>
 
+                    <!-- Capture Inspector Modal -->
+                    <div id="subghzInspectOverlay" class="subghz-tx-modal-overlay" onclick="if (event.target === this) SubGhz.closeInspector()">
+                        <div class="subghz-inspect-modal" role="dialog" aria-modal="true" aria-labelledby="subghzInspectTitle">
+                            <div class="subghz-inspect-head">
+                                <div>
+                                    <h3 id="subghzInspectTitle">Capture Inspector</h3>
+                                    <div class="subghz-inspect-subtitle" id="subghzInspectSubtitle"></div>
+                                </div>
+                                <button type="button" class="subghz-inspect-close" onclick="SubGhz.closeInspector()" aria-label="Close inspector">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                            <label class="subghz-inspect-burst">
+                                <span>Burst</span>
+                                <select id="subghzInspectBurst" onchange="SubGhz.inspectBurst(this.value)"></select>
+                            </label>
+                            <div class="subghz-inspect-plot">
+                                <canvas id="subghzInspectCanvas"></canvas>
+                            </div>
+                            <div class="subghz-inspect-hint">Scroll to zoom, drag to pan, double-click to fit</div>
+                            <div class="subghz-inspect-status" id="subghzInspectStatus" role="status"></div>
+                            <div class="subghz-inspect-results" id="subghzInspectResults"></div>
+                            <div class="subghz-tx-modal-actions">
+                                <button type="button" class="subghz-tx-cancel-btn" onclick="SubGhz.closeInspector()">Close</button>
+                                <button type="button" class="subghz-inspect-action-btn" id="subghzInspectCopyBtn" onclick="SubGhz.copyInspectFlex()" disabled>Copy flex spec</button>
+                                <button type="button" class="subghz-inspect-action-btn primary" id="subghzInspectOokBtn" onclick="SubGhz.openInspectInOok()" disabled>Decode live in OOK mode</button>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- BT Locate SAR Dashboard -->
