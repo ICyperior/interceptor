@@ -509,6 +509,89 @@ class TestVISDetector:
         assert result[0] == 44
         assert result[1] == "Martin1"
 
+    @pytest.mark.parametrize("offset", [-200, -100, -50, 50, 100, 200])
+    def test_detects_mistuned_ssb_header(self, offset):
+        """On SSB every tone is shifted by the tuning error; the leader measures it."""
+        detector = VISDetector()
+        audio = generate_shifted_vis(44, offset, lead_samples=4800 + 137)
+        result = feed_in_chunks(detector, audio)
+        assert result == (44, "Martin1")
+        assert detector.freq_offset == pytest.approx(offset, abs=5)
+
+    @pytest.mark.parametrize("offset", [0, 100, 200])
+    def test_preamble_tone_before_leader(self, offset):
+        """A 1500 Hz preamble (shifted, it can look like a mistuned leader) must not
+        stop the real leader being found."""
+        detector = VISDetector()
+        audio = generate_shifted_vis(60, offset, preamble_s=0.5)
+        assert feed_in_chunks(detector, audio) == (60, "Scottie1")
+
+    def test_noise_gives_no_offset_lock(self):
+        rng = np.random.default_rng(3)
+        detector = VISDetector()
+        assert feed_in_chunks(detector, rng.normal(scale=0.3, size=SAMPLE_RATE * 5)) is None
+        assert detector.freq_offset == 0.0
+
+
+def generate_shifted_vis(vis_code: int, offset: float, lead_samples: int = 4800, preamble_s: float = 0.0) -> np.ndarray:
+    """VIS header with every tone shifted by `offset` Hz, generated with continuous
+    phase like a real transmitter heard through a mistuned SSB receiver."""
+    bits = [(vis_code >> i) & 1 for i in range(8)]
+    seq = [(FREQ_BLACK, preamble_s)] if preamble_s else []
+    seq += [(FREQ_LEADER, 0.300), (FREQ_SYNC, 0.010), (FREQ_LEADER, 0.300), (FREQ_SYNC, 0.030)]
+    seq += [(FREQ_VIS_BIT_1 if b else FREQ_VIS_BIT_0, 0.030) for b in bits]
+    seq += [(FREQ_VIS_BIT_1 if sum(bits) % 2 else FREQ_VIS_BIT_0, 0.030), (FREQ_SYNC, 0.030), (FREQ_BLACK, 0.2)]
+    freqs = np.concatenate([np.full(int(d * SAMPLE_RATE), f + offset, dtype=np.float64) for f, d in seq])
+    tones = 0.5 * np.sin(np.cumsum(2 * np.pi * freqs / SAMPLE_RATE))
+    return np.concatenate([np.zeros(lead_samples), tones])
+
+
+def robot36_audio(y_for_line, offset: float = 0.0, burst_line: int | None = None) -> np.ndarray:
+    """Robot36 scanlines (neutral chroma) with continuous phase and exact line timing.
+
+    `burst_line` puts a loud 9 ms 1200 Hz burst 15 ms into that line's
+    luminance, where a wide sync search would mistake it for the sync pulse.
+    """
+    segments: list[np.ndarray] = []
+    elapsed = 0.0
+
+    def add(freqs_hz: np.ndarray | float, seconds: float, amplitude: float = 0.5) -> None:
+        nonlocal elapsed
+        n = int(round((elapsed + seconds) * SAMPLE_RATE)) - int(round(elapsed * SAMPLE_RATE))
+        elapsed += seconds
+        f = (
+            np.full(n, float(freqs_hz))
+            if np.isscalar(freqs_hz)
+            else np.asarray(freqs_hz)[np.arange(n) * len(freqs_hz) // n]
+        )
+        segments.append(np.stack([f + offset, np.full(n, amplitude)]))
+
+    for line in range(ROBOT_36.height):
+        y_freqs = FREQ_PIXEL_LOW + np.asarray(y_for_line(line)) / 255.0 * (FREQ_PIXEL_HIGH - FREQ_PIXEL_LOW)
+        add(FREQ_SYNC, 0.009)
+        add(FREQ_BLACK, 0.003)
+        if line == burst_line:
+            add(y_freqs[:36], 0.003)
+            add(FREQ_SYNC, 0.009, amplitude=1.0)
+            add(y_freqs[144:], 0.076)
+        else:
+            add(y_freqs, 0.088)
+        add(FREQ_BLACK, 0.006)
+        add(1900.0, 0.044)  # neutral chroma
+    add(FREQ_BLACK, 0.2)  # tail, so the last line is complete
+    freqs, amps = np.concatenate(segments, axis=1)
+    return amps * np.sin(np.cumsum(2 * np.pi * freqs / SAMPLE_RATE))
+
+
+def feed_in_chunks(detector: VISDetector, audio: np.ndarray):
+    """Feed 100 ms chunks, as the live decoder does."""
+    chunk = SAMPLE_RATE // 10
+    for i in range(0, len(audio), chunk):
+        result = detector.feed(audio[i : i + chunk])
+        if result is not None:
+            return result
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Mode spec tests
@@ -689,6 +772,35 @@ class TestImageDecoder:
         img = decoder.get_image()
         assert img is not None
         assert img.size == (320, 240)
+
+    @pytest.mark.parametrize("freq_offset, expected_grey", [(100.0, 128), (0.0, 160)])
+    def test_pixels_corrected_for_tuning_offset(self, freq_offset, expected_grey):
+        """Mid-grey (1900 Hz) received 100 Hz high reads as grey only when the offset is removed."""
+        pytest.importorskip("PIL")
+        from utils.sstv.image_decoder import SSTVImageDecoder
+
+        decoder = SSTVImageDecoder(ROBOT_36, freq_offset=freq_offset)
+        decoder.feed(robot36_audio(lambda line: np.full(320, 128.0), offset=100.0))
+        assert decoder.is_complete
+        grey = np.asarray(decoder.get_image().convert("L"), dtype=np.float64)
+        assert grey[10:-10, 20:-20].mean() == pytest.approx(expected_grey, abs=8)
+
+    def test_noise_burst_does_not_shift_following_lines(self):
+        """A loud sync-like burst inside one line must not drag every later line sideways."""
+        pytest.importorskip("PIL")
+        from utils.sstv.image_decoder import SSTVImageDecoder
+
+        # Black bar on the left, white elsewhere
+        pattern = np.where(np.arange(320) < 40, 0.0, 255.0)
+        decoder = SSTVImageDecoder(ROBOT_36)
+        decoder.feed(robot36_audio(lambda line: pattern, burst_line=100))
+        assert decoder.is_complete
+        grey = np.asarray(decoder.get_image().convert("L"), dtype=np.float64)
+
+        def bar_edge(row):
+            return int(np.argmax(grey[row] > 128))
+
+        assert abs(bar_edge(230) - bar_edge(20)) <= 3
 
     def test_slant_correction_wraps_rows_without_blank_wedge(self):
         """Slant correction should rotate rows, not introduce black fill."""

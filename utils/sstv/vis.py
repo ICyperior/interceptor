@@ -56,20 +56,30 @@ class VISState(enum.Enum):
 _VIS_FREQS = [FREQ_VIS_BIT_1, FREQ_SYNC, FREQ_VIS_BIT_0, FREQ_LEADER]
 # 1100, 1200, 1300, 1900 Hz
 
+# On SSB the received tones are shifted by however far the receiver is tuned
+# from the transmitter; tens to a couple of hundred Hz is normal on HF. The
+# VIS tones are only 100 Hz apart, so the leader's measured frequency is used
+# to find that offset before the rest of the header is read.
+MAX_TUNING_OFFSET = 250.0  # Hz either side of 1900 Hz accepted as a leader
+LEADER_PURITY = 0.6  # share of in-band energy near the peak for a clean tone
+LEADER_TRACK_TOLERANCE = 40.0  # Hz a leader window may wander from the running estimate
+_FFT_SIZE = 8192  # zero-padded, ~6 Hz bins for a 10 ms window
 
-def _classify_tone(samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> float | None:
+
+def _classify_tone(samples: np.ndarray, sample_rate: int = SAMPLE_RATE, offset: float = 0.0) -> float | None:
     """Classify which VIS tone is present in the given samples.
 
-    Computes Goertzel energy at each of the four VIS frequencies and returns
-    the one with the highest energy, provided it dominates sufficiently.
+    Computes Goertzel energy at each of the four VIS frequencies (shifted by
+    the tuning offset) and returns the one with the highest energy, provided
+    it dominates sufficiently.
 
     Returns:
-        The detected frequency (1100, 1200, 1300, or 1900), or None.
+        The nominal frequency detected (1100, 1200, 1300, or 1900), or None.
     """
     if len(samples) < 16:
         return None
 
-    energies = {f: goertzel(samples, f, sample_rate) for f in _VIS_FREQS}
+    energies = {f: goertzel(samples, f + offset, sample_rate) for f in _VIS_FREQS}
     best_freq = max(energies, key=energies.get)  # type: ignore[arg-type]
     best_energy = energies[best_freq]
 
@@ -85,6 +95,37 @@ def _classify_tone(samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> float
         return None
 
     return best_freq
+
+
+def _leader_offset(samples: np.ndarray, sample_rate: int = SAMPLE_RATE) -> float | None:
+    """Tuning offset (Hz) if the window is a clean tone within reach of the leader, else None."""
+    if len(samples) < 16:
+        return None
+    spectrum = np.abs(np.fft.rfft(samples * np.hanning(len(samples)), n=_FFT_SIZE)) ** 2
+    freqs = np.fft.rfftfreq(_FFT_SIZE, 1.0 / sample_rate)
+
+    # Strongest tone anywhere in the audio band, so a nearby 1500 Hz tone's
+    # skirt at the edge of the leader range is not mistaken for a leader
+    voice = (freqs >= 300) & (freqs <= 3000)
+    peak = int(np.flatnonzero(voice)[np.argmax(spectrum[voice])])
+    if abs(freqs[peak] - FREQ_LEADER) > MAX_TUNING_OFFSET:
+        return None
+
+    # Reject noise and busy audio: most of the 300-3000 Hz energy must sit
+    # in the main lobe around the peak
+    total = float(spectrum[voice].sum())
+    near = np.abs(freqs - freqs[peak]) <= 150
+    if total <= 0 or float(spectrum[near].sum()) / total < LEADER_PURITY:
+        return None
+
+    # Parabolic interpolation between bins for a finer peak estimate
+    peak_freq = float(freqs[peak])
+    if 0 < peak < len(spectrum) - 1:
+        a, b, c = spectrum[peak - 1], spectrum[peak], spectrum[peak + 1]
+        denom = a - 2 * b + c
+        if denom != 0:
+            peak_freq += 0.5 * (a - c) / denom * (freqs[1] - freqs[0])
+    return peak_freq - FREQ_LEADER
 
 
 class VISDetector:
@@ -131,6 +172,8 @@ class VISDetector:
         self._data_bits: list[int] = []
         self._parity_bit: int = 0
         self._bit_accumulator: list[np.ndarray] = []
+        self._offset = 0.0
+        self._leader_offsets: list[float] = []
 
     def reset(self) -> None:
         """Reset the detector to scan for a new VIS header."""
@@ -141,10 +184,17 @@ class VISDetector:
         self._data_bits = []
         self._parity_bit = 0
         self._bit_accumulator = []
+        self._offset = 0.0
+        self._leader_offsets = []
 
     @property
     def state(self) -> VISState:
         return self._state
+
+    @property
+    def freq_offset(self) -> float:
+        """Tuning offset (Hz) measured from the leader; the image decoder needs it too."""
+        return self._offset
 
     @property
     def remaining_buffer(self) -> np.ndarray:
@@ -169,8 +219,13 @@ class VISDetector:
         self._buffer = np.concatenate([self._buffer, samples])
 
         while len(self._buffer) >= self._window:
+            was_idle = self._state == VISState.IDLE
             result = self._process_window(self._buffer[: self._window])
             self._buffer = self._buffer[self._window :]
+            if not was_idle and self._state == VISState.IDLE:
+                # Header abandoned: measure the next leader afresh
+                self._leader_offsets = []
+                self._offset = 0.0
 
             if result is not None:
                 return result
@@ -184,26 +239,23 @@ class VISDetector:
         the window that triggers the transition counts as the first window
         of the new state (tone_counter = 1).
         """
-        tone = _classify_tone(window, self._sample_rate)
-
         if self._state == VISState.IDLE:
-            if tone == FREQ_LEADER:
-                self._tone_counter += 1
-                self._miss_counter = 0
-                if self._tone_counter >= self._leader_min_windows:
-                    self._state = VISState.LEADER_1
-            elif tone is None:
-                # Ambiguous window (noise/fading) — tolerate up to 3
-                # consecutive misses before resetting the leader count.
-                self._miss_counter += 1
-                if self._miss_counter > 3:
-                    self._tone_counter = 0
-                    self._miss_counter = 0
-            else:
-                self._tone_counter = 0
-                self._miss_counter = 0
+            self._track_leader(window)
+            return None
 
-        elif self._state == VISState.LEADER_1:
+        if self._state in (VISState.LEADER_1, VISState.BREAK, VISState.LEADER_2):
+            # A steady tone at a clearly different offset means the tone we
+            # locked onto was not the leader (e.g. a preamble tone that looks
+            # like a mistuned leader); go back to searching for the real one
+            other = _leader_offset(window, self._sample_rate)
+            if other is not None and abs(other - self._offset) > LEADER_TRACK_TOLERANCE:
+                self._tone_counter = 0
+                self._state = VISState.IDLE
+                return None
+
+        tone = _classify_tone(window, self._sample_rate, self._offset)
+
+        if self._state == VISState.LEADER_1:
             if tone == FREQ_LEADER:
                 self._tone_counter += 1
                 if self._tone_counter > self._leader_max_windows * 3:
@@ -217,8 +269,8 @@ class VISDetector:
                 # Mixed leader+break window? Check if 1200 Hz energy is
                 # significant relative to 1900 Hz — indicates the break
                 # pulse is straddling this analysis window.
-                leader_e = goertzel(window, FREQ_LEADER, self._sample_rate)
-                sync_e = goertzel(window, FREQ_SYNC, self._sample_rate)
+                leader_e = goertzel(window, FREQ_LEADER + self._offset, self._sample_rate)
+                sync_e = goertzel(window, FREQ_SYNC + self._offset, self._sample_rate)
                 if sync_e > leader_e * 0.5:
                     self._tone_counter = 1
                     self._state = VISState.BREAK
@@ -344,13 +396,35 @@ class VISDetector:
 
         return None
 
+    def _track_leader(self, window: np.ndarray) -> None:
+        """Look for a steady leader tone and measure the tuning offset from it."""
+        offset = _leader_offset(window, self._sample_rate)
+        steady = offset is not None and (
+            not self._leader_offsets or abs(offset - float(np.median(self._leader_offsets))) <= LEADER_TRACK_TOLERANCE
+        )
+        if steady:
+            self._leader_offsets.append(offset)
+            self._miss_counter = 0
+            if len(self._leader_offsets) >= self._leader_min_windows:
+                self._offset = float(np.median(self._leader_offsets))
+                self._tone_counter = len(self._leader_offsets)
+                self._state = VISState.LEADER_1
+        else:
+            # Ambiguous window (noise/fading) — tolerate up to 3
+            # consecutive misses before resetting the leader count.
+            self._miss_counter += 1
+            if self._miss_counter > 3:
+                self._leader_offsets = []
+                self._miss_counter = 0
+
     def _decode_bit(self, samples: np.ndarray) -> int:
         """Decode a single VIS data bit from its audio samples.
 
-        Compares Goertzel energy at 1100 Hz (bit=1) vs 1300 Hz (bit=0).
+        Compares Goertzel energy at 1100 Hz (bit=1) vs 1300 Hz (bit=0),
+        shifted by the tuning offset.
         """
-        e1 = goertzel(samples, FREQ_VIS_BIT_1, self._sample_rate)
-        e0 = goertzel(samples, FREQ_VIS_BIT_0, self._sample_rate)
+        e1 = goertzel(samples, FREQ_VIS_BIT_1 + self._offset, self._sample_rate)
+        e0 = goertzel(samples, FREQ_VIS_BIT_0 + self._offset, self._sample_rate)
         return 1 if e1 > e0 else 0
 
     def _validate_and_decode(self) -> tuple[int, str] | None:

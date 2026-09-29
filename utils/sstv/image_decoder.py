@@ -54,10 +54,20 @@ class SSTVImageDecoder:
             image = decoder.get_image()
     """
 
-    def __init__(self, mode: SSTVMode, sample_rate: int = SAMPLE_RATE, progress_cb: ProgressCallback | None = None):
+    def __init__(
+        self,
+        mode: SSTVMode,
+        sample_rate: int = SAMPLE_RATE,
+        progress_cb: ProgressCallback | None = None,
+        freq_offset: float = 0.0,
+    ):
         self._mode = mode
         self._sample_rate = sample_rate
         self._progress_cb = progress_cb
+        # SSB tuning offset measured from the VIS leader; every tone arrives shifted by it
+        self._freq_offset = freq_offset
+        self._sync_freq = FREQ_SYNC + freq_offset
+        self._black_freq = FREQ_BLACK + freq_offset
 
         self._buffer = np.array([], dtype=np.float64)
         self._current_line = 0
@@ -172,9 +182,9 @@ class SSTVImageDecoder:
         step = window_size // 2
         for pos in range(0, len(search_region) - window_size, step):
             chunk = search_region[pos : pos + window_size]
-            sync_energy = goertzel(chunk, FREQ_SYNC, self._sample_rate)
+            sync_energy = goertzel(chunk, self._sync_freq, self._sample_rate)
             # Check it's actually sync, not data at 1200 Hz area
-            black_energy = goertzel(chunk, FREQ_BLACK, self._sample_rate)
+            black_energy = goertzel(chunk, self._black_freq, self._sample_rate)
             if sync_energy > best_energy and sync_energy > black_energy * 2:
                 best_energy = sync_energy
                 best_pos = pos
@@ -187,9 +197,15 @@ class SSTVImageDecoder:
             self._complete = True
             return
 
-        # Try to find sync pulse for re-synchronization
-        # Search within +/-10% of expected line start
-        search_margin = max(100, self._line_samples // 10)
+        # Try to find sync pulse for re-synchronization. The first line gets a
+        # wide search (10% of a line) to lock on after the VIS header; after
+        # that the search stays within ~1 ms, since real clock drift is a
+        # sample or two per line and a wide search lets a noise burst pull the
+        # decoder forward, shifting every following line.
+        if self._synced:
+            search_margin = max(24, self._sample_rate // 1000)
+        else:
+            search_margin = max(100, self._line_samples // 10)
 
         line_start = 0
 
@@ -202,6 +218,7 @@ class SSTVImageDecoder:
             sync_pos = self._find_sync(search_region)
             if sync_pos is not None:
                 line_start = sync_pos
+                self._synced = True
             # Skip sync + porch to get to pixel data
             pixel_start = line_start + self._sync_samples + self._porch_samples
 
@@ -259,7 +276,9 @@ class SSTVImageDecoder:
                                 step = 5
                                 all_windows = np.lib.stride_tricks.sliding_window_view(sync_region, win)
                                 windows = all_windows[::step]
-                                energies = goertzel_batch(windows, np.array([FREQ_SYNC, FREQ_BLACK]), self._sample_rate)
+                                energies = goertzel_batch(
+                                    windows, np.array([self._sync_freq, self._black_freq]), self._sample_rate
+                                )
                                 sync_e = energies[:, 0]
                                 black_e = energies[:, 1]
                                 valid_mask = sync_e > black_e * 2
@@ -344,8 +363,8 @@ class SSTVImageDecoder:
             sums = np.add.reduceat(inst_freq, segment_starts)
             avg_freqs = sums / segment_lengths
 
-        # Map to pixel values (1500 Hz → 0, 2300 Hz → 255)
-        normalized = (avg_freqs - FREQ_PIXEL_LOW) / (FREQ_PIXEL_HIGH - FREQ_PIXEL_LOW)
+        # Map to pixel values (1500 Hz → 0, 2300 Hz → 255), after removing the tuning offset
+        normalized = (avg_freqs - self._freq_offset - FREQ_PIXEL_LOW) / (FREQ_PIXEL_HIGH - FREQ_PIXEL_LOW)
         return np.clip(normalized * 255 + 0.5, 0, 255).astype(np.uint8)
 
     def get_image(self) -> Image.Image | None:

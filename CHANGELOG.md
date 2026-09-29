@@ -2,6 +2,14 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.70] - 2026-09-29
+
+### Fixed
+
+- **HF SSTV now decodes on sideband.** The SSTV decoder defaulted to 14.230 MHz with FM selected, so unless a preset was picked it FM-demodulated an upper-sideband signal into noise. USB is now the default, and typing a frequency that matches a preset applies that preset's modulation (sideband on HF, FM on VHF/UHF).
+- **SSTV works when the receiver is not tuned exactly.** On SSB every tone arrives shifted by the tuning error, and the VIS header detector only recognised headers within about ±30 Hz of exact tuning — tens to a couple of hundred Hz off is normal on HF. The detector now measures the leader tone's frequency to find the offset (up to ±250 Hz; verified end to end to ±200 Hz), reads the rest of the header at the shifted tones, and the image decoder removes the same offset from sync detection and pixel brightness. A preamble tone before the leader no longer throws the header detection off.
+- **SSTV images no longer tear partway down in noise.** After the first line the decoder searched up to 10% of a line ahead for each sync pulse, so a noise burst could pull it forward and shift every later line sideways. Once locked it now searches within about 1 ms. On a synthetic Martin1 image at 15 dB SNR the mean pixel error fell from about 58 to 16 (out of 255).
+
 ## [2.33.69] - 2026-09-29
 
 ### Fixed
