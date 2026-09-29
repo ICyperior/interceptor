@@ -7,10 +7,32 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.70"
+VERSION = "2.33.71"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.71",
+        "date": "September 2026",
+        "highlights": [
+            "SubGHz: new capture inspector \u2014 open any saved capture to see its pulses, timings, modulation and decoded bits, then decode that signal live in OOK mode with one click.",
+        ],
+    },
+    {
+        "version": "2.33.70",
+        "date": "September 2026",
+        "highlights": [
+            "HF SSTV now decodes: sideband (USB) is the default, the decoder corrects for tuning error of up to \u00b1200 Hz, and images no longer tear partway down in noise.",
+        ],
+    },
+    {
+        "version": "2.33.69",
+        "date": "September 2026",
+        "highlights": [
+            "SubGHz Frequency Analyzer is fast and sharp \u2014 no more page hang during sweeps.",
+            "Nav bar keeps all its buttons on mid-size windows, and harmless browser warnings no longer pop up as \u201cUnknown error\u201d.",
+        ],
+    },
     {
         "version": "2.33.47",
         "date": "September 2026",

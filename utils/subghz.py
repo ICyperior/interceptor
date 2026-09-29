@@ -24,6 +24,7 @@ from typing import BinaryIO, Callable
 
 import numpy as np
 
+from utils import subghz_inspect
 from utils.constants import (
     SUBGHZ_LNA_GAIN_MAX,
     SUBGHZ_LNA_GAIN_MIN,
@@ -2674,6 +2675,52 @@ class SubGhzManager:
         if path.exists():
             return path
         return None
+
+    def inspect_capture(self, capture_id: str, burst_index: int | None = None) -> dict:
+        """Pulse-level analysis of one burst of a capture (or its start, when it has no bursts)."""
+        capture = self._load_capture(capture_id)
+        if not capture:
+            return {"status": "error", "message": f"Capture not found: {capture_id}"}
+        path = self._captures_dir / capture.filename
+        if not path.exists():
+            return {"status": "error", "message": "IQ file missing"}
+        rtl_433_path = self._resolve_tool("rtl_433")
+        if not rtl_433_path:
+            return _tool_missing("rtl_433")
+
+        total = self._estimate_capture_duration_seconds(capture, path.stat().st_size)
+        bursts = [b for b in (capture.bursts or []) if isinstance(b, dict)]
+        if burst_index is None:
+            start, end = 0.0, total
+        elif 0 <= burst_index < len(bursts):
+            burst = bursts[burst_index]
+            burst_start = float(burst.get("start_seconds", 0.0) or 0.0)
+            burst_end = burst_start + float(burst.get("duration_seconds", 0.0) or 0.0)
+            start = max(0.0, burst_start - subghz_inspect.BURST_PAD_SECONDS)
+            end = min(total, burst_end + subghz_inspect.BURST_PAD_SECONDS)
+        else:
+            return {"status": "error", "message": f"Burst {burst_index} not found in this capture"}
+
+        truncated = end - start > subghz_inspect.MAX_WINDOW_SECONDS
+        if truncated:
+            end = start + subghz_inspect.MAX_WINDOW_SECONDS
+        try:
+            result = subghz_inspect.inspect_window(path, capture.sample_rate, start, end - start, rtl_433_path)
+        except subprocess.TimeoutExpired:
+            return {"status": "error", "message": "rtl_433 pulse analysis timed out"}
+        except OSError as e:
+            return {"status": "error", "message": f"Pulse analysis failed: {e}"}
+        if result.get("status") == "ok":
+            result.update(
+                {
+                    "capture_id": capture.capture_id,
+                    "frequency_hz": capture.frequency_hz,
+                    "burst_index": burst_index,
+                    "burst_count": len(bursts),
+                    "truncated": truncated,
+                }
+            )
+        return result
 
     def trim_capture(
         self,
