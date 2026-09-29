@@ -628,6 +628,18 @@ def start_radiosonde():
     # Get SDR type
     sdr_type_str = data.get("sdr_type", "rtlsdr")
 
+    # radiosonde_auto_rx's config format only supports RTLSDR, SpyServer or KA9Q
+    # as a local/network source (see autorx/config.py) - it has no SoapySDR/HackRF
+    # backend, so station.cfg always hardcodes sdr_type=RTLSDR below. Fail fast
+    # with a clear message instead of claiming the device, writing the config and
+    # crashing the subprocess with an opaque "No SDRs available!" IOError.
+    if sdr_type_str != "rtlsdr":
+        return api_error(
+            "Radiosonde mode requires an RTL-SDR device. radiosonde_auto_rx does not "
+            "yet support HackRF/SoapySDR devices directly.",
+            400,
+        )
+
     # Kill any existing process
     if app_module.radiosonde_process:
         try:
