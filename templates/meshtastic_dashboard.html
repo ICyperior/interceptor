@@ -118,6 +118,10 @@
                         Messages
                         </div>
                         <div class="mesh-messages-filter">
+                        <button type="button" class="mesh-history-btn" id="meshStoreForwardBtn" style="display: none;" onclick="Meshtastic.showStoreForwardModal()" title="Fetch messages sent before you connected, from a Store &amp; Forward router on the mesh">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 3"/></svg>
+                        Missed
+                        </button>
                         <select id="meshVisualsFilter" aria-label="Filter messages by channel" onchange="Meshtastic.applyFilter()">
                         <option value="">All Channels</option>
                         </select>

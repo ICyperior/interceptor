@@ -2,6 +2,13 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.72] - 2026-09-29
+
+### Added
+
+- **Meshtastic message history is kept (#270).** Received messages are now saved to the database instead of only an in-memory list, so the dashboard shows past conversations as soon as it opens — before you reconnect — and after server restarts. `/meshtastic/messages` returns the most recent 500 stored messages (falling back to the current session if the database is unavailable). A packet heard twice (mesh rebroadcast, Store & Forward replay) is stored and shown once. Messages older than 90 days are cleaned up daily.
+- **Store & Forward is reachable again.** A "Missed" button on the Messages tab (shown while connected) opens the existing Store & Forward dialog, which asks a router node on the mesh for messages sent before you connected. The dialog's Retry action also called a function that doesn't exist; it now retries the request.
+
 ## [2.33.71] - 2026-09-29
 
 ### Added

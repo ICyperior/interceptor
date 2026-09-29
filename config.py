@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.71"
+VERSION = "2.33.72"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.72",
+        "date": "September 2026",
+        "highlights": [
+            "Meshtastic keeps your message history: messages are saved, show on the dashboard straight away (even before you reconnect), and survive restarts. A new Missed button fetches messages sent while you were away from a Store and Forward router.",
+        ],
+    },
     {
         "version": "2.33.71",
         "date": "September 2026",

@@ -32,6 +32,8 @@ const Meshtastic = (function() {
         loadPorts();
         checkStatus();
         setupEventDelegation();
+        // Stored history shows straight away, before a device is connected
+        loadMessages(undefined, true);
     }
 
     /**
@@ -322,6 +324,7 @@ const Meshtastic = (function() {
         const statsSection = document.getElementById('meshStatsSection');
         const filterSection = document.getElementById('meshFilterSection');
         const composeBox = document.getElementById('meshCompose');
+        const storeForwardBtn = document.getElementById('meshStoreForwardBtn');
 
         // Strip controls
         const stripConnectBtn = document.getElementById('meshStripConnectBtn');
@@ -340,6 +343,7 @@ const Meshtastic = (function() {
             if (statsSection) statsSection.style.display = 'block';
             if (filterSection) filterSection.style.display = 'block';
             if (composeBox) composeBox.style.display = 'block';
+            if (storeForwardBtn) storeForwardBtn.style.display = 'inline-flex';
 
             // Update strip
             if (stripConnectBtn) stripConnectBtn.style.display = 'none';
@@ -357,6 +361,7 @@ const Meshtastic = (function() {
             if (statsSection) statsSection.style.display = 'none';
             if (filterSection) filterSection.style.display = 'none';
             if (composeBox) composeBox.style.display = 'none';
+            if (storeForwardBtn) storeForwardBtn.style.display = 'none';
 
             // Reset strip
             if (stripConnectBtn) stripConnectBtn.style.display = 'inline-block';
@@ -636,7 +641,7 @@ const Meshtastic = (function() {
     /**
      * Load message history
      */
-    async function loadMessages(limit) {
+    async function loadMessages(limit, keepEmptyHint) {
         try {
             let url = '/meshtastic/messages';
             const params = new URLSearchParams();
@@ -648,6 +653,8 @@ const Meshtastic = (function() {
             const data = await response.json();
 
             if (data.status === 'ok') {
+                // Nothing stored yet: keep the "connect a device" hint
+                if (keepEmptyHint && !data.messages.length) return;
                 messages = data.messages;
                 data.messages.forEach(msg => {
                     if (msg.from) uniqueNodes.add(msg.from);
@@ -2338,7 +2345,7 @@ const Meshtastic = (function() {
                 modal.querySelector('.signal-details-modal-body').innerHTML = `
                     <div class="mesh-sf-info">
                         <p style="color: var(--accent-green); margin-bottom: 12px;">
-                            ✓ Store & Forward router found
+                            Store & Forward router found
                         </p>
                         <p style="color: var(--text-secondary); font-size: 12px;">
                             Router: ${escapeHtml(data.router_name || data.router_id || 'Unknown')}
@@ -2401,7 +2408,7 @@ const Meshtastic = (function() {
         } catch (err) {
             console.error('S&F request error:', err);
             reportActionableError('Request Store & Forward History', err, {
-                onRetry: () => requestStoreForwardHistory()
+                onRetry: () => requestStoreForward()
             });
         }
     }

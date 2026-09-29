@@ -648,6 +648,38 @@ def init_db() -> None:
             ON dsc_alerts(source_mmsi, received_at)
         """)
 
+        # Meshtastic messages received from the mesh, kept so history survives
+        # reconnects and restarts (the device itself does not hand history back)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS meshtastic_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                packet_id INTEGER,
+                received_at REAL NOT NULL,
+                from_id TEXT,
+                from_name TEXT,
+                to_id TEXT,
+                to_name TEXT,
+                message TEXT,
+                portnum TEXT,
+                channel INTEGER,
+                rssi INTEGER,
+                snr REAL,
+                hop_limit INTEGER
+            )
+        """)
+
+        # A packet heard again (mesh rebroadcast, Store & Forward replay) is stored once
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_meshtastic_messages_packet
+            ON meshtastic_messages(from_id, packet_id)
+            WHERE packet_id IS NOT NULL
+        """)
+
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_meshtastic_messages_time
+            ON meshtastic_messages(received_at)
+        """)
+
         # =====================================================================
         # Remote Agent Tables (for distributed/controller mode)
         # =====================================================================
@@ -2404,6 +2436,96 @@ def cleanup_old_dsc_alerts(max_age_days: int = 30) -> int:
               AND received_at < datetime('now', ?)
         """,
             (f"-{max_age_days} days",),
+        )
+        return cursor.rowcount
+
+
+# =============================================================================
+# Meshtastic Message History
+# =============================================================================
+
+_MESHTASTIC_MESSAGE_FIELDS = (
+    "packet_id",
+    "received_at",
+    "from_id",
+    "from_name",
+    "to_id",
+    "to_name",
+    "message",
+    "portnum",
+    "channel",
+    "rssi",
+    "snr",
+    "hop_limit",
+)
+
+
+def store_meshtastic_message(msg: dict) -> bool:
+    """Store a received message (the dict from MeshtasticMessage.to_dict()).
+
+    Returns False when the same packet from the same node is already stored.
+    """
+    values = (
+        msg.get("packet_id"),
+        msg.get("timestamp"),
+        msg.get("from"),
+        msg.get("from_name"),
+        msg.get("to"),
+        msg.get("to_name"),
+        msg.get("message"),
+        msg.get("portnum"),
+        msg.get("channel"),
+        msg.get("rssi"),
+        msg.get("snr"),
+        msg.get("hop_limit"),
+    )
+    with get_db() as conn:
+        cursor = conn.execute(
+            f"INSERT OR IGNORE INTO meshtastic_messages ({', '.join(_MESHTASTIC_MESSAGE_FIELDS)}) "
+            f"VALUES ({', '.join('?' * len(_MESHTASTIC_MESSAGE_FIELDS))})",
+            values,
+        )
+        return cursor.rowcount == 1
+
+
+def get_meshtastic_messages(limit: int = 500, channel: int | None = None) -> list[dict]:
+    """Most recent stored messages, oldest first, shaped like MeshtasticMessage.to_dict()."""
+    query = f"SELECT {', '.join(_MESHTASTIC_MESSAGE_FIELDS)} FROM meshtastic_messages"
+    params: list = []
+    if channel is not None:
+        query += " WHERE channel = ?"
+        params.append(channel)
+    query += " ORDER BY received_at DESC, id DESC LIMIT ?"
+    params.append(limit)
+    with get_db() as conn:
+        rows = conn.execute(query, params).fetchall()
+    return [
+        {
+            "type": "meshtastic",
+            "packet_id": row["packet_id"],
+            "from": row["from_id"],
+            "from_name": row["from_name"],
+            "to": row["to_id"],
+            "to_name": row["to_name"],
+            "message": row["message"],
+            "text": row["message"],
+            "portnum": row["portnum"],
+            "channel": row["channel"],
+            "rssi": row["rssi"],
+            "snr": row["snr"],
+            "hop_limit": row["hop_limit"],
+            "timestamp": row["received_at"],
+        }
+        for row in reversed(rows)
+    ]
+
+
+def cleanup_old_meshtastic_messages(max_age_days: int = 90) -> int:
+    """Delete stored Meshtastic messages older than max_age_days."""
+    with get_db() as conn:
+        cursor = conn.execute(
+            "DELETE FROM meshtastic_messages WHERE received_at < strftime('%s', 'now') - ?",
+            (max_age_days * 86400,),
         )
         return cursor.rowcount
 
