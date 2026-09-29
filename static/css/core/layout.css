@@ -1570,7 +1570,7 @@ div.ui-loading::before {
     white-space: nowrap;
 }
 
-@media (max-width: 1420px) {
+@media (max-width: 1620px) {
     .nav-tools .nav-more-btn,
     .nav-tools .nav-killall-btn {
         width: 28px;
@@ -1590,9 +1590,17 @@ div.ui-loading::before {
     }
 }
 
-/* Between the 1024px single-row nav and ~1300px the six group labels push the
-   tool buttons off the right edge; show the group icons only */
-@media (max-width: 1300px) {
+/* Between the 1024px single-row nav and ~1400px the seven group labels push
+   the tool buttons off the right edge; show the group icons only, with
+   tighter padding so the row still fits at 1024px */
+@media (max-width: 1400px) {
+    /* Scoped to .mode-nav so it outranks the same rule in index.css (loaded later) */
+    .mode-nav .mode-nav-dropdown-btn,
+    .mode-nav .mode-nav-dropdown.has-active .mode-nav-dropdown-btn {
+        padding: 8px;
+        gap: 4px;
+    }
+
     .mode-nav-dropdown-btn .nav-label {
         position: absolute;
         width: 1px;

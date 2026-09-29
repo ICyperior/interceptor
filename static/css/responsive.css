@@ -375,10 +375,11 @@
 
 /* Narrow desktop windows (or high display scaling): the phone layout's
    swipe-to-scroll strip hides its scrollbar and a mouse wheel scrolls
-   vertically, leaving most modes and the tool buttons unreachable. With a
-   mouse or trackpad, wrap it instead; groups wrap too and align left so
-   nothing can overflow either edge. */
-@media (max-width: 767px) and (hover: hover) and (pointer: fine) {
+   vertically, leaving most modes and the tool buttons unreachable. When
+   any mouse or trackpad is present, wrap it instead (any-pointer: a
+   touchscreen laptop can report touch as its primary pointer); groups wrap
+   too and align left so nothing can overflow either edge. */
+@media (max-width: 767px) and (any-pointer: fine) {
     .mobile-nav-bar {
         flex-wrap: wrap;
         overflow-x: visible;

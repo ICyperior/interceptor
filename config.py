@@ -7,10 +7,18 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.73"
+VERSION = "2.33.74"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.74",
+        "date": "September 2026",
+        "highlights": [
+            "New LoRa menu: Meshtastic and Meshcore now have their own group in the nav and on this screen.",
+            "Nav bar fixed in narrow windows on touchscreen laptops and scaled displays, and fits at every desktop width with the extra menu.",
+        ],
+    },
     {
         "version": "2.33.73",
         "date": "September 2026",

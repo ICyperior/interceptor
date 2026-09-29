@@ -2,6 +2,17 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.74] - 2026-09-29
+
+### Changed
+
+- **LoRa menu.** Meshtastic and Meshcore move out of Wireless into their own LoRa group, in the desktop nav, the mobile nav and the welcome screen's mode catalog.
+
+### Fixed
+
+- **Nav bar still unusable in narrow windows on some desktops.** The 2.33.73 fix only applied when the browser reported a mouse as its *primary* pointer (`pointer: fine`); touchscreen laptops and some Linux setups report touch, so they still got the unscrollable swipe strip. It now applies whenever any mouse or trackpad is present (`any-pointer: fine`).
+- **Desktop nav fits at every width with seven groups.** The extra group pushed tool buttons off-screen again at 1024 px, 1301–1400 px and 1421–1600 px. Group labels now show from 1400 px (icon-only below, with tighter padding so the row fits at 1024 px), and the More/Kill All/dashboard labels from 1620 px. The icon-only padding rule is scoped under `.mode-nav` so the duplicate rule in `index.css` no longer overrides it.
+
 ## [2.33.73] - 2026-09-29
 
 ### Added
