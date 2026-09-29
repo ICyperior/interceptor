@@ -383,9 +383,11 @@ class SSTVDecoder:
                         # these are the start of the image and must be fed into
                         # the image decoder before the next chunk arrives.
                         remaining = vis_detector.remaining_buffer.copy()
+                        freq_offset = vis_detector.freq_offset
                         vis_detector.reset()
                         logger.info(
                             f"VIS detected: code={vis_code}, mode={mode_name}, "
+                            f"tuning offset {freq_offset:+.0f} Hz, "
                             f"{len(remaining)} image-start samples retained"
                         )
 
@@ -396,6 +398,7 @@ class SSTVDecoder:
                             image_decoder = SSTVImageDecoder(
                                 mode_spec,
                                 sample_rate=SAMPLE_RATE,
+                                freq_offset=freq_offset,
                             )
                             if len(remaining) > 0:
                                 image_decoder.feed(remaining)
@@ -817,8 +820,12 @@ class SSTVDecoder:
                     if result is not None:
                         vis_code, mode_name = result
                         remaining = vis_detector.remaining_buffer.copy()
+                        freq_offset = vis_detector.freq_offset
                         vis_detector.reset()
-                        logger.info(f"VIS detected in file: code={vis_code}, mode={mode_name}")
+                        logger.info(
+                            f"VIS detected in file: code={vis_code}, mode={mode_name}, "
+                            f"tuning offset {freq_offset:+.0f} Hz"
+                        )
 
                         mode_spec = get_mode(vis_code)
                         if mode_spec:
@@ -826,6 +833,7 @@ class SSTVDecoder:
                             image_decoder = SSTVImageDecoder(
                                 mode_spec,
                                 sample_rate=SAMPLE_RATE,
+                                freq_offset=freq_offset,
                             )
                             if len(remaining) > 0:
                                 image_decoder.feed(remaining)

@@ -63,6 +63,19 @@ const SSTVGeneral = (function() {
     }
 
     /**
+     * When a typed frequency matches a preset, use that preset's modulation
+     * (HF SSTV is sideband, VHF/UHF is FM); other frequencies keep the choice
+     */
+    function syncModulationToFrequency() {
+        const freq = parseFloat(document.getElementById('sstvGeneralFrequency')?.value);
+        const presetSelect = document.getElementById('sstvGeneralPresetFreq');
+        if (!Number.isFinite(freq) || !presetSelect) return;
+        const match = Array.from(presetSelect.options).find(o => o.value && parseFloat(o.value.split('|')[0]) === freq);
+        presetSelect.value = match ? match.value : '';
+        if (match) selectPreset(match.value);
+    }
+
+    /**
      * Check current decoder status
      */
     async function checkStatus() {
@@ -893,6 +906,7 @@ const SSTVGeneral = (function() {
         deleteAllImages,
         downloadImage,
         selectPreset,
+        syncModulationToFrequency,
         destroy
     };
 })();
