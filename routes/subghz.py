@@ -299,6 +299,15 @@ def start_sweep():
     bin_width = _validate_int(data, "bin_width", 100000, 10000, 5000000)
     device_serial = _validate_serial(data)
 
+    # A TSCM RF sweep drives the same SDR; refuse rather than colliding on it.
+    try:
+        import routes.tscm as tscm
+
+        if tscm.is_rf_scan_active():
+            return api_error("HackRF is in use by a TSCM RF sweep. Stop it first.", 409)
+    except Exception:
+        pass
+
     manager = get_subghz_manager()
     manager.set_callback(_event_callback)
 
