@@ -1590,6 +1590,19 @@ div.ui-loading::before {
     }
 }
 
+/* Between the 1024px single-row nav and ~1300px the six group labels push the
+   tool buttons off the right edge; show the group icons only */
+@media (max-width: 1300px) {
+    .mode-nav-dropdown-btn .nav-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+}
+
 /* Checkboxes, radios and sliders in the accent colour, not the browser's
    default blue (core/base.css does this, but the main page does not load it);
    a page's own accent-color still wins */

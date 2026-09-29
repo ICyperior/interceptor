@@ -157,7 +157,8 @@ const AppFeedback = (function() {
                 return;
             }
 
-            const message = extractMessage(event && event.error) || String(event.message || 'Unknown error');
+            // Browser warnings such as the ResizeObserver loop notice carry no error object
+            const message = event && event.error ? extractMessage(event.error) : String((event && event.message) || 'Unknown error');
             if (shouldIgnore(message)) return;
             toast({
                 type: 'warning',
@@ -200,7 +201,8 @@ const AppFeedback = (function() {
 
     function shouldIgnore(message) {
         const text = String(message || '').toLowerCase();
-        return text.includes('script error') || text.includes('resizeobserver loop limit exceeded');
+        // "loop limit exceeded" (older Chrome) and "loop completed with undelivered notifications" are both benign
+        return text.includes('script error') || text.includes('resizeobserver loop');
     }
 
     function renderCollectionState(container, options) {
