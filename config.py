@@ -7,10 +7,18 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.74"
+VERSION = "2.33.75"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.75",
+        "date": "September 2026",
+        "highlights": [
+            "An RTL-SDR is the default device again when a HackRF is also plugged in, and the nav icons show on the dashboards.",
+            "Meteor Scatter and Waterfall work with a HackRF even without SoapySDR installed, and Meteor Scatter now says why if it can't start.",
+        ],
+    },
     {
         "version": "2.33.74",
         "date": "September 2026",

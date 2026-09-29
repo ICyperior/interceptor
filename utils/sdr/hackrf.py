@@ -232,6 +232,41 @@ class HackRFCommandBuilder(CommandBuilder):
 
         return cmd
 
+    def build_hackrf_transfer_iq_command(
+        self,
+        device: SDRDevice,
+        frequency_mhz: float,
+        sample_rate: int = 2000000,
+        gain: float | None = None,
+        bias_t: bool = False,
+    ) -> list[str]:
+        """
+        Build hackrf_transfer command for raw I/Q capture, for installs without
+        SoapySDR's rx_sdr.
+
+        Unlike build_iq_capture_command, the output is SIGNED 8-bit I/Q (CS8),
+        and hackrf_transfer writes a status line to stderr every second, so the
+        caller must decode accordingly and keep stderr drained.
+        """
+        cmd = [
+            get_tool_path("hackrf_transfer") or "hackrf_transfer",
+            "-r",
+            "-",
+            "-f",
+            str(int(frequency_mhz * 1e6)),
+            "-s",
+            str(sample_rate),
+        ]
+        if device.serial and device.serial != "N/A":
+            cmd.extend(["-d", device.serial])
+        if gain is not None and gain > 0:
+            lna, vga = self._split_gain(gain)
+            # hackrf_transfer takes LNA in 8 dB and VGA in 2 dB steps
+            cmd.extend(["-l", str(lna - lna % 8), "-g", str(vga - vga % 2)])
+        if bias_t:
+            cmd.extend(["-p", "1"])
+        return cmd
+
     def get_capabilities(self) -> SDRCapabilities:
         """Return HackRF capabilities."""
         return self.CAPABILITIES

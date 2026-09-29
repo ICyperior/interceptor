@@ -296,3 +296,41 @@ def test_detect_hackrf_parses_legacy_serial_format(mock_run, _mock_tool_path):
     assert len(devices) == 1
     assert devices[0].name == "HackRF Pro"
     assert devices[0].serial == "0000000000000000a06063c8234e925f"
+
+
+# ---- Device ordering ----
+
+
+def _device(sdr_type, index):
+    from utils.sdr.base import SDRDevice
+
+    return SDRDevice(
+        sdr_type=sdr_type,
+        index=index,
+        name=f"{sdr_type.value}-{index}",
+        serial=str(index),
+        driver=sdr_type.value,
+        capabilities=MagicMock(),
+    )
+
+
+def test_rtl_sdr_devices_are_listed_first():
+    """Pages default to the first device's type; a HackRF must not become the default."""
+    rtl = [_device(SDRType.RTL_SDR, 1), _device(SDRType.RTL_SDR, 0)]
+    with (
+        # detect_all_devices caches its result; keep these fakes out of the real cache
+        patch.object(detection_mod, "_all_devices_cache", []),
+        patch.object(detection_mod, "_all_devices_cache_ts", 0.0),
+        patch.object(detection_mod, "_is_sdr_in_use", return_value=False),
+        patch.object(detection_mod, "detect_rtlsdr_devices", return_value=rtl),
+        patch.object(detection_mod, "detect_hackrf_devices", return_value=[_device(SDRType.HACKRF, 0)]),
+        patch.object(detection_mod, "detect_soapy_devices", return_value=[_device(SDRType.AIRSPY, 0)]),
+    ):
+        devices = detection_mod.detect_all_devices(force=True)
+
+    assert [(d.sdr_type, d.index) for d in devices] == [
+        (SDRType.RTL_SDR, 0),
+        (SDRType.RTL_SDR, 1),
+        (SDRType.AIRSPY, 0),
+        (SDRType.HACKRF, 0),
+    ]

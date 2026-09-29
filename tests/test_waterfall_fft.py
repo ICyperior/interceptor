@@ -166,3 +166,17 @@ class TestBuildBinaryFrame:
         assert parsed_end == pytest.approx(end, abs=0.01)
         assert parsed_count == 2048
         assert parsed_bins == bins
+
+
+class TestCs8ToComplex:
+    """hackrf_transfer outputs signed 8-bit I/Q."""
+
+    def test_signed_bytes_are_centred_on_zero(self):
+        from utils.waterfall_fft import cs8_to_complex
+
+        result = cs8_to_complex(bytes([0, 0, 127, 0x81, 0x80, 64]))
+        assert result[0] == pytest.approx(0 + 0j)
+        assert result[1].real == pytest.approx(127 / 128)
+        assert result[1].imag == pytest.approx(-127 / 128)
+        assert result[2].real == pytest.approx(-1.0)
+        assert result[2].imag == pytest.approx(0.5)
