@@ -646,9 +646,14 @@
     position: relative;
 }
 
+/* Out of flow so the canvas's own size can't resize the wrapper, which would
+   re-trigger the wrapper's ResizeObserver in a loop */
 .subghz-sweep-chart-wrapper canvas {
-    width: 100%;
-    height: 100%;
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: calc(100% - 24px);
+    height: calc(100% - 24px);
 }
 
 /* TX confirmation modal */

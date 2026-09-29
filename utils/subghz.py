@@ -40,6 +40,9 @@ from utils.process import register_process, safe_terminate, unregister_process
 
 logger = get_logger("intercept.subghz")
 
+# How often merged hackrf_sweep output is sent to the frequency analyzer
+SWEEP_EMIT_INTERVAL_S = 0.125
+
 
 def _tool_missing(tool: str) -> dict:
     """A start result for a missing executable, named, with install advice."""
@@ -2477,6 +2480,8 @@ class SubGhzManager:
         process = self._sweep_process
         if not process or not process.stdout:
             return
+        pending: dict[float, float] = {}
+        last_emit = time.monotonic()
         try:
             for line in iter(process.stdout.readline, b""):
                 if not self._sweep_running:
@@ -2495,27 +2500,27 @@ class SubGhzManager:
                     if not powers or hz_bin_width <= 0:
                         continue
 
-                    points = []
                     for i, power in enumerate(powers):
-                        freq_hz = hz_low + i * hz_bin_width
-                        points.append(
-                            {
-                                "freq": round(freq_hz / 1_000_000, 4),
-                                "power": round(power, 1),
-                            }
-                        )
-
-                    self._emit(
-                        {
-                            "type": "sweep",
-                            "points": points,
-                        }
-                    )
+                        pending[round((hz_low + i * hz_bin_width) / 1_000_000, 4)] = round(power, 1)
                 except Exception as exc:
                     logger.debug(f"Skipping malformed sweep line: {exc}")
                     continue
+
+                # hackrf_sweep writes ~1,000 lines/s; one event per line floods
+                # the event pipeline and the browser, so send merged batches
+                now = time.monotonic()
+                if now - last_emit >= SWEEP_EMIT_INTERVAL_S:
+                    self._emit_sweep_points(pending)
+                    pending = {}
+                    last_emit = now
+            self._emit_sweep_points(pending)
         except Exception as e:
             logger.error(f"Error reading sweep output: {e}")
+
+    def _emit_sweep_points(self, pending: dict[float, float]) -> None:
+        if pending:
+            points = [{"freq": freq, "power": pending[freq]} for freq in sorted(pending)]
+            self._emit({"type": "sweep", "points": points})
 
     def stop_sweep(self) -> dict:
         proc_to_terminate: subprocess.Popen | None = None

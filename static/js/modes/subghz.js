@@ -11,6 +11,10 @@ const SubGhz = (function() {
     let sweepCanvas = null;
     let sweepCtx = null;
     let sweepData = [];
+    let sweepIndex = new Map();  // freq -> sweepData entry
+    let sweepDrawPending = false;
+    let sweepCssWidth = 0;       // canvas size in CSS pixels (backing store is scaled by devicePixelRatio)
+    let sweepCssHeight = 0;
     let pendingTxCaptureId = null;
     let pendingTxCaptureMeta = null;
     let pendingTxBursts = [];
@@ -64,6 +68,8 @@ const SubGhz = (function() {
     const SWEEP_PAD = { top: 20, right: 20, bottom: 30, left: 50 };
     const SWEEP_POWER_MIN = -100;
     const SWEEP_POWER_MAX = 0;
+    const SWEEP_SMOOTH_RISE = 0.7;
+    const SWEEP_SMOOTH_FALL = 0.25;
 
     let sweepHoverFreq = null;
     let sweepHoverPower = null;
@@ -260,8 +266,8 @@ const SubGhz = (function() {
 
     function sweepPixelToFreqPower(canvasX, canvasY) {
         if (!sweepCanvas || sweepData.length < 2) return { freq: 0, power: 0, inChart: false };
-        const w = sweepCanvas.width;
-        const h = sweepCanvas.height;
+        const w = sweepCssWidth;
+        const h = sweepCssHeight;
         const chartW = w - SWEEP_PAD.left - SWEEP_PAD.right;
         const chartH = h - SWEEP_PAD.top - SWEEP_PAD.bottom;
         const inChart = canvasX >= SWEEP_PAD.left && canvasX <= w - SWEEP_PAD.right &&
@@ -277,7 +283,7 @@ const SubGhz = (function() {
 
     function sweepFreqToPixelX(freqMhz) {
         if (!sweepCanvas || sweepData.length < 2) return 0;
-        const chartW = sweepCanvas.width - SWEEP_PAD.left - SWEEP_PAD.right;
+        const chartW = sweepCssWidth - SWEEP_PAD.left - SWEEP_PAD.right;
         const freqMin = sweepData[0].freq;
         const freqMax = sweepData[sweepData.length - 1].freq;
         const ratio = (freqMhz - freqMin) / (freqMax - freqMin);
@@ -1610,6 +1616,7 @@ const SubGhz = (function() {
         const serial = (document.getElementById('subghzDeviceSerial')?.value || '').trim();
 
         sweepData = [];
+        sweepIndex = new Map();
         showPanel('sweep');
         initSweepCanvas();
 
@@ -1670,23 +1677,39 @@ const SubGhz = (function() {
     function resizeSweepCanvas() {
         if (!sweepCanvas || !sweepCanvas.parentElement) return;
         const rect = sweepCanvas.parentElement.getBoundingClientRect();
-        sweepCanvas.width = rect.width - 24;
-        sweepCanvas.height = rect.height - 24;
+        const dpr = window.devicePixelRatio || 1;
+        sweepCssWidth = Math.max(0, rect.width - 24);
+        sweepCssHeight = Math.max(0, rect.height - 24);
+        sweepCanvas.width = Math.round(sweepCssWidth * dpr);
+        sweepCanvas.height = Math.round(sweepCssHeight * dpr);
+        // Resizing resets the context; draw in CSS pixels at full display resolution
+        if (sweepCtx) sweepCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     function updateSweepChart(points) {
+        let added = false;
         for (const pt of points) {
-            const idx = sweepData.findIndex(d => Math.abs(d.freq - pt.freq) < 0.01);
-            if (idx >= 0) {
-                sweepData[idx].power = pt.power;
+            const existing = sweepIndex.get(pt.freq);
+            if (existing) {
+                // Smooth across sweeps: rise fast so short bursts still show, fall slowly
+                const k = pt.power > existing.power ? SWEEP_SMOOTH_RISE : SWEEP_SMOOTH_FALL;
+                existing.power += (pt.power - existing.power) * k;
             } else {
                 sweepData.push(pt);
+                sweepIndex.set(pt.freq, pt);
+                added = true;
             }
         }
-        sweepData.sort((a, b) => a.freq - b.freq);
+        if (added) sweepData.sort((a, b) => a.freq - b.freq);
 
-        detectPeaks();
-        drawSweepChart();
+        // Redraw at most once per frame however fast updates arrive
+        if (sweepDrawPending) return;
+        sweepDrawPending = true;
+        requestAnimationFrame(() => {
+            sweepDrawPending = false;
+            detectPeaks();
+            drawSweepChart();
+        });
     }
 
     function detectPeaks() {
@@ -1731,8 +1754,8 @@ const SubGhz = (function() {
         if (!sweepCtx || !sweepCanvas || sweepData.length < 2) return;
 
         const ctx = sweepCtx;
-        const w = sweepCanvas.width;
-        const h = sweepCanvas.height;
+        const w = sweepCssWidth;
+        const h = sweepCssHeight;
         const pad = SWEEP_PAD;
 
         ctx.clearRect(0, 0, w, h);
@@ -1777,25 +1800,48 @@ const SubGhz = (function() {
             ctx.fillText(f + '', x - 10, h - 8);
         }
 
-        // Spectrum line
+        // Spectrum line: thousands of bins share a few hundred pixels, so draw the
+        // strongest bin in each pixel column instead of a zig-zag through all of them
+        const cols = Math.max(1, Math.floor(chartW));
+        const colMax = new Float32Array(cols).fill(NaN);
+        for (const d of sweepData) {
+            const c = Math.min(cols - 1, Math.floor(((d.freq - freqMin) / (freqMax - freqMin)) * cols));
+            if (!(colMax[c] >= d.power)) colMax[c] = d.power;
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(pad.left, pad.top, chartW, chartH);
+        ctx.clip();
+
         ctx.beginPath();
         ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim() || '#00d4ff';
         ctx.lineWidth = 1.5;
-
-        for (let i = 0; i < sweepData.length; i++) {
-            const x = freqToX(sweepData[i].freq);
-            const y = powerToY(sweepData[i].power);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
+        let firstX = null;
+        let lastX = null;
+        for (let c = 0; c < cols; c++) {
+            if (Number.isNaN(colMax[c])) continue;
+            const x = pad.left + c + 0.5;
+            const y = powerToY(colMax[c]);
+            if (firstX === null) {
+                ctx.moveTo(x, y);
+                firstX = x;
+            } else {
+                ctx.lineTo(x, y);
+            }
+            lastX = x;
         }
         ctx.stroke();
 
         // Fill under curve
-        ctx.lineTo(freqToX(freqMax), powerToY(powerMin));
-        ctx.lineTo(freqToX(freqMin), powerToY(powerMin));
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(0, 212, 255, 0.05)';
-        ctx.fill();
+        if (firstX !== null) {
+            ctx.lineTo(lastX, powerToY(powerMin));
+            ctx.lineTo(firstX, powerToY(powerMin));
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(0, 212, 255, 0.05)';
+            ctx.fill();
+        }
+        ctx.restore();
 
         // Peak hold dashes
         const now = Date.now();
@@ -1903,8 +1949,8 @@ const SubGhz = (function() {
 
         function mouseToCanvas(e) {
             const rect = sweepCanvas.getBoundingClientRect();
-            const scaleX = sweepCanvas.width / rect.width;
-            const scaleY = sweepCanvas.height / rect.height;
+            const scaleX = sweepCssWidth / rect.width;
+            const scaleY = sweepCssHeight / rect.height;
             return {
                 x: (e.clientX - rect.left) * scaleX,
                 y: (e.clientY - rect.top) * scaleY,

@@ -2,6 +2,15 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.69] - 2026-09-29
+
+### Fixed
+
+- **SubGHz Frequency Analyzer no longer hangs the page.** `hackrf_sweep` writes about 1,250 lines a second over the default 300–928 MHz range, and each line was sent to the browser as its own event and redrawn in full, freezing the page for seconds at a time. The server now merges sweep output into about eight updates a second, and the chart merges points through a frequency index and redraws at most once per frame. Measured on a Pi with a HackRF One: 226 → 7 events/s, 2.5 → 23 frames/s.
+- **SubGHz Frequency Analyzer is sharp and readable.** The chart now renders at the display's pixel density (it was blurry on scaled screens), draws the strongest bin per pixel column instead of a zig-zag through ~6,300 bins, smooths the trace across sweeps (fast rise, slow fall, so short bursts still show), and keeps the trace inside the axes.
+- **No more "Unhandled Error: Unknown error" pop-ups.** Resizing the window with the SubGHz Frequency Analyzer open set off a harmless browser "ResizeObserver loop" warning, and the global error handler showed each one as "Unknown error": it ignored only Chrome's old wording of that warning, and ignored the browser's message whenever no error object came with it. The handler now filters both wordings and falls back to the browser's message, and the chart canvas no longer resizes its own container, which ended the loop.
+- **Nav bar no longer loses its tool buttons between 1024 and 1300 px wide.** Settings, help, alerts, "more" and stop-all were pushed off the right edge; in that range the six group buttons now show their icon only.
+
 ## [2.33.68] - 2026-09-29
 
 ### Fixed
