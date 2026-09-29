@@ -1541,6 +1541,7 @@ def _init_app() -> None:
         try:
             from utils.database import (
                 cleanup_old_dsc_alerts,
+                cleanup_old_meshtastic_messages,
                 cleanup_old_payloads,
                 cleanup_old_signal_history,
                 cleanup_old_timeline_entries,
@@ -1549,6 +1550,7 @@ def _init_app() -> None:
             cleanup_manager.register_db_cleanup(cleanup_old_signal_history, interval_multiplier=1440)
             cleanup_manager.register_db_cleanup(cleanup_old_timeline_entries, interval_multiplier=1440)
             cleanup_manager.register_db_cleanup(cleanup_old_dsc_alerts, interval_multiplier=1440)
+            cleanup_manager.register_db_cleanup(cleanup_old_meshtastic_messages, interval_multiplier=1440)
             cleanup_manager.register_db_cleanup(cleanup_old_payloads, interval_multiplier=1440)
             # Observations are the busiest table: every 10 minutes, not daily.
             from utils.observations import cleanup_old_observations

@@ -64,6 +64,7 @@ class MeshtasticMessage:
     def to_dict(self) -> dict:
         return {
             "type": "meshtastic",
+            "packet_id": self.raw_packet.get("id"),
             "from": self.from_id,
             "from_name": self.from_name,
             "to": self.to_id,

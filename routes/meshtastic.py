@@ -15,6 +15,7 @@ import queue
 from flask import Blueprint, Response, jsonify, render_template, request
 
 from config import DEFAULT_LATITUDE, DEFAULT_LONGITUDE, SHARED_OBSERVER_LOCATION_ENABLED
+from utils.database import get_meshtastic_messages, store_meshtastic_message
 from utils.logging import get_logger
 from utils.meshtastic import (
     MeshtasticMessage,
@@ -41,6 +42,14 @@ MAX_HISTORY = 500
 def _message_callback(msg: MeshtasticMessage) -> None:
     """Callback to queue messages for SSE stream."""
     msg_dict = msg.to_dict()
+
+    # Persist, so history survives reconnects and restarts. A packet already
+    # stored (mesh rebroadcast, Store & Forward replay) is not shown twice.
+    try:
+        if not store_meshtastic_message(msg_dict):
+            return
+    except Exception as e:
+        logger.warning(f"Could not store Meshtastic message: {e}")
 
     # Add to history
     _recent_messages.append(msg_dict)
@@ -376,29 +385,30 @@ def send_message():
 @meshtastic_bp.route("/messages")
 def get_messages():
     """
-    Get recent message history.
+    Get message history.
 
-    Returns the most recent messages received since the listener was started.
-    Limited to the last 500 messages.
+    Returns the most recent stored messages, including those received in
+    earlier sessions. Limited to the last 500 messages.
 
     Query parameters:
-        limit: Maximum number of messages to return (default: all)
+        limit: Maximum number of messages to return (default: 500)
         channel: Filter by channel index (optional)
 
     Returns:
-        JSON with message list.
+        JSON with message list, oldest first.
     """
     limit = request.args.get("limit", type=int)
     channel = request.args.get("channel", type=int)
+    limit = min(limit, MAX_HISTORY) if limit and limit > 0 else MAX_HISTORY
 
-    messages = _recent_messages.copy()
-
-    # Filter by channel if specified
-    if channel is not None:
-        messages = [m for m in messages if m.get("channel") == channel]
-
-    # Apply limit
-    if limit and limit > 0:
+    try:
+        messages = get_meshtastic_messages(limit=limit, channel=channel)
+    except Exception as e:
+        # Database unavailable: fall back to what this session has received
+        logger.warning(f"Could not read stored Meshtastic messages: {e}")
+        messages = _recent_messages.copy()
+        if channel is not None:
+            messages = [m for m in messages if m.get("channel") == channel]
         messages = messages[-limit:]
 
     return jsonify({"status": "ok", "messages": messages, "count": len(messages)})
