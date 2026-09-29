@@ -1027,6 +1027,21 @@
     justify-content: center;
 }
 
+/* Mode icons in the group buttons and their dropdown menus. The generic .icon
+   size lives in core/components.css, which only the main page loads, so on
+   the dashboards these rendered at 0x0 (just a caret once labels hide). */
+.mode-nav .nav-icon {
+    display: inline-flex;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.mode-nav .nav-icon svg {
+    width: 100%;
+    height: 100%;
+}
+
 .nav-tool-btn .icon svg {
     width: 14px;
     height: 14px;

@@ -84,3 +84,34 @@ class TestBuildIQCaptureCommand:
         cmd = builder.build_iq_capture_command(_make_device(), frequency_mhz=100.0, gain=80)
         gain_idx = cmd.index("-g")
         assert cmd[gain_idx + 1] == "LNA=40,VGA=40"
+
+
+class TestBuildHackRFTransferIQCommand:
+    """Fallback I/Q capture when SoapySDR's rx_sdr is not installed."""
+
+    def test_streams_to_stdout_with_frequency_and_rate(self):
+        cmd = HackRFCommandBuilder().build_hackrf_transfer_iq_command(
+            _make_device(), frequency_mhz=143.05, sample_rate=2000000
+        )
+        assert cmd[0].endswith("hackrf_transfer")
+        assert cmd[cmd.index("-r") + 1] == "-"
+        assert cmd[cmd.index("-f") + 1] == "143050000"
+        assert cmd[cmd.index("-s") + 1] == "2000000"
+        assert cmd[cmd.index("-d") + 1] == "abc123"
+
+    def test_gain_rounded_to_hardware_steps(self):
+        # 70 dB -> LNA 40 (8 dB steps) + VGA 30 (2 dB steps)
+        cmd = HackRFCommandBuilder().build_hackrf_transfer_iq_command(_make_device(), frequency_mhz=100.0, gain=70)
+        assert cmd[cmd.index("-l") + 1] == "40"
+        assert cmd[cmd.index("-g") + 1] == "30"
+        cmd = HackRFCommandBuilder().build_hackrf_transfer_iq_command(_make_device(), frequency_mhz=100.0, gain=21)
+        assert cmd[cmd.index("-l") + 1] == "16"
+        assert cmd[cmd.index("-g") + 1] == "0"
+
+    def test_auto_gain_and_unknown_serial_add_no_flags(self):
+        cmd = HackRFCommandBuilder().build_hackrf_transfer_iq_command(_make_device("N/A"), frequency_mhz=100.0)
+        assert "-l" not in cmd and "-g" not in cmd and "-d" not in cmd
+
+    def test_bias_tee(self):
+        cmd = HackRFCommandBuilder().build_hackrf_transfer_iq_command(_make_device(), frequency_mhz=100.0, bias_t=True)
+        assert cmd[cmd.index("-p") + 1] == "1"

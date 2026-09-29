@@ -284,6 +284,10 @@ const MeteorScatter = (function () {
             console.error('Meteor error:', msg.message);
             _running = false;
             _updateUI();
+            // Say why start failed instead of silently doing nothing
+            if (typeof reportActionableError === 'function') {
+                reportActionableError('Meteor Scatter', msg.message || 'Failed to start');
+            }
         } else if (msg.type === 'detection') {
             // Inline detection via WS — handled by SSE primarily
         }

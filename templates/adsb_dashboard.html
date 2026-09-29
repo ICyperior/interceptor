@@ -2134,7 +2134,10 @@ ACARS: ${r.statistics.acarsMessages} messages`;
                     const soapyTypes = (devices || [])
                         .filter((d) => ['hackrf', 'limesdr', 'airspy'].includes((d.sdr_type || '').toLowerCase()))
                         .map((d) => d.sdr_type);
-                    if (!data.readsb && soapyTypes.length > 0) {
+                    // Only worth saying when no RTL-SDR can do ADS-B instead; starting on a
+                    // SoapySDR device without readsb reports the same thing anyway
+                    const hasRtlSdr = (devices || []).some((d) => (d.sdr_type || 'rtlsdr').toLowerCase() === 'rtlsdr');
+                    if (!data.readsb && soapyTypes.length > 0 && !hasRtlSdr) {
                         showReadsbWarning(soapyTypes);
                     }
                 })

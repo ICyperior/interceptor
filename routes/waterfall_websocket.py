@@ -25,7 +25,7 @@ except ImportError:
     Sock = None
 
 from utils.logging import get_logger
-from utils.process import register_process, safe_terminate, unregister_process
+from utils.process import drain_in_background, register_process, safe_terminate, unregister_process
 from utils.sdr import SDRFactory, SDRType
 from utils.sdr.base import SDRCapabilities, SDRDevice
 from utils.sdr.device_config import apply_device_defaults
@@ -33,6 +33,7 @@ from utils.validation import validate_ppm
 from utils.waterfall_fft import (
     build_binary_frame,
     compute_power_spectrum,
+    cs8_to_complex,
     cu8_to_complex,
     quantize_to_uint8,
 )
@@ -640,6 +641,19 @@ def init_waterfall_websocket(app: Flask):
                         )
                         continue
 
+                    # Without SoapySDR (no rx_sdr), a HackRF can still stream
+                    # I/Q through hackrf_transfer, which outputs signed bytes
+                    to_complex = cu8_to_complex
+                    if sdr_type == SDRType.HACKRF and not shutil.which(iq_cmd[0]):
+                        iq_cmd = builder.build_hackrf_transfer_iq_command(
+                            device=device,
+                            frequency_mhz=center_freq_mhz,
+                            sample_rate=sample_rate,
+                            gain=gain,
+                            bias_t=bias_t,
+                        )
+                        to_complex = cs8_to_complex
+
                     # Pre-flight: check the capture binary exists
                     if not shutil.which(iq_cmd[0]):
                         app_module.release_sdr_device(device_index, sdr_type_str)
@@ -691,6 +705,8 @@ def init_waterfall_websocket(app: Flask):
                                     continue
                                 detail = f": {stderr_out}" if stderr_out else ""
                                 raise RuntimeError(f"I/Q capture process exited immediately{detail}")
+                            if iq_process.stderr:
+                                drain_in_background(iq_process.stderr)
                             break  # Process started successfully
                     except Exception as e:
                         logger.error(f"Failed to start I/Q capture: {e}")
@@ -761,6 +777,7 @@ def init_waterfall_websocket(app: Flask):
                         _center_mhz,
                         _db_min=None,
                         _db_max=None,
+                        _to_complex=cu8_to_complex,
                     ):
                         """Read I/Q from subprocess, compute FFT, enqueue binary frames."""
                         required_fft_samples = _fft_size * _avg_count
@@ -791,7 +808,7 @@ def init_waterfall_websocket(app: Flask):
                                     break
 
                                 # Process FFT pipeline
-                                samples = cu8_to_complex(raw)
+                                samples = _to_complex(raw)
                                 fft_samples = (
                                     samples[-required_fft_samples:] if len(samples) > required_fft_samples else samples
                                 )
@@ -863,6 +880,7 @@ def init_waterfall_websocket(app: Flask):
                             center_freq_mhz,
                             db_min,
                             db_max,
+                            to_complex,
                         ),
                         daemon=True,
                     )

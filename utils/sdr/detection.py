@@ -681,8 +681,10 @@ def detect_all_devices(force: bool = False) -> list[SDRDevice]:
     soapy_devices = detect_soapy_devices(skip_types=skip_in_soapy)
     devices.extend(soapy_devices)
 
-    # Sort by type name, then index
-    devices.sort(key=lambda d: (d.sdr_type.value, d.index))
+    # RTL-SDRs first, then by type name and index. Pages default to the first
+    # device's type, and alphabetically "hackrf" came before "rtlsdr", so a
+    # plugged-in HackRF became the default for every mode.
+    devices.sort(key=lambda d: (d.sdr_type != SDRType.RTL_SDR, d.sdr_type.value, d.index))
 
     logger.info(f"Detected {len(devices)} SDR device(s)")
     for d in devices:

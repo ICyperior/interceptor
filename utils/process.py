@@ -28,6 +28,21 @@ def register_process(process: subprocess.Popen) -> None:
         _spawned_processes.append(process)
 
 
+def drain_in_background(stream) -> None:
+    """Read and discard a pipe until it closes.
+
+    For tools that keep writing status to stderr (hackrf_transfer prints a
+    line a second): an unread pipe fills up and the tool blocks.
+    """
+
+    def _drain() -> None:
+        with contextlib.suppress(Exception):
+            while stream.read(4096):
+                pass
+
+    threading.Thread(target=_drain, daemon=True).start()
+
+
 def unregister_process(process: subprocess.Popen) -> None:
     """Unregister a process from cleanup list."""
     with _process_lock:

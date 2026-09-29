@@ -2,6 +2,14 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.75] - 2026-09-29
+
+### Fixed
+
+- **HackRF became the default device everywhere.** Detected SDRs were sorted alphabetically by type, and "hackrf" sorts before "rtlsdr", so with a HackRF plugged in every mode and dashboard defaulted to it (the ADS-B dashboard then warned that readsb was required). RTL-SDRs are now listed first. The ADS-B dashboard's "readsb required" warning now only appears when there is no RTL-SDR to use instead.
+- **Nav icons missing on the dashboards.** The mode icons in the nav's group buttons and dropdown menus are sized by `core/components.css`, which only the main page loads, so on the ADS-B, AIS, satellite, APRS and mesh dashboards they rendered at 0×0 — once the group labels hid below 1400 px, only the dropdown carets were left. The icons are now sized in `core/layout.css`, which every page loads.
+- **Meteor Scatter did nothing on a HackRF.** HackRF I/Q capture used SoapySDR's `rx_sdr`; on installs without it the server replied "rx_sdr not found" and the page only logged it to the console. Meteor Scatter and Waterfall now fall back to `hackrf_transfer` (signed 8-bit I/Q, with its once-a-second stderr status drained so the capture can't stall), and Meteor Scatter shows start errors instead of silently doing nothing. Verified on a HackRF One: ~19.5 waterfall frames/s at 2 MS/s.
+
 ## [2.33.74] - 2026-09-29
 
 ### Changed

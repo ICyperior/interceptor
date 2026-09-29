@@ -32,7 +32,7 @@ except ImportError:
 
 from utils.logging import get_logger
 from utils.meteor_detector import MeteorDetector
-from utils.process import register_process, safe_terminate, unregister_process
+from utils.process import drain_in_background, register_process, safe_terminate, unregister_process
 from utils.sdr import SDRFactory, SDRType
 from utils.sdr.base import SDRCapabilities, SDRDevice
 from utils.sdr.device_config import apply_device_defaults
@@ -41,6 +41,7 @@ from utils.validation import validate_device_index, validate_frequency, validate
 from utils.waterfall_fft import (
     build_binary_frame,
     compute_power_spectrum,
+    cs8_to_complex,
     cu8_to_complex,
     quantize_to_uint8,
 )
@@ -394,6 +395,19 @@ def init_meteor_websocket(app: Flask):
                         ws.send(json.dumps({"status": "error", "message": str(e)}))
                         continue
 
+                    # Without SoapySDR (no rx_sdr), a HackRF can still stream
+                    # I/Q through hackrf_transfer, which outputs signed bytes
+                    to_complex = cu8_to_complex
+                    if sdr_type == SDRType.HACKRF and not shutil.which(iq_cmd[0]):
+                        iq_cmd = builder.build_hackrf_transfer_iq_command(
+                            device=device,
+                            frequency_mhz=frequency_mhz,
+                            sample_rate=sample_rate,
+                            gain=gain,
+                            bias_t=bias_t,
+                        )
+                        to_complex = cs8_to_complex
+
                     # Check binary exists
                     if not shutil.which(iq_cmd[0]):
                         app_module.release_sdr_device(device_index, sdr_type_str)
@@ -437,6 +451,8 @@ def init_meteor_websocket(app: Flask):
                                     continue
                                 detail = f": {stderr_out}" if stderr_out else ""
                                 raise RuntimeError(f"I/Q process exited immediately{detail}")
+                            if iq_process.stderr:
+                                drain_in_background(iq_process.stderr)
                             break
                     except Exception as e:
                         logger.error(f"Failed to start meteor I/Q capture: {e}")
@@ -498,6 +514,7 @@ def init_meteor_websocket(app: Flask):
                         _start_freq,
                         _end_freq,
                         _freq_mhz,
+                        _to_complex,
                     ):
                         required_fft_samples = _fft_size * _avg_count
                         timeslice_samples = max(required_fft_samples, int(_sample_rate / max(1, _fps)))
@@ -528,7 +545,7 @@ def init_meteor_websocket(app: Flask):
                                     break
 
                                 # FFT pipeline
-                                samples = cu8_to_complex(raw)
+                                samples = _to_complex(raw)
                                 fft_samples = (
                                     samples[-required_fft_samples:] if len(samples) > required_fft_samples else samples
                                 )
@@ -599,6 +616,7 @@ def init_meteor_websocket(app: Flask):
                             start_freq,
                             end_freq,
                             frequency_mhz,
+                            to_complex,
                         ),
                         daemon=True,
                     )
