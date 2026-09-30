@@ -7,10 +7,18 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.75"
+VERSION = "2.33.76"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.76",
+        "date": "September 2026",
+        "highlights": [
+            "The in-app updater finds new versions again; it had been stuck reporting v2.33.47.",
+            "AIS works on a HackRF, and Radiosonde says clearly that it needs an RTL-SDR.",
+        ],
+    },
     {
         "version": "2.33.75",
         "date": "September 2026",
