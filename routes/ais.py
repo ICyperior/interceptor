@@ -31,6 +31,7 @@ from utils.event_pipeline import process_event
 from utils.logging import get_logger
 from utils.responses import api_error, api_success
 from utils.sdr import SDRFactory, SDRType
+from utils.sdr.detection import detect_all_devices
 from utils.sdr.device_config import apply_device_defaults
 from utils.sse import sse_stream_fanout
 from utils.validation import validate_device_index, validate_gain, validate_ppm
@@ -55,6 +56,14 @@ AIS_CATCHER_PATHS = [
     "/opt/homebrew/bin/AIS-catcher",
     "/opt/homebrew/bin/aiscatcher",
 ]
+
+
+def _detected_serial(sdr_type: SDRType, index: int) -> str:
+    """Serial of the detected device at this index, or "N/A" if it can't be read."""
+    for dev in detect_all_devices():
+        if dev.sdr_type == sdr_type and dev.index == index and dev.serial and dev.serial != "N/A":
+            return dev.serial
+    return "N/A"
 
 
 def find_ais_catcher():
@@ -400,6 +409,18 @@ def start_ais():
     except ValueError:
         sdr_type = SDRType.RTL_SDR
 
+    # AIS-catcher is pointed at a HackRF by serial; without one it would open
+    # whichever SDR it finds first, possibly an RTL-SDR in use by another mode
+    sdr_serial = "N/A"
+    if sdr_type == SDRType.HACKRF:
+        sdr_serial = _detected_serial(sdr_type, int(device))
+        if sdr_serial == "N/A":
+            return api_error(
+                "Couldn't read the HackRF's serial number, so AIS-catcher can't be pointed at it. "
+                "Check that hackrf_info lists the device, then try again.",
+                400,
+            )
+
     # Kill any existing process
     if app_module.ais_process:
         try:
@@ -422,7 +443,7 @@ def start_ais():
         return api_error(error, 409, error_type="DEVICE_BUSY")
 
     # Build command using SDR abstraction
-    sdr_device = SDRFactory.create_default_device(sdr_type, index=device)
+    sdr_device = SDRFactory.create_default_device(sdr_type, index=device, serial=sdr_serial)
     builder = SDRFactory.get_builder(sdr_type)
 
     bias_t = data.get("bias_t", False)
