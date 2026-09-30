@@ -131,6 +131,35 @@ def _fetch_github_release() -> dict[str, Any] | None:
         return None
 
 
+def _fetch_latest_tag() -> str | None:
+    """
+    Fetch the highest version tag from GitHub.
+
+    Releases are tagged without always getting a GitHub release, so
+    releases/latest alone can lag well behind the real latest version.
+
+    Returns:
+        Tag name (e.g. "v2.33.75") or None on error
+    """
+    repo = _get_github_repo()
+    url = f"https://api.github.com/repos/{repo}/tags?per_page=100"
+
+    try:
+        req = Request(url, headers={"User-Agent": "Intercept-SIGINT", "Accept": "application/vnd.github.v3+json"})
+        with urlopen(req, timeout=10) as response:
+            tags = json.loads(response.read().decode("utf-8"))
+    except Exception as e:
+        logger.warning(f"Failed to fetch GitHub tags: {e}")
+        return None
+
+    latest = None
+    for tag in tags:
+        name = tag.get("name", "") if isinstance(tag, dict) else ""
+        if re.match(r"^v?\d+\.\d+\.\d+$", name) and (latest is None or _compare_versions(latest, name) < 0):
+            latest = name
+    return latest
+
+
 def check_for_updates(force: bool = False) -> dict[str, Any]:
     """
     Check GitHub for updates.
@@ -160,7 +189,8 @@ def check_for_updates(force: bool = False) -> dict[str, Any]:
                 if time.time() - last_check_time < check_interval:
                     # Return cached data
                     cached_version = get_setting(CACHE_KEY_LATEST_VERSION)
-                    if cached_version:
+                    # A cached "latest" older than this install is stale; check again
+                    if cached_version and _compare_versions(current_version, cached_version) <= 0:
                         dismissed = get_setting(CACHE_KEY_DISMISSED_VERSION)
                         update_available = _compare_versions(current_version, cached_version) < 0
 
@@ -182,13 +212,23 @@ def check_for_updates(force: bool = False) -> dict[str, Any]:
             except (ValueError, TypeError):
                 pass
 
-    # Fetch from GitHub
+    # Fetch from GitHub; a newer tag without a GitHub release still counts
     release = _fetch_github_release()
+    latest_tag = _fetch_latest_tag()
+    if latest_tag and (not release or _compare_versions(release["tag_name"], latest_tag) < 0):
+        repo = _get_github_repo()
+        release = {
+            "tag_name": latest_tag,
+            "html_url": f"https://github.com/{repo}/releases/tag/{latest_tag}",
+            "body": "",
+            "published_at": "",
+            "name": latest_tag,
+        }
 
     if not release:
         # Return cached data if available, otherwise error
         cached_version = get_setting(CACHE_KEY_LATEST_VERSION)
-        if cached_version:
+        if cached_version and _compare_versions(current_version, cached_version) <= 0:
             update_available = _compare_versions(current_version, cached_version) < 0
             return {
                 "success": True,
@@ -243,7 +283,8 @@ def get_update_status() -> dict[str, Any]:
     last_check = get_setting(CACHE_KEY_LAST_CHECK)
     dismissed = get_setting(CACHE_KEY_DISMISSED_VERSION)
 
-    if not cached_version:
+    # A cached "latest" older than this install is stale, so treat it as unchecked
+    if not cached_version or _compare_versions(current_version, cached_version) > 0:
         return {"success": True, "checked": False, "current_version": current_version}
 
     update_available = _compare_versions(current_version, cached_version) < 0
