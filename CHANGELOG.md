@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.77] - 2026-09-30
+
+### Fixed
+
+- **AIS on a HackRF could open the wrong SDR.** Since 2.33.76, AIS-catcher was started without the HackRF's serial number, so it opened the first SDR it found; with RTL-SDRs also connected, that could be an RTL dongle, possibly one another mode was using. AIS now looks up the selected HackRF's serial and passes it to AIS-catcher, and says clearly if the serial can't be read instead of starting on the wrong device. Asking for bias-T with AIS on a HackRF now logs a warning, since AIS-catcher can't enable it. (#369)
+
 ## [2.33.76] - 2026-09-30
 
 ### Fixed

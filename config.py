@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.76"
+VERSION = "2.33.77"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.77",
+        "date": "September 2026",
+        "highlights": [
+            "AIS on a HackRF opens that HackRF, not whichever SDR it finds first.",
+        ],
+    },
     {
         "version": "2.33.76",
         "date": "September 2026",
