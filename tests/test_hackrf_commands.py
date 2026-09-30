@@ -1,5 +1,10 @@
 """Tests for HackRF command builder."""
 
+from unittest.mock import MagicMock
+
+import pytest
+
+from utils.sdr import hackrf
 from utils.sdr.base import SDRDevice, SDRType
 from utils.sdr.hackrf import HackRFCommandBuilder
 
@@ -115,3 +120,23 @@ class TestBuildHackRFTransferIQCommand:
     def test_bias_tee(self):
         cmd = HackRFCommandBuilder().build_hackrf_transfer_iq_command(_make_device(), frequency_mhz=100.0, bias_t=True)
         assert cmd[cmd.index("-p") + 1] == "1"
+
+
+class TestAISCommand:
+    def test_selects_the_hackrf_by_serial_with_native_gain(self):
+        cmd = HackRFCommandBuilder().build_ais_command(_make_device("abc123"), gain=55, tcp_port=10110)
+        assert cmd[cmd.index("-d") + 1] == "abc123"
+        assert cmd[cmd.index("-gf") + 1 : cmd.index("-gf") + 5] == ["LNA", "40", "VGA", "15"]
+
+    @pytest.mark.parametrize("serial", ["N/A", ""])
+    def test_refuses_without_a_serial(self, serial):
+        # Without -d, AIS-catcher would open whichever SDR it finds first
+        with pytest.raises(ValueError, match="serial"):
+            HackRFCommandBuilder().build_ais_command(_make_device(serial), gain=40)
+
+    def test_bias_t_is_warned_about_not_silently_dropped(self, monkeypatch):
+        warn = MagicMock()
+        monkeypatch.setattr(hackrf.logger, "warning", warn)
+        cmd = HackRFCommandBuilder().build_ais_command(_make_device(), gain=40, bias_t=True)
+        assert "Bias-T" in warn.call_args[0][0]
+        assert "biastee" not in " ".join(cmd).lower()

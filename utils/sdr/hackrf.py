@@ -7,9 +7,13 @@ HackRF supports 1 MHz to 6 GHz frequency range.
 
 from __future__ import annotations
 
+import logging
+
 from utils.dependencies import get_tool_path
 
 from .base import CommandBuilder, SDRCapabilities, SDRDevice, SDRType
+
+logger = logging.getLogger("intercept.sdr.hackrf")
 
 
 class HackRFCommandBuilder(CommandBuilder):
@@ -165,7 +169,17 @@ class HackRFCommandBuilder(CommandBuilder):
 
         Uses AIS-catcher's native HackRF backend (built with libhackrf support,
         flag 'f' in AIS-catcher's device table), not the SoapySDR wrapper.
+
+        Raises:
+            ValueError: if the HackRF's serial is unknown. Without ``-d <serial>``
+                AIS-catcher opens the first SDR it finds, which may be another device.
         """
+        if not device.serial or device.serial == "N/A":
+            raise ValueError(
+                "Couldn't read the HackRF's serial number, so AIS-catcher can't be pointed at it. "
+                "Check that hackrf_info lists the device, then try again."
+            )
+
         cmd = [
             "AIS-catcher",
             "-S",
@@ -175,15 +189,16 @@ class HackRFCommandBuilder(CommandBuilder):
             "-q",
         ]
 
-        if device.serial and device.serial != "N/A":
-            cmd.extend(["-d", device.serial])
+        cmd.extend(["-d", device.serial])
 
         if gain is not None and gain > 0:
             lna, vga = self._split_gain(gain)
             cmd.extend(["-gf", "LNA", str(lna), "VGA", str(vga)])
 
-        # Note: AIS-catcher's native HACKRF backend has no bias-tee setting
-        # (unlike its RTLSDR/AIRSPY/HYDRASDR backends), so bias_t is a no-op here.
+        # AIS-catcher's native HACKRF backend has no bias-tee setting
+        # (unlike its RTLSDR/AIRSPY/HYDRASDR backends), so bias_t can't be applied.
+        if bias_t:
+            logger.warning("Bias-T requested for AIS on HackRF %s, but AIS-catcher can't enable it", device.serial)
 
         if udp_host and udp_port:
             cmd.extend(["-u", udp_host, str(udp_port)])
