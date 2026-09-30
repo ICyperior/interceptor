@@ -163,14 +163,11 @@ class HackRFCommandBuilder(CommandBuilder):
         """
         Build AIS-catcher command for AIS vessel tracking with HackRF.
 
-        Uses AIS-catcher with SoapySDR support.
+        Uses AIS-catcher's native HackRF backend (built with libhackrf support,
+        flag 'f' in AIS-catcher's device table), not the SoapySDR wrapper.
         """
-        device_str = self._build_device_string(device)
-
         cmd = [
             "AIS-catcher",
-            "-d",
-            f"soapysdr -d {device_str}",
             "-S",
             str(tcp_port),
             "-o",
@@ -178,11 +175,15 @@ class HackRFCommandBuilder(CommandBuilder):
             "-q",
         ]
 
-        if gain is not None and gain > 0:
-            cmd.extend(["-gr", "tuner", str(int(gain))])
+        if device.serial and device.serial != "N/A":
+            cmd.extend(["-d", device.serial])
 
-        if bias_t:
-            cmd.extend(["-gr", "biastee", "1"])
+        if gain is not None and gain > 0:
+            lna, vga = self._split_gain(gain)
+            cmd.extend(["-gf", "LNA", str(lna), "VGA", str(vga)])
+
+        # Note: AIS-catcher's native HACKRF backend has no bias-tee setting
+        # (unlike its RTLSDR/AIRSPY/HYDRASDR backends), so bias_t is a no-op here.
 
         if udp_host and udp_port:
             cmd.extend(["-u", udp_host, str(udp_port)])

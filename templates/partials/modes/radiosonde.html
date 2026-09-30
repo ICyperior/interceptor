@@ -158,6 +158,7 @@
     function startRadiosondeTracking() {
         const gain = document.getElementById('radiosondeGainInput').value || '40';
         const device = document.getElementById('deviceSelect')?.value || '0';
+        const sdrType = document.getElementById('sdrTypeSelect')?.value || 'rtlsdr';
         const freqMin = parseFloat(document.getElementById('radiosondeFreqMin').value) || 400.0;
         const freqMax = parseFloat(document.getElementById('radiosondeFreqMax').value) || 406.0;
 
@@ -166,6 +167,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 device,
+                sdr_type: sdrType,
                 gain,
                 freq_min: freqMin,
                 freq_max: freqMax,
