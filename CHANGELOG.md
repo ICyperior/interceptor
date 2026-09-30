@@ -2,6 +2,14 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.76] - 2026-09-30
+
+### Fixed
+
+- **The in-app updater said the latest version was v2.33.47.** It only asked GitHub for the latest *release*, and versions since v2.33.47 were published as tags without a release, so every install reported v2.33.47 (older than what it was running) and never offered an update. The updater now also reads the tags and uses the highest version, and ignores a saved "latest" older than the running version. Releases are also published on GitHub again, so older installs will see this update too. (#368, reported in #345)
+- **AIS failed to start on a HackRF.** AIS-catcher was given a SoapySDR-style device string and RTL-SDR gain settings, so it printed its usage banner and exited. It now uses AIS-catcher's native HackRF support, selecting the device by serial and setting LNA/VGA gain. Bias-T isn't available for HackRF in AIS-catcher. Thanks @osungjinwoo. (#358)
+- **Radiosonde with a HackRF selected failed with a misleading "device not available".** The page didn't send the SDR type, and `radiosonde_auto_rx` only supports RTL-SDR anyway. Starting Radiosonde with a non-RTL-SDR device now says so straight away, before claiming the device. Thanks @osungjinwoo. (#358)
+
 ## [2.33.75] - 2026-09-29
 
 ### Fixed
