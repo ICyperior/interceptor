@@ -43,8 +43,8 @@ class TestSSTVRoutes:
         assert data["modulation"] == "fm"
         assert data["iss_frequency"] == ISS_SSTV_FREQ
 
-    def test_start_uses_fm_and_normalizes_supported_iss_frequency(self, client):
-        """POST /sstv/start should enforce FM and snap near ISS values."""
+    def test_start_uses_fm_and_user_defined_frequency(self, client):
+        """POST /sstv/start should enforce FM and tune the requested frequency."""
         _login_session(client)
         mock_decoder = MagicMock()
         mock_decoder.is_running = False
@@ -53,7 +53,7 @@ class TestSSTVRoutes:
         mock_decoder.last_doppler_info = None
 
         payload = {
-            "frequency": ISS_SSTV_FREQ + 0.02,  # Within tolerance; should normalize.
+            "frequency": 437.800,  # Non-default downlink; must not be snapped to 145.800.
             "modulation": "FM",
             "device": 0,
         }
@@ -73,12 +73,12 @@ class TestSSTVRoutes:
         data = response.get_json()
         assert data["status"] == "started"
         assert data["modulation"] == "fm"
-        assert data["frequency"] == pytest.approx(ISS_SSTV_FREQ)
+        assert data["frequency"] == pytest.approx(437.800)
 
         mock_decoder.start.assert_called_once()
         call_kwargs = mock_decoder.start.call_args.kwargs
         assert call_kwargs["modulation"] == "fm"
-        assert call_kwargs["frequency"] == pytest.approx(ISS_SSTV_FREQ)
+        assert call_kwargs["frequency"] == pytest.approx(437.800)
 
     def test_start_rejects_non_fm_modulation(self, client):
         """POST /sstv/start should reject non-FM modulation requests."""
@@ -108,8 +108,8 @@ class TestSSTVRoutes:
         assert "Modulation must be fm" in data["message"]
         mock_decoder.start.assert_not_called()
 
-    def test_start_rejects_non_iss_frequency(self, client):
-        """POST /sstv/start should reject unsupported non-ISS frequencies."""
+    def test_start_rejects_out_of_range_frequency(self, client):
+        """POST /sstv/start should reject frequencies outside the SDR range."""
         _login_session(client)
         mock_decoder = MagicMock()
         mock_decoder.is_running = False
@@ -133,5 +133,5 @@ class TestSSTVRoutes:
         assert response.status_code == 400
         data = response.get_json()
         assert data["status"] == "error"
-        assert "Supported ISS SSTV frequency" in data["message"]
+        assert "Invalid frequency" in data["message"]
         mock_decoder.start.assert_not_called()

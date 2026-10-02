@@ -428,7 +428,9 @@ class MeshtasticClient:
                     # sys.exit() when several do.
                     ports = meshtastic.util.findPorts(True)
                     if not ports:
-                        raise ConnectionError("No Meshtastic device found on USB. Connect one, or use a TCP connection.")
+                        raise ConnectionError(
+                            "No Meshtastic device found on USB. Connect one, or use a TCP connection."
+                        )
                     if len(ports) > 1:
                         raise ConnectionError(
                             f"Several serial ports found ({', '.join(ports)}). Choose the Meshtastic device."
@@ -603,7 +605,13 @@ class MeshtasticClient:
                 rssi=packet.get("rxRssi"),
                 snr=packet.get("rxSnr"),
                 hop_limit=packet.get("hopLimit"),
-                timestamp=datetime.now(timezone.utc),
+                # rxTime is when the radio heard it, so messages queued on the node
+                # while we were disconnected keep their real time; 0 if the node has no clock
+                timestamp=(
+                    datetime.fromtimestamp(packet["rxTime"], tz=timezone.utc)
+                    if packet.get("rxTime")
+                    else datetime.now(timezone.utc)
+                ),
                 from_name=from_name,
                 to_name=to_name,
                 raw_packet=packet,
