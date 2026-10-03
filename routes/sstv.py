@@ -24,16 +24,13 @@ from utils.sstv import (
     get_sstv_decoder,
     is_sstv_available,
 )
+from utils.validation import validate_frequency
 
 logger = get_logger("intercept.sstv")
 
 sstv_bp = Blueprint("sstv", __name__, url_prefix="/sstv")
 
-# ISS SSTV runs on a fixed downlink; allow a small entry tolerance so users
-# can type nearby values and still land on the canonical center frequency.
 ISS_SSTV_MODULATION = "fm"
-ISS_SSTV_FREQUENCIES = (ISS_SSTV_FREQ,)
-ISS_SSTV_FREQ_TOLERANCE_MHZ = 0.05
 
 # Queue for SSE progress streaming
 _sstv_queue: queue.Queue = queue.Queue(maxsize=100)
@@ -71,14 +68,6 @@ def _progress_callback(data: dict) -> None:
             _sstv_queue.put_nowait(data)
         except queue.Empty:
             pass
-
-
-def _normalize_iss_frequency(frequency_mhz: float) -> float | None:
-    """Snap near-match user input to a supported ISS SSTV center frequency."""
-    for supported in ISS_SSTV_FREQUENCIES:
-        if abs(frequency_mhz - supported) <= ISS_SSTV_FREQ_TOLERANCE_MHZ:
-            return supported
-    return None
 
 
 @sstv_bp.route("/status")
@@ -145,7 +134,7 @@ def start_decoder():
         return jsonify(
             {
                 "status": "already_running",
-                "frequency": ISS_SSTV_FREQ,
+                "frequency": decoder.frequency,
                 "modulation": ISS_SSTV_MODULATION,
                 "doppler_enabled": decoder.doppler_enabled,
             }
@@ -182,16 +171,11 @@ def start_decoder():
             {"status": "error", "message": f"Modulation must be {ISS_SSTV_MODULATION} for ISS SSTV mode"}
         ), 400
 
-    # Validate frequency
+    # Validate frequency (default 145.800, but events sometimes use other downlinks)
     try:
-        frequency = float(frequency)
-        normalized_frequency = _normalize_iss_frequency(frequency)
-        if normalized_frequency is None:
-            supported = ", ".join(f"{freq:.3f}" for freq in ISS_SSTV_FREQUENCIES)
-            return jsonify({"status": "error", "message": f"Supported ISS SSTV frequency: {supported} MHz FM"}), 400
-        frequency = normalized_frequency
-    except (TypeError, ValueError):
-        return jsonify({"status": "error", "message": "Invalid frequency"}), 400
+        frequency = validate_frequency(frequency)
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 400
 
     # Validate location if provided
     if latitude is not None and longitude is not None:
@@ -296,7 +280,7 @@ def get_doppler():
         {
             "status": "ok",
             "doppler": doppler_info.to_dict(),
-            "nominal_frequency_mhz": ISS_SSTV_FREQ,
+            "nominal_frequency_mhz": decoder.frequency,
             "corrected_frequency_mhz": doppler_info.frequency_hz / 1_000_000,
         }
     )

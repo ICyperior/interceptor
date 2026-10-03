@@ -669,3 +669,43 @@ class TestMeshtasticOwnNodeGpsFeedsObserverLocation:
         node = client._nodes[0x55890AEB]
         assert node.latitude == -33.9
         assert node.longitude == 18.4
+
+
+class TestMessageTimestamp:
+    """Message time should be when the radio heard it, not when it reached us."""
+
+    def _receive(self, packet):
+        from utils.meshtastic import MeshtasticClient
+
+        client = MeshtasticClient()
+        received = []
+        client._callback = received.append
+        client._on_receive(packet, None)
+        return received[0]
+
+    def test_uses_rx_time_for_queued_messages(self):
+        """A message the node held while we were disconnected keeps its rxTime."""
+        msg = self._receive(
+            {
+                "from": 0xA1B2C3D4,
+                "to": 0xFFFFFFFF,
+                "rxTime": 1769515200,
+                "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "sent earlier"},
+            }
+        )
+        assert msg.to_dict()["timestamp"] == 1769515200.0
+
+    def test_falls_back_to_now_without_rx_time(self):
+        """A node with no clock reports rxTime 0; use arrival time instead."""
+        import time
+
+        before = time.time()
+        msg = self._receive(
+            {
+                "from": 0xA1B2C3D4,
+                "to": 0xFFFFFFFF,
+                "rxTime": 0,
+                "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "hi"},
+            }
+        )
+        assert msg.to_dict()["timestamp"] >= before

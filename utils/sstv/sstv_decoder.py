@@ -169,6 +169,11 @@ class SSTVDecoder:
         return self._running
 
     @property
+    def frequency(self) -> float:
+        """Nominal (pre-Doppler) tuned frequency in MHz."""
+        return self._frequency
+
+    @property
     def decoder_available(self) -> str:
         """Return name of available decoder. Always available with pure Python."""
         return "python-sstv"
