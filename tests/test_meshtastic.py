@@ -709,3 +709,131 @@ class TestMessageTimestamp:
             }
         )
         assert msg.to_dict()["timestamp"] >= before
+
+
+def _client_with_nodedb():
+    """A client on a mocked device whose NodeDB holds our node and one peer."""
+    from utils.meshtastic import MeshtasticClient
+
+    peer = {"num": 0xA1B2C3D4, "user": {"id": "!a1b2c3d4", "longName": "Peer"}}
+    me = {"num": 0x11111111, "user": {"id": "!11111111", "longName": "Me"}}
+    iface = Mock()
+    iface.myInfo.my_node_num = 0x11111111
+    iface.nodesByNum = {0xA1B2C3D4: peer, 0x11111111: me}
+    iface.nodes = {"!a1b2c3d4": peer, "!11111111": me}
+
+    client = MeshtasticClient()
+    client._interface = iface
+    return client, iface
+
+
+class TestNodeActions:
+    """Favourite / ignore / remove a node in the device's NodeDB (#270)."""
+
+    def test_favorite_tells_device_and_shows_in_node_list(self):
+        client, iface = _client_with_nodedb()
+
+        assert client.manage_node("!a1b2c3d4", "favorite") == (True, None)
+
+        iface.localNode.setFavorite.assert_called_once_with(0xA1B2C3D4)
+        peer = next(n for n in client.get_nodes() if n.num == 0xA1B2C3D4)
+        assert peer.to_dict()["is_favorite"] is True
+
+    def test_unignore_clears_flag_reported_by_device(self):
+        client, iface = _client_with_nodedb()
+        iface.nodesByNum[0xA1B2C3D4]["isIgnored"] = True
+        assert next(n for n in client.get_nodes() if n.num == 0xA1B2C3D4).is_ignored
+
+        assert client.manage_node("!a1b2c3d4", "unignore") == (True, None)
+
+        iface.localNode.removeIgnored.assert_called_once_with(0xA1B2C3D4)
+        assert not next(n for n in client.get_nodes() if n.num == 0xA1B2C3D4).is_ignored
+
+    def test_remove_drops_node_from_list(self):
+        client, iface = _client_with_nodedb()
+        client.get_nodes()
+
+        assert client.manage_node("!a1b2c3d4", "remove") == (True, None)
+
+        iface.localNode.removeNode.assert_called_once_with(0xA1B2C3D4)
+        assert [n.num for n in client.get_nodes()] == [0x11111111]
+
+    def test_refuses_own_node_bad_id_and_unknown_action(self):
+        client, iface = _client_with_nodedb()
+
+        assert client.manage_node("!11111111", "remove")[0] is False
+        assert client.manage_node("!zzzz", "favorite")[0] is False
+        assert client.manage_node("!a1b2c3d4", "explode")[0] is False
+        iface.localNode.removeNode.assert_not_called()
+
+    def test_route_passes_action_to_client(self):
+        from flask import Flask
+
+        from routes.meshtastic import meshtastic_bp
+
+        app = Flask(__name__)
+        app.register_blueprint(meshtastic_bp)
+        mock_client = Mock(is_running=True)
+        mock_client.manage_node.return_value = (False, "Cannot change your own node")
+
+        with patch("routes.meshtastic.get_meshtastic_client", return_value=mock_client):
+            response = app.test_client().post("/meshtastic/nodes/!11111111/remove")
+
+        mock_client.manage_node.assert_called_once_with("!11111111", "remove")
+        assert response.status_code == 400
+        assert response.get_json()["message"] == "Cannot change your own node"
+
+
+class TestReplies:
+    """Native Meshtastic replies: reply_id in, out and stored (#270)."""
+
+    def test_received_reply_carries_reply_id(self):
+        from utils.meshtastic import MeshtasticClient
+
+        client = MeshtasticClient()
+        received = []
+        client._callback = received.append
+        client._on_receive(
+            {
+                "from": 0xA1B2C3D4,
+                "to": 0xFFFFFFFF,
+                "decoded": {"portnum": "TEXT_MESSAGE_APP", "text": "agreed", "replyId": 42},
+            },
+            None,
+        )
+        assert received[0].to_dict()["reply_id"] == 42
+
+    def test_send_text_passes_reply_id_to_device(self):
+        client, iface = _client_with_nodedb()
+
+        assert client.send_text("agreed", reply_id=42) == (True, None)
+
+        assert iface.sendData.call_args.kwargs["replyId"] == 42
+
+    def test_reply_id_is_stored(self, mesh_history):
+        from utils.database import get_meshtastic_messages
+
+        mesh_history(packet_id=7, reply_id=42)
+
+        assert get_meshtastic_messages()[0]["reply_id"] == 42
+
+    def test_send_route_validates_reply_id(self):
+        from flask import Flask
+
+        from routes.meshtastic import meshtastic_bp
+
+        app = Flask(__name__)
+        app.register_blueprint(meshtastic_bp)
+        mock_client = Mock(is_running=True)
+        mock_client.send_text.return_value = (True, None)
+
+        with (
+            patch("routes.meshtastic.is_meshtastic_available", return_value=True),
+            patch("routes.meshtastic.get_meshtastic_client", return_value=mock_client),
+        ):
+            bad = app.test_client().post("/meshtastic/send", json={"text": "hi", "reply_id": "42"})
+            good = app.test_client().post("/meshtastic/send", json={"text": "hi", "reply_id": 42})
+
+        assert bad.status_code == 400
+        assert good.status_code == 200
+        assert mock_client.send_text.call_args.kwargs["reply_id"] == 42

@@ -127,6 +127,10 @@
                         </select>
                         </div>
                         </div>
+                        <div class="mesh-nodes-search">
+                        <input type="search" id="meshMessageSearch" class="mesh-node-search-input" placeholder="Find in conversation..." aria-label="Find in conversation" oninput="Meshtastic.searchMessages(this.value)">
+                        <label class="mesh-text-only" title="Hide packets that aren't text messages, such as [UNKNOWN] ones from channels you have no key for"><input type="checkbox" id="meshTextOnly" onchange="Meshtastic.setTextOnly(this.checked)"> Text only</label>
+                        </div>
                         <div class="mesh-messages-list" id="meshMessagesGrid">
                         <div class="mesh-messages-empty">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -139,6 +143,10 @@
                         </div>
                         <!-- Message Compose Box -->
                         <div class="mesh-compose" id="meshCompose" style="display: none;">
+                        <div class="mesh-reply-banner" id="meshReplyBanner" hidden>
+                        <span class="mesh-reply-text">&#8617; Replying to <span id="meshReplyText"></span></span>
+                        <button type="button" class="mesh-reply-cancel" onclick="Meshtastic.cancelReply()" title="Cancel reply" aria-label="Cancel reply">&times;</button>
+                        </div>
                         <div class="mesh-compose-header">
                         <select id="meshComposeChannel" class="mesh-compose-channel" title="Channel to send on">
                         <option value="0">CH 0</option>

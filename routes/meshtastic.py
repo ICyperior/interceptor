@@ -343,7 +343,8 @@ def send_message():
         {
             "text": "Hello mesh!",      // Required: message text (max 237 chars)
             "channel": 0,               // Optional: channel index (default 0)
-            "to": "!a1b2c3d4"          // Optional: destination node (default broadcast)
+            "to": "!a1b2c3d4",         // Optional: destination node (default broadcast)
+            "reply_id": 123456789      // Optional: packet_id of the message being replied to
         }
 
     Returns:
@@ -372,8 +373,12 @@ def send_message():
 
     destination = data.get("to")
 
+    reply_id = data.get("reply_id")
+    if reply_id is not None and (not isinstance(reply_id, int) or isinstance(reply_id, bool) or reply_id <= 0):
+        return jsonify({"status": "error", "message": "reply_id must be a packet ID"}), 400
+
     logger.info(f"Sending message: text='{text[:50]}...', channel={channel}, to={destination}")
-    success, error = client.send_text(text, channel=channel, destination=destination)
+    success, error = client.send_text(text, channel=channel, destination=destination, reply_id=reply_id)
     logger.info(f"Send result: success={success}, error={error}")
 
     if success:
@@ -504,6 +509,28 @@ def get_nodes():
             "with_position_count": sum(1 for n in nodes_list if n.get("has_position")),
         }
     )
+
+
+@meshtastic_bp.route("/nodes/<node_id>/<action>", methods=["POST"])
+def manage_node(node_id: str, action: str):
+    """
+    Change a node in the connected device's NodeDB.
+
+    Actions: favorite, unfavorite, ignore, unignore, remove.
+
+    Returns:
+        JSON with the action's status.
+    """
+    client = get_meshtastic_client()
+
+    if not client or not client.is_running:
+        return jsonify({"status": "error", "message": "Not connected to Meshtastic device"}), 400
+
+    success, error = client.manage_node(node_id, action)
+
+    if success:
+        return jsonify({"status": "ok", "node_id": node_id, "action": action})
+    return jsonify({"status": "error", "message": error or f"Failed to {action} node"}), 400
 
 
 @meshtastic_bp.route("/traceroute", methods=["POST"])

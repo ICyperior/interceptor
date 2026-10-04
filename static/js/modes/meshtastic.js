@@ -24,6 +24,12 @@ const Meshtastic = (function() {
     let _allNodes = [];
     let _nodeFilter = '';
 
+    // Messages tab: find-in-conversation, text-only toggle, reply target (#270)
+    let _messageSearch = '';
+    let _textOnly = false;
+    try { _textOnly = localStorage.getItem('meshTextOnly') === '1'; } catch (e) { /* storage blocked */ }
+    let _replyTo = null;
+
     /**
      * Initialize the Meshtastic mode
      */
@@ -32,6 +38,8 @@ const Meshtastic = (function() {
         loadPorts();
         checkStatus();
         setupEventDelegation();
+        const textOnlyBox = document.getElementById('meshTextOnly');
+        if (textOnlyBox) textOnlyBox.checked = _textOnly;
         // Stored history shows straight away, before a device is connected
         loadMessages(undefined, true);
     }
@@ -756,7 +764,9 @@ const Meshtastic = (function() {
             nodes = nodes.filter(n =>
                 _nodeDisplayName(n).toLowerCase().includes(q) || _nodeIdOf(n).toLowerCase().includes(q));
         }
-        nodes.sort((a, b) => new Date(b.last_heard || 0) - new Date(a.last_heard || 0));
+        // Your own node first, then favourites, then most recently heard
+        const rank = n => (n.num === localNodeId ? 0 : n.is_favorite ? 1 : 2);
+        nodes.sort((a, b) => rank(a) - rank(b) || new Date(b.last_heard || 0) - new Date(a.last_heard || 0));
 
         if (nodes.length === 0) {
             container.innerHTML = `<div class="mesh-tab-hint">${_allNodes.length ? 'No nodes match your search.' : 'Connect to a device to see its mesh nodes.'}</div>`;
@@ -771,11 +781,22 @@ const Meshtastic = (function() {
             const pos = n.has_position
                 ? '<span class="mesh-node-pos" title="On map">◉</span>'
                 : '<span class="mesh-node-nopos" title="No position reported">○</span>';
-            const local = (n.num === localNodeId) ? ' <span class="mesh-node-local">YOU</span>' : '';
-            return `<div class="mesh-node-row${n.has_position ? ' has-pos' : ''}" data-node="${_nodeEsc(id)}" onclick="Meshtastic.focusNode('${_nodeEsc(id)}')" title="${n.has_position ? 'Show on map' : 'No position reported yet'}">
+            const isLocal = n.num === localNodeId;
+            const local = isLocal ? ' <span class="mesh-node-local">YOU</span>' : '';
+            const ignored = n.is_ignored ? ' <span class="mesh-node-ignored">IGNORED</span>' : '';
+            const eid = _nodeEsc(id);
+            // Device NodeDB actions; your own node can't be favourited, ignored or removed
+            const actions = isLocal ? '' : `
+                    <button type="button" class="mesh-node-msg mesh-node-fav${n.is_favorite ? ' active' : ''}" title="${n.is_favorite ? 'Remove from favourites' : 'Add to favourites'}" aria-label="${n.is_favorite ? 'Unfavourite' : 'Favourite'} ${name}" aria-pressed="${n.is_favorite ? 'true' : 'false'}" onclick="event.stopPropagation();Meshtastic.nodeAction('${eid}','${n.is_favorite ? 'unfavorite' : 'favorite'}')">${n.is_favorite ? '&#9733;' : '&#9734;'}</button>`;
+            const moreActions = isLocal ? '' : `
+                    <button type="button" class="mesh-node-msg${n.is_ignored ? ' active' : ''}" title="${n.is_ignored ? 'Stop ignoring this node' : 'Ignore this node (the device drops its packets)'}" aria-label="${n.is_ignored ? 'Unignore' : 'Ignore'} ${name}" onclick="event.stopPropagation();Meshtastic.nodeAction('${eid}','${n.is_ignored ? 'unignore' : 'ignore'}')">&#8856;</button>
+                    <button type="button" class="mesh-node-msg mesh-node-del" title="Remove from the device's node list" aria-label="Remove ${name}" onclick="event.stopPropagation();Meshtastic.nodeAction('${eid}','remove')">&#128465;</button>`;
+            return `<div class="mesh-node-row${n.has_position ? ' has-pos' : ''}${n.is_ignored ? ' ignored' : ''}" data-node="${eid}" onclick="Meshtastic.focusNode('${eid}')" title="${n.has_position ? 'Show on map' : 'No position reported yet'}">
                 <div class="mesh-node-row-main">
-                    <span class="mesh-node-name">${pos} ${name}${local}</span>
-                    <button type="button" class="mesh-node-msg" title="Message this node" aria-label="Message ${name}" onclick="event.stopPropagation();Meshtastic.messageNode('${_nodeEsc(id)}')">&#9993;</button>
+                    <span class="mesh-node-name">${pos} ${name}${local}${ignored}</span>
+                    <span class="mesh-node-actions">${actions}
+                    <button type="button" class="mesh-node-msg" title="Message this node" aria-label="Message ${name}" onclick="event.stopPropagation();Meshtastic.messageNode('${eid}')">&#9993;</button>${moreActions}
+                    </span>
                 </div>
                 <div class="mesh-node-row-meta"><span class="mesh-node-id">${_nodeEsc(id)}</span> · ${snr}${batt} · ${_nodeRelTime(n.last_heard)}</div>
             </div>`;
@@ -806,6 +827,31 @@ const Meshtastic = (function() {
         if (typeof meshDashTab === 'function') meshDashTab('messages');
         const txt = document.getElementById('meshComposeText');
         if (txt) txt.focus();
+    }
+
+    // Favourite / ignore / remove a node in the device's NodeDB (#270)
+    async function nodeAction(id, action) {
+        const node = _allNodes.find(n => _nodeIdOf(n) === id);
+        const name = node ? _nodeDisplayName(node) : id;
+        if (action === 'remove' && !confirm(`Remove ${name} from the device's node list? It will reappear if it is heard again.`)) return;
+        if (action === 'ignore' && !confirm(`Ignore ${name}? The device will drop its messages and packets until you unignore it.`)) return;
+
+        try {
+            const response = await fetch(`/meshtastic/nodes/${encodeURIComponent(id)}/${action}`, { method: 'POST' });
+            const data = await response.json();
+            if (data.status !== 'ok') {
+                showStatusMessage(data.message || `Could not ${action} node`, 'error');
+                return;
+            }
+            if (action === 'remove' && meshMarkers[id]) {
+                meshMarkers[id].remove();
+                delete meshMarkers[id];
+            }
+            loadNodes();
+        } catch (err) {
+            console.error(`Failed to ${action} node:`, err);
+            showStatusMessage(`Could not ${action} node`, 'error');
+        }
     }
 
     /**
@@ -982,7 +1028,7 @@ const Meshtastic = (function() {
         updateStats();
 
         // Only render if passes filter
-        if (!currentFilter || msg.channel == currentFilter) {
+        if (_messageVisible(msg)) {
             prependMessage(msg);
         }
 
@@ -1029,9 +1075,7 @@ const Meshtastic = (function() {
         const container = document.getElementById('meshMessagesGrid');
         if (!container) return;
 
-        const filtered = currentFilter
-            ? messages.filter(m => m.channel == currentFilter)
-            : messages;
+        const filtered = messages.filter(_messageVisible);
 
         if (filtered.length === 0) {
             container.innerHTML = `
@@ -1041,7 +1085,7 @@ const Meshtastic = (function() {
                         <circle cx="12" cy="12" r="3"/>
                         <path d="M12 2v4m0 12v4M2 12h4m12 0h4"/>
                     </svg>
-                    <p>No messages received yet</p>
+                    <p>${messages.length ? 'No messages match' : 'No messages received yet'}</p>
                 </div>
             `;
             return;
@@ -1052,6 +1096,62 @@ const Meshtastic = (function() {
             .reverse()
             .map(msg => renderMessageCard(msg))
             .join('');
+    }
+
+    // Channel filter, "text only" toggle and find-in-conversation search (#270)
+    function _messageVisible(msg) {
+        if (currentFilter && msg.channel != currentFilter) return false;
+        if (_textOnly && (msg.portnum || msg.app_type) !== 'TEXT_MESSAGE_APP') return false;
+        const q = _messageSearch.trim().toLowerCase();
+        if (!q) return true;
+        return [msg.text, msg.from_name, formatNodeId(msg.from)]
+            .some(v => v && String(v).toLowerCase().includes(q));
+    }
+
+    function searchMessages(q) {
+        _messageSearch = q || '';
+        renderMessages();
+    }
+
+    function setTextOnly(on) {
+        _textOnly = Boolean(on);
+        try { localStorage.setItem('meshTextOnly', _textOnly ? '1' : '0'); } catch (e) { /* storage blocked */ }
+        renderMessages();
+    }
+
+    function _snippet(text, max = 60) {
+        const t = String(text || '');
+        return t.length > max ? t.slice(0, max - 1) + '…' : t;
+    }
+
+    // Reply to a message with Meshtastic's native reply (reply_id), which the
+    // official apps show as a quoted reply (#270)
+    function replyTo(packetId) {
+        const msg = messages.find(m => m.packet_id === packetId);
+        if (!msg) return;
+        if (!isConnected) {
+            showStatusMessage('Connect to a device to reply.', 'info');
+            return;
+        }
+        _replyTo = msg;
+
+        // Reply where the message was: same channel, and back to the sender if it was a DM
+        const channelSelect = document.getElementById('meshComposeChannel');
+        if (channelSelect && msg.channel != null) channelSelect.value = String(msg.channel);
+        const toInput = document.getElementById('meshComposeTo');
+        if (toInput) toInput.value = (msg.to === '^all' || msg.to === 'broadcast') ? '' : formatNodeId(msg.from);
+
+        const banner = document.getElementById('meshReplyBanner');
+        const label = document.getElementById('meshReplyText');
+        if (label) label.textContent = `${msg.from_name || formatNodeId(msg.from)}: ${_snippet(msg.text)}`;
+        if (banner) banner.hidden = false;
+        document.getElementById('meshComposeText')?.focus();
+    }
+
+    function cancelReply() {
+        _replyTo = null;
+        const banner = document.getElementById('meshReplyBanner');
+        if (banner) banner.hidden = true;
     }
 
     /**
@@ -1090,9 +1190,25 @@ const Meshtastic = (function() {
             ? InterceptTime.relTimeHtml(msg.timestamp * 1000)
             : '--:--:--';
 
+        // Quote the message this one replies to, when we have it
+        let quote = '';
+        if (msg.reply_id) {
+            const original = messages.find(m => m.packet_id === msg.reply_id);
+            quote = original
+                ? `<div class="mesh-message-quote">&#8617; ${escapeHtml(original.from_name || formatNodeId(original.from))}: ${escapeHtml(_snippet(original.text))}</div>`
+                : '<div class="mesh-message-quote">&#8617; reply to an earlier message</div>';
+        }
+
+        // Received text messages can be replied to; our own can't
+        const canReply = msg.text && msg.packet_id && !msg._pending
+            && msg.portnum === 'TEXT_MESSAGE_APP' && msg.from !== formatNodeId(localNodeId);
+        const replyBtn = canReply
+            ? `<button type="button" class="mesh-message-reply" title="Reply" aria-label="Reply to this message" onclick="Meshtastic.replyTo(${Number(msg.packet_id)})">&#8617;</button>`
+            : '';
+
         let body;
         if (msg.text) {
-            body = `<div class="mesh-message-body">${escapeHtml(msg.text)}</div>`;
+            body = `${quote}<div class="mesh-message-body">${escapeHtml(msg.text)}</div>`;
         } else {
             body = `<div class="mesh-message-body app-type">[${msg.app_type || msg.portnum || 'UNKNOWN'}]</div>`;
         }
@@ -1135,6 +1251,7 @@ const Meshtastic = (function() {
                     <div class="mesh-message-meta">
                         <span class="mesh-message-channel">[CH${msg.channel !== undefined ? msg.channel : '?'}]</span>
                         <span class="mesh-message-time">${time}</span>
+                        ${replyBtn}
                     </div>
                 </div>
                 ${body}
@@ -1332,6 +1449,7 @@ const Meshtastic = (function() {
         const toValue = toInput?.value.trim();
         // Convert empty or "^all" to null for broadcast
         const to = (toValue && toValue !== '^all') ? toValue : null;
+        const replyId = _replyTo ? _replyTo.packet_id : undefined;
 
         // Show sending state immediately
         if (sendBtn) {
@@ -1351,6 +1469,7 @@ const Meshtastic = (function() {
             channel: channel,
             timestamp: Date.now() / 1000,
             portnum: 'TEXT_MESSAGE_APP',
+            reply_id: replyId,
             _pending: true  // Mark as pending
         };
 
@@ -1362,13 +1481,14 @@ const Meshtastic = (function() {
         const sentText = text;
         textInput.value = '';
         updateCharCount();
+        cancelReply();
 
         try {
             console.log('Sending message:', { text: sentText, channel, to });
             const response = await fetch('/meshtastic/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: sentText, channel, to: to || undefined })
+                body: JSON.stringify({ text: sentText, channel, to: to || undefined, reply_id: replyId })
             });
 
             console.log('Send response status:', response.status);
@@ -2465,6 +2585,12 @@ const Meshtastic = (function() {
         showStoreForwardModal,
         requestStoreForward,
         closeStoreForwardModal,
+        // Nodes / messages tabs (#270)
+        nodeAction,
+        searchMessages,
+        setTextOnly,
+        replyTo,
+        cancelReply,
         destroy
     };
 

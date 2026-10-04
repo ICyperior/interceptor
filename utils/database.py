@@ -680,6 +680,10 @@ def init_db() -> None:
             ON meshtastic_messages(received_at)
         """)
 
+        mesh_msg_columns = {row["name"] for row in conn.execute("PRAGMA table_info(meshtastic_messages)")}
+        if "reply_id" not in mesh_msg_columns:
+            conn.execute("ALTER TABLE meshtastic_messages ADD COLUMN reply_id INTEGER")
+
         # =====================================================================
         # Remote Agent Tables (for distributed/controller mode)
         # =====================================================================
@@ -2457,6 +2461,7 @@ _MESHTASTIC_MESSAGE_FIELDS = (
     "rssi",
     "snr",
     "hop_limit",
+    "reply_id",
 )
 
 
@@ -2478,6 +2483,7 @@ def store_meshtastic_message(msg: dict) -> bool:
         msg.get("rssi"),
         msg.get("snr"),
         msg.get("hop_limit"),
+        msg.get("reply_id"),
     )
     with get_db() as conn:
         cursor = conn.execute(
@@ -2514,6 +2520,7 @@ def get_meshtastic_messages(limit: int = 500, channel: int | None = None) -> lis
             "rssi": row["rssi"],
             "snr": row["snr"],
             "hop_limit": row["hop_limit"],
+            "reply_id": row["reply_id"],
             "timestamp": row["received_at"],
         }
         for row in reversed(rows)

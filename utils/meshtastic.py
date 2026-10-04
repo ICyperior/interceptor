@@ -59,6 +59,7 @@ class MeshtasticMessage:
     timestamp: datetime
     from_name: str | None = None
     to_name: str | None = None
+    reply_id: int | None = None  # packet_id of the message this replies to
     raw_packet: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -76,6 +77,7 @@ class MeshtasticMessage:
             "rssi": self.rssi,
             "snr": self.snr,
             "hop_limit": self.hop_limit,
+            "reply_id": self.reply_id,
             "timestamp": self.timestamp.timestamp(),  # Unix seconds for frontend
         }
 
@@ -133,6 +135,9 @@ class MeshNode:
     battery_level: int | None = None
     snr: float | None = None
     last_heard: datetime | None = None
+    # Flags kept in the device's NodeDB
+    is_favorite: bool = False
+    is_ignored: bool = False
     # Device telemetry
     voltage: float | None = None
     channel_utilization: float | None = None
@@ -157,6 +162,8 @@ class MeshNode:
             "snr": self.snr,
             "last_heard": self.last_heard.isoformat() if self.last_heard else None,
             "has_position": self.latitude is not None and self.longitude is not None,
+            "is_favorite": self.is_favorite,
+            "is_ignored": self.is_ignored,
             # Device telemetry
             "voltage": self.voltage,
             "channel_utilization": self.channel_utilization,
@@ -614,6 +621,7 @@ class MeshtasticClient:
                 ),
                 from_name=from_name,
                 to_name=to_name,
+                reply_id=decoded.get("replyId") or None,
                 raw_packet=packet,
             )
 
@@ -907,6 +915,9 @@ class MeshtasticClient:
                 # Update SNR
                 node.snr = node_data.get("snr", node.snr)
 
+                node.is_favorite = bool(node_data.get("isFavorite"))
+                node.is_ignored = bool(node_data.get("isIgnored"))
+
         except Exception as e:
             logger.error(f"Error syncing nodes from interface: {e}")
 
@@ -931,7 +942,9 @@ class MeshtasticClient:
             logger.error(f"Error getting channels: {e}")
         return channels
 
-    def send_text(self, text: str, channel: int = 0, destination: str | int | None = None) -> tuple[bool, str]:
+    def send_text(
+        self, text: str, channel: int = 0, destination: str | int | None = None, reply_id: int | None = None
+    ) -> tuple[bool, str]:
         """
         Send a text message to the mesh network.
 
@@ -940,6 +953,7 @@ class MeshtasticClient:
             channel: Channel index to send on (0-7)
             destination: Target node ID (string like "!a1b2c3d4" or int).
                         None or "^all" for broadcast.
+            reply_id: packet_id of the message being replied to, if any.
 
         Returns:
             Tuple of (success, error_message)
@@ -980,6 +994,7 @@ class MeshtasticClient:
                 destinationId=dest_id,
                 portNum=portnums_pb2.PortNum.TEXT_MESSAGE_APP,
                 channelIndex=channel,
+                replyId=reply_id,
             )
             logger.debug("sendData completed")
 
@@ -1284,6 +1299,55 @@ class MeshtasticClient:
     def get_pending_messages(self) -> dict[int, PendingMessage]:
         """Get all pending messages waiting for ACK."""
         return dict(self._pending_messages)
+
+    # action -> (localNode method, SDK NodeDB key, MeshNode attribute, value)
+    _NODE_ACTIONS = {
+        "favorite": ("setFavorite", "isFavorite", "is_favorite", True),
+        "unfavorite": ("removeFavorite", "isFavorite", "is_favorite", False),
+        "ignore": ("setIgnored", "isIgnored", "is_ignored", True),
+        "unignore": ("removeIgnored", "isIgnored", "is_ignored", False),
+        "remove": ("removeNode", None, None, None),
+    }
+
+    def manage_node(self, node_id: str, action: str) -> tuple[bool, str | None]:
+        """Favourite, ignore or remove a node in the connected device's NodeDB."""
+        if not self._interface:
+            return False, "Not connected to device"
+        if action not in self._NODE_ACTIONS:
+            return False, f"Unknown action: {action}"
+
+        try:
+            num = int(node_id[1:], 16) if node_id.startswith("!") else int(node_id)
+        except ValueError:
+            return False, f"Invalid node ID: {node_id}"
+        if num == BROADCAST_ADDR:
+            return False, "Invalid node ID: broadcast address"
+        if self._is_local_node(num):
+            return False, "Cannot change your own node"
+
+        method, sdk_key, attr, value = self._NODE_ACTIONS[action]
+        try:
+            getattr(self._interface.localNode, method)(num)
+        except Exception as e:
+            logger.error(f"Error running {method} for {self._format_node_id(num)}: {e}")
+            return False, str(e)
+
+        # Mirror the change in the SDK's NodeDB copy, which get_nodes() re-syncs
+        # from, so the list reflects it before the device sends a fresh NodeDB.
+        sdk_nodes_by_num = getattr(self._interface, "nodesByNum", None) or {}
+        if action == "remove":
+            self._nodes.pop(num, None)
+            node_data = sdk_nodes_by_num.pop(num, None)
+            user_id = (node_data or {}).get("user", {}).get("id") or self._format_node_id(num)
+            (getattr(self._interface, "nodes", None) or {}).pop(user_id, None)
+        else:
+            if num in sdk_nodes_by_num:
+                sdk_nodes_by_num[num][sdk_key] = value
+            if num in self._nodes:
+                setattr(self._nodes[num], attr, value)
+
+        logger.info(f"Node {self._format_node_id(num)}: {action}")
+        return True, None
 
     def request_position(self, destination: str | int) -> tuple[bool, str]:
         """

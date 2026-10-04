@@ -191,3 +191,79 @@
     color: var(--accent-cyan);
     border-color: var(--accent-cyan);
 }
+.mesh-node-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.mesh-node-msg.active { color: var(--accent-yellow); border-color: var(--accent-yellow); }
+.mesh-node-del:hover { color: var(--accent-red); border-color: var(--accent-red); }
+.mesh-node-row.ignored .mesh-node-name { opacity: 0.55; }
+.mesh-node-ignored {
+    font-size: 9px;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    padding: 0 3px;
+    margin-left: 4px;
+}
+
+/* Messages tab: "Text only" toggle and replies (#270) */
+.mesh-text-only {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    cursor: pointer;
+}
+.mesh-message-reply {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 5px;
+}
+.mesh-message-reply:hover { color: var(--accent-cyan); border-color: var(--accent-cyan); }
+.mesh-message-quote {
+    font-size: 10px;
+    color: var(--text-muted);
+    border-left: 2px solid var(--border-color);
+    padding-left: 6px;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mesh-reply-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+    border-left: 2px solid var(--accent-cyan);
+    margin-bottom: 6px;
+}
+.mesh-reply-banner[hidden] { display: none; }
+.mesh-reply-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.mesh-reply-cancel {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+}
+.mesh-reply-cancel:hover { color: var(--text-primary); }
