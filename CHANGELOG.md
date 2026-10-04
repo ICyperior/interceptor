@@ -2,6 +2,19 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.78] - 2026-10-04
+
+### Added
+
+- **Meshtastic node actions (#270).** The Nodes tab lists your own node first, then favourites, then the rest by last heard. Each node has a favourite star plus ignore and remove buttons. These change the connected device's own node list, so they match the official apps: favourites set in the phone app show here too, an ignored node's packets are dropped by the device (it stays in the list, dimmed, so it can be unignored), and a removed node comes back if it's heard again. Ignore and remove ask first. (#374)
+- **Meshtastic message search, "Text only" and replies (#270).** The Messages tab has a "Find in conversation" search (text, sender name or ID) and a remembered "Text only" toggle that hides `[UNKNOWN]` and other non-text packets. A reply button on received messages sends a native Meshtastic reply, which the official apps show as a quote. It goes on the same channel, or straight to the sender for a direct message, and incoming replies show the message they answer. Replies are kept in message history. (#374)
+
+### Fixed
+
+- **ISS SSTV ignored the frequency you entered.** The frequency box looked editable, but the decoder snapped anything within 50 kHz back to 145.800 MHz and rejected everything else, so events on another downlink couldn't be received. It now tunes the frequency you enter, and Doppler correction follows it. Thanks @shaun-greenwood. (#371, #372)
+- **Meshtastic messages held on the node showed the wrong time.** Messages waiting on the node when you connected were stamped with the time they reached the PC. They now use the time the radio heard them, in the feed and in stored history, and fall back to arrival time if the node has no clock. Thanks @bob1234uk. (#270, #372)
+- **"Serial" was cut off in the Meshtastic connection dropdown.** The box now sizes to fit. (#270, #372)
+
 ## [2.33.77] - 2026-09-30
 
 ### Fixed
