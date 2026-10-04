@@ -7,10 +7,17 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.78"
+VERSION = "2.33.79"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.79",
+        "date": "October 2026",
+        "highlights": [
+            "On macOS, ACARS and VDL2 keep decoding when the radio sends corrupt data, instead of silently stopping.",
+        ],
+    },
     {
         "version": "2.33.78",
         "date": "October 2026",

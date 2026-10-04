@@ -2,6 +2,12 @@
 
 All notable changes to iNTERCEPT will be documented in this file.
 
+## [2.33.79] - 2026-10-04
+
+### Fixed
+
+- **ACARS and VDL2 could silently stop decoding on macOS.** On a Mac the decoder's output is read through a pseudo-terminal that rejected anything that wasn't valid UTF-8, so a single corrupt byte from radio noise or a damaged frame stopped the reader while acarsdec/dumpvdl2 carried on running, and no more messages appeared. Invalid bytes are now replaced, as they already were on Linux. (#376)
+
 ## [2.33.78] - 2026-10-04
 
 ### Added
