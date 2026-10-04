@@ -7,10 +7,18 @@ import os
 import sys
 
 # Application version
-VERSION = "2.33.77"
+VERSION = "2.33.78"
 
 # Changelog - latest release notes (shown on welcome screen)
 CHANGELOG = [
+    {
+        "version": "2.33.78",
+        "date": "October 2026",
+        "highlights": [
+            "ISS SSTV tunes the frequency you enter instead of always using 145.800 MHz.",
+            "Meshtastic: favourite, ignore or remove nodes, search messages, hide non-text packets, and reply to messages.",
+        ],
+    },
     {
         "version": "2.33.77",
         "date": "September 2026",
@@ -97,7 +105,7 @@ CHANGELOG = [
         "version": "2.33.45",
         "date": "September 2026",
         "highlights": [
-            "Space weather now shows clear \"source unreachable\" messages (and a banner) when the server can\u2019t reach NOAA/HamQSL, instead of misleading empty panels.",
+            'Space weather now shows clear "source unreachable" messages (and a banner) when the server can\u2019t reach NOAA/HamQSL, instead of misleading empty panels.',
         ],
     },
     {
@@ -142,14 +150,14 @@ CHANGELOG = [
         "version": "2.33.39",
         "date": "September 2026",
         "highlights": [
-            "ADS-B dashboard: a \"Tune ATC\" button on a selected aircraft tunes the airband receiver to the nearest airport\u2019s tower/approach frequency for that aircraft\u2019s position (#271).",
+            'ADS-B dashboard: a "Tune ATC" button on a selected aircraft tunes the airband receiver to the nearest airport\u2019s tower/approach frequency for that aircraft\u2019s position (#271).',
         ],
     },
     {
         "version": "2.33.38",
         "date": "September 2026",
         "highlights": [
-            "ADS-B dashboard: new \"In range\" toggle limits the map to aircraft within the selected range, and a \"Keep\" selector controls how long stale aircraft stay (30s\u201315m) \u2014 helps busy remote/aggregated feeds that were flooding the map (#313).",
+            'ADS-B dashboard: new "In range" toggle limits the map to aircraft within the selected range, and a "Keep" selector controls how long stale aircraft stay (30s\u201315m) \u2014 helps busy remote/aggregated feeds that were flooding the map (#313).',
         ],
     },
     {
