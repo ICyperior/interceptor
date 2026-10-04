@@ -290,8 +290,9 @@ def start_vdl2() -> Response:
             master_fd, slave_fd = pty.openpty()
             process = subprocess.Popen(cmd, stdout=slave_fd, stderr=subprocess.PIPE, start_new_session=True)
             os.close(slave_fd)
-            # Wrap master_fd as a text file for line-buffered reading
-            process.stdout = open(master_fd, buffering=1)
+            # Wrap master_fd as a text file for line-buffered reading; replace
+            # undecodable bytes like the pipe path does, so noise can't kill the reader
+            process.stdout = open(master_fd, buffering=1, encoding="utf-8", errors="replace")
             is_text_mode = True
         else:
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
